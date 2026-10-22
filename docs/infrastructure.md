@@ -9,6 +9,7 @@ Verificação em 22/10/2026.
 - Oito labels específicas das exigências.
 - Diretórios agents, knowledge_base, mlops, models e docs.
 - Requisitos rastreáveis, roteiro de oito semanas e template de Pull Request.
+- [Project privado da organização](https://github.com/orgs/007-Licensa-Para-Executar/projects/1), vinculado ao repositório, com visualização Kanban (Board) e quatro opções no campo Status.
 
 ## Pendências reais
 
@@ -33,9 +34,15 @@ Referência: https://docs.github.com/en/repositories/configuring-branches-and-me
 
 ### GitHub Project
 
-Na verificação inicial, o PAT recebeu 403 ao listar Projects da organização. Falta autorização de organização **Projects: Read and write**.
+Após a atualização das permissões do PAT, foram criados e verificados pela API:
+- Project privado pertencente à organização, número 1.
+- Associação ao repositório challenge-2-base.
+- Visualização Kanban com layout Board.
+- Campo Status com Todo, In Progress, In Review e Done, nessa ordem.
 
-Criar Project privado pertencente à organização, associá-lo a este repositório e usar uma visualização Board agrupada pelo campo Status: Todo, In Progress, In Review e Done. Revalidar a API depois da atualização do token.
+O agrupamento visual por Status ainda não foi confirmado. A API pública utilizada não permite configurar esse agrupamento; o navegador interno está sem login e o acesso ao navegador autenticado depende de permissões de Acessibilidade e Gravação de Tela no macOS. Ao abrir o quadro autenticado, verificar **Group by → Status** e salvar a visualização, caso necessário.
+
+[Segurança e permissões recomendadas](access.md).
 
 ### Time
 

@@ -1,0 +1,33 @@
+[project]
+name = "bem-estar-extractor"
+version = "0.1.0"
+description = "Extrator experimental de metadados de relatos sintéticos em português"
+requires-python = ">=3.11,<3.14"
+dependencies = ["ollama>=0.6,<1", "pydantic>=2.11,<3", "httpx>=0.28,<1"]
+
+[project.scripts]
+bem-estar-extract = "agents.extractor.cli:main"
+bem-estar-evaluate = "evaluation.runner:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.13,<1"]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agents", "evaluation"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.hatch.build.targets.wheel.force-include]
+"data/synthetic" = "data/synthetic"
+
+[tool.hatch.build.targets.sdist]
+include = ["/agents", "/evaluation", "/data/synthetic", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock", "/.env.example"]

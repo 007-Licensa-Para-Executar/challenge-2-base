@@ -149,6 +149,40 @@ As referências esperadas foram geradas, ainda sem revisão independente de duas
 Nenhum resultado deste conjunto é evidência de validação clínica. Memória reportada pelo
 Ollama não equivale ao pico de RAM ou à pressão de memória total da máquina.
 
+## O que vai para o GitHub
+
+O `.gitignore` é específico deste protótipo. Ele exclui ambientes virtuais, caches, runtimes e
+ferramentas locais, bancos SQLite e seus arquivos auxiliares, pesos de modelos, executáveis,
+arquivos compactados, logs, checkpoints e resultados brutos. Também exclui configurações
+pessoais de editor e arquivos do sistema operacional.
+
+Em `data/`, somente `synthetic/README.md`, `synthetic/dev.jsonl` e `synthetic/holdout.jsonl`
+são compartilhados. Outros dados locais ficam ignorados por padrão. Novos datasets para
+compartilhamento exigem revisão de conteúdo e ajuste explícito dessas regras. Nunca colocar
+relatos reais nos dois arquivos sintéticos permitidos: o Git não consegue verificar sua origem.
+
+Permanecem versionados o código, os testes, a documentação, as skills do projeto, o workflow
+de CI, `pyproject.toml`, **`uv.lock`** e **`.env.example`**. O lockfile é necessário para
+reproduzir as dependências; o exemplo de ambiente contém apenas configuração, sem credenciais.
+Resultados selecionados para discussão podem ser resumidos em `docs/`, após revisão.
+
+Antes de publicar:
+
+```sh
+git status --short
+git diff --cached --stat
+git ls-files -ci --exclude-standard
+```
+
+O último comando deve ficar sem saída: ele identifica arquivos já versionados que agora
+correspondem ao `.gitignore`. Ignorar um arquivo não o remove do histórico nem impede
+`git add -f`; sempre revisar o conteúdo do commit. Se uma credencial já tiver sido publicada,
+removê-la em um novo commit não substitui revogá-la.
+
+Estado verificado em 26/10/2026: 78 testes automatizados aprovados, lint e build verificados.
+A comparação real ainda aguarda os downloads dos modelos; não há modelo vencedor. O processo
+local registra o andamento em `results/benchmark-state.json`, que fica fora do GitHub.
+
 ## Estrutura e próximos passos
 
 | Diretório | Finalidade |

@@ -41,8 +41,13 @@ As variáveis são lidas do ambiente; o arquivo `.env` não é carregado automat
 Python. O `.env` deste clone é apenas configuração do extrator: **não copiar o PAT da pasta
 007-org para ele**.
 
-Instalar o [Ollama oficial](https://ollama.com/download) compatível com sua máquina. No primeiro
-terminal, com o ambiente acima carregado:
+Instalar o [Ollama oficial](https://ollama.com/download) compatível com sua máquina. Neste
+checkout, um binário oficial verificado já foi instalado em `.local-runtime/ollama/ollama`;
+para utilizá-lo neste terminal, executar `export PATH="$PWD/.local-runtime/ollama:$PATH"`.
+O runtime local não faz parte do Git. Se o servidor desta implementação ainda estiver ativo
+em 127.0.0.1:11434, não iniciar outro na mesma porta.
+
+No primeiro terminal, com o ambiente acima carregado:
 
 ```sh
 ollama serve

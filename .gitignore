@@ -234,3 +234,6 @@ __marimo__/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# Local benchmark checkpoints and measurements
+/results/

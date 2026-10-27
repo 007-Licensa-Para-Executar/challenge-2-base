@@ -50,4 +50,4 @@ Foram observados três usuários com acesso: um administrador e dois com leitura
 
 ### Aplicação e CI
 
-A ideia e a stack ainda não foram escolhidas. Acrescentar dependências, execução, testes e CI com a primeira implementação. As pastas vazias não representam entrega dos requisitos acadêmicos.
+Em 26/10/2026, a proposta de diário entre sessões foi definida. A primeira implementação usa CLI Python, SDK Ollama, Pydantic, SQLite e dados sintéticos. Dependências estão fixadas no uv.lock; os testes não exigem modelos ou rede. O workflow Python checks executa lint, testes e build. A execução remota do CI só será confirmada após publicação da branch. Consultar README e docs/evaluation-results.md para o estado medido; pastas reservadas não representam requisitos acadêmicos concluídos.

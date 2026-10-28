@@ -29,8 +29,8 @@ jobs:
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check .
       - run: uv run pytest -q
-      - name: Shell entry point and native terminal input smoke (CMD on Windows)
-        run: |
-          uv run bem-estar --help
-          uv run python -m tests.smoke_shell
+      - name: Shell entry point
+        run: uv run bem-estar --help
+      - name: Native terminal input smoke (CMD on Windows)
+        run: uv run python -m tests.smoke_shell
       - run: uv build

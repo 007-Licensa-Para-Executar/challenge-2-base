@@ -34,6 +34,9 @@ Não se deve usar o histórico/scrollback do terminal como armazenamento de dado
 - Propostas inválidas, ferramenta inexistente, argumentos extras e comandos arbitrários.
 - Confirmação de dados sintéticos, confirmação de execução, recusa e reentrada para edição.
 - Menu `/`, descrições, setas, Tab, Enter, Esc, Ctrl+C e EOF pelo PipeInput do prompt_toolkit.
+  O fechamento do menu por Esc também é verificado como `Keys.Escape`, o evento semântico
+  emitido pelo console Win32. Esse teste não depende do temporizador de escape do adaptador
+  de bytes VT100; o teste separado de Esc bruto permanece. A inspeção física continua pendente.
 - Formulários sem autocomplete: `/sair` dentro do relato continua texto literal.
 - Unicode, CRLF, caminhos com espaços, arquivo ausente e histórico sem criar banco.
 - SQLite somente leitura com paginação; regressão das CLIs e da avaliação do extrator.

@@ -7,8 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application.current import set_app
 from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.key_binding import KeyPress
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.output import DummyOutput
 from pydantic import ValidationError
 
@@ -340,11 +343,10 @@ def test_menu_arrows_enter_and_escape():
                 if session.default_buffer.complete_state:
                     break
             assert session.default_buffer.complete_state is not None
-            pipe.send_text("\x1b")
-            for _ in range(200):
-                await asyncio.sleep(0.01)
-                if session.default_buffer.complete_state is None:
-                    break
+            # O console Windows entrega Escape sem o timer VT100 do pipe de testes.
+            with set_app(session.app):
+                session.app.key_processor.feed(KeyPress(Keys.Escape))
+                session.app.key_processor.process_keys()
             assert session.default_buffer.complete_state is None
             assert not task.done()
             pipe.send_text("\x15/ajuda\n")

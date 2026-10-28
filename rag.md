@@ -1,20 +1,14 @@
-# PontePsi — Referências para o RAG do Agente 2
-
-> **Objetivo deste documento:** compartilhar com o grupo uma curadoria inicial de fontes para implementar o componente RAG do Agente 2 do PontePsi. O foco é apoiar a análise responsável de como o uso de IA pode afetar o bem-estar psicológico e social, sem substituir a avaliação de profissionais de saúde mental.
->
-> **Status:** curadoria inicial para desenvolvimento e validação. Antes de usar uma fonte no corpus, confirmem acesso ao texto integral, licença/termos de uso, qualidade metodológica e versão correta da publicação.
-
----
+# 007 - Referências para o RAG do Agente 2
 
 ## 1. Contexto do projeto
 
-O **PontePsi** é um copiloto de apoio ao profissional. A proposta não é criar um chatbot que atue como psicólogo, diagnostique pessoas ou prescreva condutas. O sistema deve organizar informações, recuperar evidências, explicitar limitações e oferecer perguntas para revisão humana.
+O **007** é um copiloto de apoio ao profissional. A proposta não é criar um chatbot que atue como psicólogo, diagnostique pessoas ou prescreva condutas. O sistema deve organizar informações, recuperar evidências, explicitar limitações e oferecer perguntas para revisão humana.
 
 ### Papel do Agente 2
 
 O Agente 2 recebe a análise estruturada produzida pelo Agente 1 e deve:
 
-1. Recuperar fontes relevantes da base de conhecimento usando RAG (*Retrieval-Augmented Generation*).
+1. Recuperar fontes relevantes da base de conhecimento usando RAG.
 2. Diferenciar **evidência publicada**, **interpretação do sistema** e **hipótese ainda não validada**.
 3. Relacionar achados a dimensões de bem-estar, como autonomia, saúde psicológica, conexão social, pensamento crítico e possível dependência.
 4. Resumir resultados com população, método, limitações e contexto.
@@ -27,11 +21,12 @@ O Agente 2 recebe a análise estruturada produzida pelo Agente 1 e deve:
 
 ## 2. Fontes prioritárias
 
-As fontes estão agrupadas por função. Páginas institucionais são boas portas de entrada, mas, quando possível, indexem o artigo, relatório ou documento integral — não apenas a página de divulgação.
+As fontes estão agrupadas por função. Páginas institucionais são boas portas de entrada, mas, quando possível, indexem o artigo, relatório ou documento integral - não apenas a página de divulgação.
 
 ### 2.1. Métricas e estrutura de impacto
 
-#### A. MIT Media Lab — ImpactBench
+#### A. MIT Media Lab - ImpactBench
+
 - **Link:** https://impactbench.media.mit.edu/explore
 - **Página de métricas:** https://impactbench.media.mit.edu/metrics
 - **Visão geral:** https://www.media.mit.edu/projects/impactbench/overview/
@@ -41,7 +36,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** o ImpactBench é uma referência metodológica; suas categorias não são, por si só, escalas clínicas nem provas de que determinado sistema causa um efeito.
 - **Prioridade:** muito alta.
 
-#### B. MIT Media Lab — AI and Human Psychology
+#### B. MIT Media Lab - AI and Human Psychology
+
 - **Link:** https://www.media.mit.edu/projects/ai-and-human-psychology/overview/
 - **Tipo:** projeto de pesquisa/visão geral institucional.
 - **Por que usar:** contexto de pesquisa sobre a interação entre IA e psicologia humana.
@@ -49,7 +45,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** a página de projeto não substitui a leitura dos estudos individuais nem garante que todos os achados se apliquem ao público brasileiro.
 - **Prioridade:** alta.
 
-#### C. MIT — estudo longitudinal controlado sobre uso de chatbots
+#### C. MIT - estudo longitudinal controlado sobre uso de chatbots
+
 - **Link:** https://www.media.mit.edu/publications/how-ai-and-human-behaviors-shape-psychosocial-effects-of-chatbot-use-a-longitudinal-controlled-study/
 - **Tipo:** publicação de pesquisa.
 - **Por que usar:** investiga relações entre uso prolongado de chatbots e efeitos psicossociais.
@@ -59,7 +56,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 
 ### 2.2. Evidências empíricas e revisões sobre IA e saúde mental
 
-#### D. Journal of Adolescent Health — uso de IA generativa e bem-estar socioemocional
+#### D. Journal of Adolescent Health - uso de IA generativa e bem-estar socioemocional
+
 - **Referência de busca:** https://www.sciencedirect.com/journal/journal-of-adolescent-health
 - **Tipo:** artigo científico; localizar e registrar o artigo exato usado pelo grupo.
 - **Por que usar:** pesquisas nessa área têm examinado diferenças entre usos socioemocionais e usos voltados à aprendizagem, incluindo associações com indicadores de saúde mental em jovens adultos.
@@ -68,7 +66,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Prioridade:** alta.
 - **Nota de desenvolvimento:** não ingiram a página genérica do periódico como se fosse o estudo. Confirmem título, autores, ano e DOI do artigo específico antes de incluí-lo no corpus.
 
-#### E. JAMA Pediatrics — pesquisa sobre uso de chatbots para aconselhamento de saúde mental
+#### E. JAMA Pediatrics - pesquisa sobre uso de chatbots para aconselhamento de saúde mental
+
 - **Referência de busca:** https://jamanetwork.com/journals/jamapediatrics
 - **Tipo:** artigo científico/levantamento.
 - **Por que usar:** pode ajudar a compreender frequência de uso, percepção de utilidade e se jovens contam a outras pessoas que usam chatbots para aconselhamento.
@@ -76,7 +75,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** percepção de utilidade não equivale a eficácia clínica ou segurança. Resultados de uma pesquisa nos Estados Unidos não devem ser apresentados como estimativa para o Brasil. Confirmar a referência bibliográfica exata antes de indexar.
 - **Prioridade:** alta.
 
-#### F. npj Digital Medicine — revisão de escopo sobre danos de chatbots de LLM em saúde mental
+#### F. npj Digital Medicine - revisão de escopo sobre danos de chatbots de LLM em saúde mental
+
 - **Referência de busca:** https://www.nature.com/npjdigitalmed/
 - **Tipo:** revisão de escopo.
 - **Por que usar:** oferece uma visão organizada de riscos relatados na literatura, incluindo dimensões psicológicas, relacionais/comportamentais, cognitivas, falhas nas respostas e governança.
@@ -86,25 +86,28 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 
 ### 2.3. Pesquisa brasileira e contexto local
 
-#### G. USP — dissertação sobre soluções tecnológicas inclusivas em saúde mental
+#### G. USP - dissertação sobre soluções tecnológicas inclusivas em saúde mental
+
 - **Link:** https://teses.usp.br/teses/disponiveis/27/27163/tde-31032025-122629/pt-br.html
-- **Título:** *Desenvolvimento de soluções tecnológicas inclusivas em saúde mental: a interseção entre ciência da informação, inteligência artificial ética e neurodiversidade*.
+- **Título:** _Desenvolvimento de soluções tecnológicas inclusivas em saúde mental: a interseção entre ciência da informação, inteligência artificial ética e neurodiversidade_.
 - **Tipo:** dissertação acadêmica.
 - **Por que usar:** aproxima o tema de inclusão, ética, tecnologia e saúde mental no contexto de pesquisa brasileiro.
 - **Como aplicar no RAG:** extrair problema de pesquisa, público, conceitos, metodologia, recomendações e limitações. Marcar claramente quais conclusões são da dissertação e quais são achados de fontes citadas por ela.
 - **Cuidados:** dissertação não equivale automaticamente a evidência clínica validada; verificar método, banca, data e acesso ao texto integral.
 - **Prioridade:** alta.
 
-#### H. USP — dissertação sobre detecção de sinais relacionados à saúde mental em publicações de redes sociais
+#### H. USP - dissertação sobre detecção de sinais relacionados à saúde mental em publicações de redes sociais
+
 - **Link:** https://teses.usp.br/teses/disponiveis/100/100131/tde-26112024-115052/pt-br.html
-- **Título:** *Detecção precoce de transtornos de saúde mental a partir de publicações em redes sociais*.
+- **Título:** _Detecção precoce de transtornos de saúde mental a partir de publicações em redes sociais_.
 - **Tipo:** dissertação acadêmica.
 - **Por que usar:** referência brasileira para discutir processamento de linguagem, classificação e limites de inferências a partir de texto.
 - **Como aplicar no RAG:** identificar dados utilizados, rótulos, modelos, métricas, validação, limitações e riscos de falsos positivos/falsos negativos.
 - **Cuidados:** detecção computacional de padrões em textos não equivale a diagnóstico. Não transportar o modelo ou seus resultados para relatos clínicos sem validação independente.
 - **Prioridade:** alta.
 
-#### I. USP/ICMC — pesquisa sobre identificação de sinais de depressão em redes sociais
+#### I. USP/ICMC - pesquisa sobre identificação de sinais de depressão em redes sociais
+
 - **Link:** https://www.icmc.usp.br/noticias/5556-sistema-criado-na-usp-identifica-sinais-de-depressao-nas-redes-sociais
 - **Tipo:** notícia institucional sobre pesquisa.
 - **Por que usar:** ponto de partida para localizar trabalho acadêmico brasileiro sobre análise de linguagem e sinais relacionados à saúde mental.
@@ -114,7 +117,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 
 ### 2.4. Ética, privacidade e governança
 
-#### J. American Psychological Association (APA) — orientação ética sobre IA na prática da psicologia
+#### J. American Psychological Association (APA) - orientação ética sobre IA na prática da psicologia
+
 - **Link:** https://www.apa.org/topics/artificial-intelligence-machine-learning/ethical-guidance-ai-professional-practice
 - **Tipo:** orientação profissional.
 - **Por que usar:** oferece princípios para avaliar o uso de IA na prática psicológica, incluindo responsabilidades profissionais e necessidade de avaliação crítica.
@@ -122,7 +126,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** é orientação de uma associação dos Estados Unidos, não substitui as regras do Conselho Federal de Psicologia nem a legislação brasileira.
 - **Prioridade:** muito alta.
 
-#### K. APA — alerta sobre chatbots generativos e aplicativos de bem-estar
+#### K. APA - alerta sobre chatbots generativos e aplicativos de bem-estar
+
 - **Link:** https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps
 - **Tipo:** alerta/orientação de saúde pública profissional.
 - **Por que usar:** ajuda a identificar riscos e perguntas críticas sobre produtos que oferecem apoio emocional ou alegações de bem-estar.
@@ -130,7 +135,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** conferir a data e eventuais atualizações da orientação. Não tratar o documento como avaliação de cada produto específico.
 - **Prioridade:** alta.
 
-#### L. Organização Mundial da Saúde (OMS/WHO) — ética e governança de IA para a saúde
+#### L. Organização Mundial da Saúde (OMS/WHO) - ética e governança de IA para a saúde
+
 - **Link:** https://www.who.int/publications/i/item/9789240029200
 - **Tipo:** relatório de orientação global.
 - **Por que usar:** oferece princípios de ética e governança aplicáveis à discussão de IA em saúde.
@@ -138,7 +144,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** publicação de 2021; procurar orientações mais recentes que a complementem. É uma referência de governança, não uma validação do sistema PontePsi.
 - **Prioridade:** muito alta.
 
-#### M. Brasil — LGPD e dados pessoais sensíveis
+#### M. Brasil - LGPD e dados pessoais sensíveis
+
 - **Fonte oficial:** https://www.gov.br/esporte/pt-br/acesso-a-informacao/lgpd
 - **Tipo:** legislação e material institucional brasileiro.
 - **Por que usar:** dados referentes à saúde são dados pessoais sensíveis sob a LGPD. O desenho do MVP precisa minimizar coleta, acesso, retenção e exposição.
@@ -146,7 +153,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** validar o texto legal e as orientações aplicáveis com a equipe responsável. A página institucional é uma porta de entrada; a fonte normativa principal é a Lei nº 13.709/2018 no portal oficial da legislação.
 - **Prioridade:** muito alta.
 
-#### N. Conselho Federal de Psicologia (CFP) — normas profissionais
+#### N. Conselho Federal de Psicologia (CFP) - normas profissionais
+
 - **Portal:** https://site.cfp.org.br/
 - **Tipo:** órgão regulador profissional; localizar resoluções e orientações vigentes.
 - **Por que usar:** o projeto precisa respeitar as regras brasileiras da prática psicológica, incluindo a Resolução CFP nº 9/2024, após confirmar o texto oficial e sua aplicabilidade ao caso.
@@ -156,7 +164,8 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 
 ### 2.5. Benchmark de avaliação de respostas de IA em saúde mental
 
-#### O. OpenAI — MentalHealthBench
+#### O. OpenAI - MentalHealthBench
+
 - **Link:** https://openai.com/index/introducing-mentalhealthbench/
 - **Tipo:** benchmark divulgado em setembro de 2026.
 - **Por que usar:** pode servir de referência para pensar em avaliação estruturada de respostas de IA em conversas relacionadas à saúde mental, incluindo avaliação especializada.
@@ -170,13 +179,13 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 
 Mantenham coleções lógicas separadas. Isso evita que uma orientação ética seja recuperada como se fosse um resultado empírico, ou que uma hipótese seja apresentada como fato.
 
-| Coleção | Conteúdo | Uso principal |
-|---|---|---|
-| `impacto_ia_bem_estar` | MIT ImpactBench e trabalhos sobre impactos psicossociais | Organizar dimensões e métricas de impacto |
-| `evidencias_psicossociais` | Estudos empíricos e revisões sobre chatbots, relações e bem-estar | Recuperar achados, métodos e limitações |
-| `pesquisa_brasil` | Teses, dissertações e estudos brasileiros | Contextualizar métodos, inclusão e limitações locais |
-| `etica_governanca` | APA, OMS, LGPD, CFP e normas oficiais | Verificar princípios, obrigações e salvaguardas |
-| `benchmarks_avaliacao` | Benchmarks e protocolos de avaliação de sistemas de IA | Construir testes e rubricas de avaliação |
+| Coleção                    | Conteúdo                                                          | Uso principal                                        |
+| -------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
+| `impacto_ia_bem_estar`     | MIT ImpactBench e trabalhos sobre impactos psicossociais          | Organizar dimensões e métricas de impacto            |
+| `evidencias_psicossociais` | Estudos empíricos e revisões sobre chatbots, relações e bem-estar | Recuperar achados, métodos e limitações              |
+| `pesquisa_brasil`          | Teses, dissertações e estudos brasileiros                         | Contextualizar métodos, inclusão e limitações locais |
+| `etica_governanca`         | APA, OMS, LGPD, CFP e normas oficiais                             | Verificar princípios, obrigações e salvaguardas      |
+| `benchmarks_avaliacao`     | Benchmarks e protocolos de avaliação de sistemas de IA            | Construir testes e rubricas de avaliação             |
 
 **Importante:** o RAG deve recuperar a fonte e seus trechos de apoio. Não use apenas resumos gerados por outro modelo como base definitiva se o texto original estiver disponível.
 
@@ -272,13 +281,15 @@ que a saída exige validação humana.
 
 ## 6. Como o RAG se conecta aos dois agentes
 
-### Agente 1 — organização do relato
+### Agente 1 - organização do relato
+
 - Recebe um cenário sintético no MVP.
 - Extrai tópicos, contexto de uso e percepções expressas no relato.
 - Não atribui diagnóstico nem infere estados clínicos não declarados.
 - Retorna uma estrutura JSON com trechos de origem e incertezas.
 
-### Agente 2 — evidências e interpretação responsável
+### Agente 2 - evidências e interpretação responsável
+
 - Recebe a estrutura do Agente 1.
 - Consulta o RAG nas coleções relevantes.
 - Compara o caso descrito com evidências publicadas, sem afirmar que o indivíduo apresenta o mesmo efeito.
@@ -369,6 +380,7 @@ Este documento é uma referência técnica para o protótipo, não aconselhament
 Versionem o corpus e a configuração do RAG junto com o código. Uma alteração em documentos, embeddings, prompts ou modelo pode mudar o resultado.
 
 Registrem em cada execução:
+
 - versão do código;
 - versão do corpus;
 - modelo e versão dos embeddings;
@@ -379,60 +391,41 @@ Registrem em cada execução:
 - fontes e trechos recuperados;
 - resultado da avaliação automatizada e revisão humana.
 
-Sugestão de estrutura de repositório:
-
-```text
-pontepsi/
-├── docs/
-│   └── rag.md
-├── knowledge_base/
-│   ├── source_registry.csv
-│   ├── metadata_schema.json
-│   └── README.md
-├── ingestion/
-├── retrieval/
-├── agents/
-│   ├── agent_1.py
-│   └── agent_2.py
-├── evaluation/
-│   ├── synthetic_cases.jsonl
-│   ├── reference_answers.jsonl
-│   └── metrics.py
-├── api/
-├── tests/
-└── README.md
-```
-
 Não comitem PDFs ou dados protegidos sem verificar a licença. No Git, prefiram manter os metadados, IDs e scripts de ingestão, e armazenar os documentos em local autorizado. Registrem o hash ou identificador da versão do arquivo original quando apropriado.
 
 ---
 
 ## 10. Plano de execução para o grupo
 
-### Etapa 1 — Curadoria
+### Etapa 1 - Curadoria
+
 - [ ] Confirmar os dados bibliográficos das fontes prioritárias.
 - [ ] Localizar textos integrais e verificar licença/termos.
 - [ ] Separar fontes primárias de notícias e páginas institucionais.
 - [ ] Registrar metadados e limitações.
 
-### Etapa 2 — Corpus inicial
+### Etapa 2 - Corpus inicial
+
 - [ ] Começar com 8–15 documentos bem verificados, não centenas de páginas pouco confiáveis.
 - [ ] Incluir fontes de impacto, evidência empírica, contexto brasileiro e governança.
 - [ ] Fazer ingestão e chunking com preservação de páginas/seções.
 - [ ] Gerar embeddings e armazenar metadados.
 
-### Etapa 3 — Recuperação
+### Etapa 3 - Recuperação
+
 - [ ] Criar 20–30 perguntas de teste com fontes esperadas.
 - [ ] Medir Recall@k e ajustar chunking, filtros e busca híbrida.
 - [ ] Testar perguntas ambíguas e perguntas sem resposta no corpus.
 
-### Etapa 4 — Agente 2
+### Etapa 4 - Agente 2
+
 - [ ] Implementar respostas com referências rastreáveis.
 - [ ] Separar achados, limitações, hipóteses e recomendações normativas.
 - [ ] Implementar abstenção quando a evidência for insuficiente.
 - [ ] Adicionar revisão humana.
 
-### Etapa 5 — Validação e demonstração
+### Etapa 5 - Validação e demonstração
+
 - [ ] Testar com cenários sintéticos positivos, negativos e ambíguos.
 - [ ] Medir fidelidade das citações, afirmações sem suporte e utilidade para revisores.
 - [ ] Demonstrar como o profissional abre a fonte e revisa o relatório.
@@ -462,28 +455,33 @@ Para cada documento, respondam:
 ## 12. Referências e portais para começar
 
 ### MIT
-- ImpactBench — explorar: https://impactbench.media.mit.edu/explore
-- ImpactBench — métricas: https://impactbench.media.mit.edu/metrics
-- ImpactBench — visão geral: https://www.media.mit.edu/projects/impactbench/overview/
+
+- ImpactBench - explorar: https://impactbench.media.mit.edu/explore
+- ImpactBench - métricas: https://impactbench.media.mit.edu/metrics
+- ImpactBench - visão geral: https://www.media.mit.edu/projects/impactbench/overview/
 - AI and Human Psychology: https://www.media.mit.edu/projects/ai-and-human-psychology/overview/
 - Estudo longitudinal sobre efeitos psicossociais de chatbots: https://www.media.mit.edu/publications/how-ai-and-human-behaviors-shape-psychosocial-effects-of-chatbot-use-a-longitudinal-controlled-study/
 
 ### Pesquisa brasileira / USP
+
 - Dissertação sobre tecnologia inclusiva e saúde mental: https://teses.usp.br/teses/disponiveis/27/27163/tde-31032025-122629/pt-br.html
 - Dissertação sobre detecção de sinais em redes sociais: https://teses.usp.br/teses/disponiveis/100/100131/tde-26112024-115052/pt-br.html
 - Pesquisa do ICMC/USP sobre sinais de depressão em redes sociais: https://www.icmc.usp.br/noticias/5556-sistema-criado-na-usp-identifica-sinais-de-depressao-nas-redes-sociais
 
 ### Ética e governança
-- APA — orientação ética sobre IA na psicologia: https://www.apa.org/topics/artificial-intelligence-machine-learning/ethical-guidance-ai-professional-practice
-- APA — alerta sobre chatbots e apps de bem-estar: https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps
-- OMS — ética e governança de IA para saúde: https://www.who.int/publications/i/item/9789240029200
-- CFP — portal oficial: https://site.cfp.org.br/
+
+- APA - orientação ética sobre IA na psicologia: https://www.apa.org/topics/artificial-intelligence-machine-learning/ethical-guidance-ai-professional-practice
+- APA - alerta sobre chatbots e apps de bem-estar: https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps
+- OMS - ética e governança de IA para saúde: https://www.who.int/publications/i/item/9789240029200
+- CFP - portal oficial: https://site.cfp.org.br/
 - Portal institucional brasileiro sobre LGPD: https://www.gov.br/esporte/pt-br/acesso-a-informacao/lgpd
 
 ### Benchmarks
-- OpenAI — MentalHealthBench: https://openai.com/index/introducing-mentalhealthbench/
+
+- OpenAI - MentalHealthBench: https://openai.com/index/introducing-mentalhealthbench/
 
 ### Periódicos para localizar os artigos exatos
+
 - Journal of Adolescent Health: https://www.sciencedirect.com/journal/journal-of-adolescent-health
 - JAMA Pediatrics: https://jamanetwork.com/journals/jamapediatrics
 - npj Digital Medicine: https://www.nature.com/npjdigitalmed/
@@ -499,6 +497,7 @@ Ao final do MVP, o Agente 2 deve conseguir responder a uma pergunta como:
 > “Que evidências publicadas ajudam a contextualizar este padrão de uso de IA relatado, quais dimensões de bem-estar podem ser relevantes, quais são as limitações dessas evidências e o que deve ser revisado por um profissional?”
 
 A resposta ideal:
+
 - resume o padrão relatado sem rotular a pessoa;
 - apresenta achados relevantes com citações verificáveis;
 - mostra benefícios possíveis e riscos possíveis, sem forçar falsa equivalência;
@@ -507,4 +506,4 @@ A resposta ideal:
 - sugere perguntas para reflexão profissional, não decisões clínicas;
 - permite abrir e conferir cada fonte.
 
-**Princípio central:** o RAG deve tornar o Agente 2 mais rastreável e verificável — não apenas mais convincente.
+**Princípio central:** o RAG deve tornar o Agente 2 mais rastreável e verificável - não apenas mais convincente.

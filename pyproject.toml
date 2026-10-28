@@ -2,10 +2,12 @@
 name = "bem-estar-extractor"
 version = "0.1.0"
 description = "Extrator experimental de metadados de relatos sintéticos em português"
-requires-python = ">=3.11,<3.14"
-dependencies = ["ollama>=0.6,<1", "pydantic>=2.11,<3", "httpx>=0.28,<1"]
+requires-python = ">=3.12,<3.13"
+dependencies = ["ollama>=0.6,<1", "pydantic>=2.11,<3", "httpx>=0.28,<1", "prompt-toolkit>=3.0.50,<4"]
 
 [project.scripts]
+bem-estar = "app.shell:main"
+bem-estar-route-evaluate = "evaluation.router:main"
 bem-estar-extract = "agents.extractor.cli:main"
 bem-estar-evaluate = "evaluation.runner:main"
 
@@ -17,17 +19,17 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "evaluation"]
+packages = ["agents", "evaluation", "app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.hatch.build.targets.wheel.force-include]
 "data/synthetic" = "data/synthetic"
 
 [tool.hatch.build.targets.sdist]
-include = ["/agents", "/evaluation", "/data/synthetic", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock", "/.env.example"]
+include = ["/app", "/agents", "/evaluation", "/data/synthetic", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock", "/.env.example"]

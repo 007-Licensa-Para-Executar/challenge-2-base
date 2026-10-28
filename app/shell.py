@@ -54,7 +54,8 @@ def bindings():
     def slash(event):
         buffer = event.current_buffer
         initial = not buffer.text and isinstance(active_completer(buffer), CommandCompleter)
-        buffer.insert_text("/")
+        # A abertura explícita deve ser a única tarefa de completamento inicial.
+        buffer.insert_text("/", fire_event=not initial)
         if initial:
             buffer.start_completion(select_first=True)
 

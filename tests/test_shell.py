@@ -279,6 +279,36 @@ def test_subprocess_unicode_crlf_path(tmp_path):
     assert json.loads(result.stdout)["status"] == "error"
 
 
+def test_initial_slash_starts_only_one_completion_request():
+    import asyncio
+
+    async def check():
+        with create_pipe_input() as pipe:
+            session = PromptSession(input=pipe, output=DummyOutput(), key_bindings=bindings())
+            buffer = session.default_buffer
+            original = buffer._async_completer
+            completed = asyncio.Event()
+            requests = []
+
+            async def complete(**kwargs):
+                requests.append(kwargs)
+                try:
+                    await original(**kwargs)
+                finally:
+                    completed.set()
+
+            buffer._async_completer = complete
+            task = asyncio.create_task(session.prompt_async(completer=CommandCompleter()))
+            pipe.send_text("/")
+            await asyncio.wait_for(completed.wait(), 3)
+            assert len(requests) == 1
+            assert requests[0]["select_first"] is True
+            pipe.send_text("\n")
+            assert await asyncio.wait_for(task, 3) == "/ajuda"
+
+    asyncio.run(check())
+
+
 def test_menu_arrows_enter_and_escape():
     import asyncio
 

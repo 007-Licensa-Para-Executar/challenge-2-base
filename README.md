@@ -11,7 +11,7 @@ metadados de **textos inteiramente sintéticos**, não um produto para pacientes
 
 ## O que existe nesta entrega
 
-`terminal → validação → Ollama local → JSON validado por Pydantic → SQLite → JSON no terminal`
+`shell/CLI → validação → Ollama local → JSON validado por Pydantic → SQLite → JSON no terminal`
 
 - Um tema e um sentimento principais, a partir de listas fechadas.
 - Um sinal de **indício textual**, com os estados `presente`, `nao_identificado` e
@@ -21,58 +21,120 @@ metadados de **textos inteiramente sintéticos**, não um produto para pacientes
 - 100 casos sintéticos (60 desenvolvimento / 40 holdout) e avaliação reproduzível.
 - Testes automatizados sem rede nem necessidade de baixar um modelo.
 
-Não há conversa com usuário, encaminhamento de emergência, compartilhamento com psicólogo,
+Não há conversa terapêutica com usuário, encaminhamento de emergência, compartilhamento com psicólogo,
 interface web ou coleta de relatos reais. Esses componentes são futuros. Um extrator isolado
 não comprova o requisito de dois agentes trabalhando juntos.
 
-## Instalação
+## Menu principal
 
-Usar Python 3.12 e [uv](https://docs.astral.sh/uv/). Dentro deste clone:
+Dentro do clone, execute **`uv run bem-estar`**. O shell é uma bancada para o time desenvolver
+com dados sintéticos; não é um chatbot para pacientes. As CLIs JSON anteriores continuam disponíveis.
+
+| Comando | Ação |
+| --- | --- |
+| `/ajuda` | Comandos, atalhos e exemplos |
+| `/status` | Ollama, modelos locais e banco |
+| `/extrair` | Formulário de relato sintético e confirmação antes de salvar |
+| `/historico` | Registros locais, 10 por página; não cria banco ausente |
+| `/modelos` | Listar e escolher extrator ou roteador para a sessão |
+| `/avaliar` | Smoke (3 casos dev, 1 repetição), dev ou holdout; retomada de checkpoint |
+| `/testes` | Executar a suíte automatizada com confirmação |
+| `/config` | Consultar e alterar contexto, timeouts e caminho do banco na sessão |
+| `/limpar` | Limpar a tela sem apagar arquivos |
+| `/sair` | Encerrar |
+
+Digite `/` no início para abrir o menu. Setas navegam, Tab completa, Enter seleciona e
+Esc fecha as sugestões (fora delas cancela o formulário). Ctrl+C interrompe a operação e
+retorna ao menu; EOF também encerra. A conversa usa o scrollback do terminal e não é salva
+pelo aplicativo. Preferências também ficam apenas em memória. O terminal pode manter seu
+próprio scrollback; limpar a tela não é apagamento seguro.
+
+Confirme dados exclusivamente sintéticos uma vez por sessão. Sem confirmar, somente ajuda,
+status e saída ficam disponíveis. Para corrigir um formulário, recuse a proposta ou use
+Ctrl+C e abra o comando novamente. O texto do relato é literal, inclusive `/sair` ou instruções.
+
+Também é possível pedir **“ver status do ambiente”**: Qwen3 0.6B propõe uma ferramenta e
+argumentos validados; o shell mostra os detalhes e pede confirmação. Campos faltantes são
+coletados por formulário. Somente uma ação é executada; nunca há encadeamento automático.
+Pedidos sem intenção clara, compostos ou fora do menu pedem esclarecimento. Um filtro
+conservador restringe as intenções antes do modelo e pode rejeitar frases legítimas: reformule
+ou use a barra. Esse filtro não é uma prova de segurança. A fronteira de execução é a lista
+fechada de ferramentas e argumentos, seguida da confirmação humana.
+
+O roteador recebe só o pedido atual e o catálogo de ferramentas, sem histórico, PATs ou arquivos
+`.env`. Seus processos recebem um ambiente reduzido, sem credenciais herdadas. Não há download
+ou fallback automático. Se o modelo não estiver instalado ou falhar (timeout inicial de 15s),
+os comandos com barra continuam disponíveis. Qwen3 4B permanece o extrator. `/config` não muda
+arquivos; `/modelos` muda os modelos somente nesta sessão.
+
+## Instalação no macOS / Linux (zsh ou bash)
+
+Instale Python 3.12, [uv](https://docs.astral.sh/uv/) e [Ollama](https://ollama.com/download).
+Entre no clone:
 
 ```sh
-uv sync --locked
-cp .env.example .env
-set -a
-. ./.env
-set +a
+uv sync --locked --python 3.12
+cp -n .env.example .env
+uv run bem-estar
 ```
 
-As variáveis são lidas do ambiente; o arquivo `.env` não é carregado automaticamente pelo
-Python. O `.env` deste clone é apenas configuração do extrator: **não copiar o PAT da pasta
-007-org para ele**.
-
-Instalar o [Ollama oficial](https://ollama.com/download) compatível com sua máquina. Neste
-checkout, um binário oficial verificado já foi instalado em `.local-runtime/ollama/ollama`;
-para utilizá-lo neste terminal, executar `export PATH="$PWD/.local-runtime/ollama:$PATH"`.
-O runtime local não faz parte do Git. Se o servidor desta implementação ainda estiver ativo
-em 127.0.0.1:11434, não iniciar outro na mesma porta.
-
-No primeiro terminal, com o ambiente acima carregado:
+Os padrões funcionam sem carregar `.env`. Para alterar uma opção neste terminal:
 
 ```sh
-ollama serve
+export EXTRACTOR_MODEL=qwen3:4b
+export SHELL_ROUTER_MODEL=qwen3:0.6b
 ```
 
-Em outro terminal no mesmo clone e com as mesmas variáveis, baixar os candidatos sequencialmente:
+## Instalação no Windows (CMD nativo)
 
-```sh
+Instale Python 3.12, uv e o [Ollama para Windows](https://docs.ollama.com/windows).
+Abra **Prompt de Comando (CMD)**, entre no clone (use `cd /d` para mudar de unidade):
+
+```bat
+cd /d "C:\Projetos\challenge-2-base"
+uv sync --locked --python 3.12
+if not exist .env copy .env.example .env
+set "EXTRACTOR_MODEL=qwen3:4b"
+set "SHELL_ROUTER_MODEL=qwen3:0.6b"
+uv run bem-estar
+```
+
+Não é necessário ativar venv, usar PowerShell, Git Bash ou WSL. O aplicativo usa UTF-8 e
+não depende de cores ou emojis. Em consoles antigos com exibição incorreta de acentos,
+experimente `chcp 65001` e uma fonte Unicode; isso não substitui salvar os arquivos em UTF-8.
+
+## Modelos e configuração local (todas as plataformas)
+
+Com o Ollama já aberto, baixe manualmente os modelos desejados; não inicie outro servidor
+se `/status` já indicar disponibilidade:
+
+```text
+ollama pull qwen3:0.6b
 ollama pull qwen3:4b
-ollama pull gemma3:4b
 ```
 
-`OLLAMA_NO_CLOUD=1` precisa estar configurado **no processo do servidor** para desabilitar
-recursos remotos. O cliente só aceita HTTP em loopback, não usa proxies de ambiente e rejeita
-modelos com metadados de roteamento remoto. Não há fallback para APIs externas.
+Gemma 3 4B é comparação opcional: `ollama pull gemma3:4b`. O shell nunca baixa modelos.
+Se precisar iniciar o daemon manualmente, use `ollama serve` em outro terminal. Para desativar
+recursos remotos, configure `OLLAMA_NO_CLOUD=1` no **processo do servidor** antes de iniciá-lo
+(`export OLLAMA_NO_CLOUD=1` no Unix; `set "OLLAMA_NO_CLOUD=1"` no CMD). Uma variável definida
+no CMD atual não altera um Ollama que já estava aberto. O cliente só aceita HTTP em loopback,
+não usa proxies e rejeita metadados de roteamento remoto.
 
-Os candidatos publicados são Qwen3 4B Q4_K_M (~2,5 GB) e Gemma 3 4B Q4_K_M (~3,4 GB).
-Download não equivale à RAM total. No M1 com 8 GB, usar um modelo/requisição por vez, contexto
-inicial de 2.048 tokens e poucos programas abertos. A escolha depende da avaliação real, não
-somente do tamanho. Qwen usa licença Apache 2.0; Gemma tem termos próprios.
+As variáveis são lidas do ambiente; `.env` não é carregado automaticamente. O arquivo é um
+exemplo de configuração, **sem PAT**. Não copie o token da pasta `007-org` para este clone.
+Consulte `.env.example` para modelos, contexto, timeouts e banco. Não é preciso um token GitHub
+para executar o app. Não use `source` em arquivos de ambiente que contenham credenciais.
+
+No M1 com 8 GB, use uma requisição por vez e contexto inicial de 2.048 tokens. O tamanho do
+download não equivale à RAM necessária. A seleção do extrator continua dependente de avaliação;
+usar modelos prontos não substitui construir a rede neural exigida pelo Challenge.
 
 ## Executar uma extração
 
-```sh
-printf '%s\n' 'Estou frustrado porque meu chefe cancelou minhas férias.' | uv run bem-estar-extract --synthetic
+Os comandos abaixo também funcionam no CMD. Crie o arquivo de entrada em um editor e salve
+em UTF-8; caminhos com espaços devem estar entre aspas.
+
+```text
 uv run bem-estar-extract --synthetic --file caminho/relato-inventado.txt
 uv run python -m agents.extractor --synthetic --model gemma3:4b --db data/comparacao.sqlite3 < caminho/relato-inventado.txt
 ```
@@ -179,14 +241,15 @@ correspondem ao `.gitignore`. Ignorar um arquivo não o remove do histórico nem
 `git add -f`; sempre revisar o conteúdo do commit. Se uma credencial já tiver sido publicada,
 removê-la em um novo commit não substitui revogá-la.
 
-Estado verificado em 26/10/2026: 78 testes automatizados aprovados, lint e build verificados.
-A comparação real ainda aguarda os downloads dos modelos; não há modelo vencedor. O processo
-local registra o andamento em `results/benchmark-state.json`, que fica fora do GitHub.
+As verificações do shell e seus limites estão em [docs/shell-validation.md](docs/shell-validation.md).
+O CI executa testes e build com Python 3.12 em Ubuntu, macOS e Windows; as etapas Windows
+usam explicitamente CMD. Os modelos são simulados no CI. Não há vencedor declarado para o extrator.
 
 ## Estrutura e próximos passos
 
 | Diretório | Finalidade |
 | --- | --- |
+| `app/` | Shell, propostas tipadas, roteador e processos canceláveis |
 | `agents/extractor/` | Contrato, configuração, modelo, CLI e SQLite |
 | `evaluation/` | Avaliação reproduzível e métricas |
 | `data/synthetic/` | Casos inventados e anotações preliminares |

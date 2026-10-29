@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -62,7 +63,16 @@ def test_storage_failure_sanitized(tmp_path):
     assert "SEGREDO" not in str(error.value)
 
 
-def test_unknown_home_user_is_sanitized():
+def test_home_expansion_failure_is_sanitized(tmp_path, monkeypatch):
+    path = tmp_path / "private_user" / "db.sqlite"
+
+    def fail_expanduser(self):
+        assert self == path
+        raise RuntimeError(f"Cannot expand home directory: {self}")
+
+    monkeypatch.setattr(Path, "expanduser", fail_expanduser)
     with pytest.raises(StorageError) as error:
-        save_result("~usuario_inexistente_extractor_725ef3/db.sqlite", "SINTETICO", result())
-    assert "usuario_inexistente" not in str(error.value)
+        save_result(path, "SINTETICO", result())
+    assert str(error.value) == "Não foi possível salvar a execução no banco local."
+    assert isinstance(error.value.__cause__, RuntimeError)
+    assert not path.parent.exists()

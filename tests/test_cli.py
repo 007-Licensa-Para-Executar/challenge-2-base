@@ -134,10 +134,18 @@ def test_invalid_input_never_persisted(text, tmp_path, monkeypatch, capsys):
     assert not path.exists()
 
 
-def test_unknown_home_user_returns_storage_error(monkeypatch, capsys, success):
+def test_home_expansion_failure_returns_storage_error(tmp_path, monkeypatch, capsys, success):
+    def fail_expanduser(self):
+        raise RuntimeError("usuario_inexistente")
+
+    db_path = tmp_path / "runs.db"
+    monkeypatch.setattr(Path, "expanduser", fail_expanduser)
     monkeypatch.setattr(sys, "stdin", io.StringIO("Minha família fictícia."))
-    assert cli.main(["--synthetic", "--db", "~usuario_inexistente_extractor_725ef3/db.sqlite"]) == 3
+    assert cli.main(["--synthetic", "--db", str(db_path)]) == 3
     captured = capsys.readouterr()
-    assert json.loads(captured.out)["error"]["code"] == "storage_error"
-    assert "Traceback" not in captured.err
-    assert "usuario_inexistente" not in captured.err
+    output = json.loads(captured.out)
+    assert output["error"]["code"] == "storage_error"
+    assert output["extraction"] is None
+    assert "Traceback" not in captured.out + captured.err
+    assert "usuario_inexistente" not in captured.out + captured.err
+    assert not db_path.exists()

@@ -1,3 +1,4 @@
+from threading import Event
 from types import SimpleNamespace
 
 import httpx
@@ -7,6 +8,7 @@ from ollama import ListResponse, ResponseError
 from agents.extractor.config import Settings
 from agents.extractor.contracts import MAX_INPUT_CHARS, Extraction
 from agents.extractor.model import OllamaExtractor, fetch_model_metadata
+from agents.extractor.sentiment import Polarity
 
 VALID = '{"tema":"trabalho","sentimento":"tristeza","indicio_textual_risco":"nao_identificado"}'
 
@@ -39,6 +41,9 @@ def test_structured_local_request_and_metadata():
     )
     assert result.status == "ok"
     assert result.extraction.tema == "trabalho"
+    assert result.validation.nlp_polaridade == "NEGATIVO"
+    assert result.validation.nlp_score < 0
+    assert not result.validation.discrepancia_detectada
     assert result.metadata.model_digest == "sha256:test"
     assert result.metadata.latency_ms >= 0
     assert result.metadata.synthetic
@@ -49,6 +54,49 @@ def test_structured_local_request_and_metadata():
     assert call["stream"] is False
     assert call["messages"][0]["role"] == "system"
     assert call["messages"][1]["content"] == "Hoje fiquei triste no trabalho."
+
+
+@pytest.mark.parametrize(
+    "sentiment,text,expected",
+    [
+        ("tristeza", "Estou feliz, ótimo e maravilhoso.", True),
+        ("alegria", "Estou muito feliz com essa notícia.", False),
+        ("tristeza", "Estou muito triste, péssimo e horrível.", False),
+    ],
+)
+def test_vader_cross_validation_flags_only_extreme_opposite_polarity(sentiment, text, expected):
+    content = VALID.replace('"tristeza"', f'"{sentiment}"')
+    result = make_extractor(FakeClient(content)).extract(text)
+    assert result.status == "ok"
+    assert result.validation.discrepancia_detectada is expected
+    assert 0 <= result.validation.distancia_polaridade <= 2
+
+
+def test_portuguese_negation_is_handled():
+    result = make_extractor(FakeClient()).extract("Não estou feliz.")
+    assert result.validation.nlp_score < 0
+
+
+def test_vader_analysis_runs_while_model_request_is_in_flight(monkeypatch):
+    analysis_started = Event()
+    release_analysis = Event()
+
+    def analyze(text):
+        analysis_started.set()
+        assert release_analysis.wait(timeout=1)
+        return Polarity("POSITIVO", 0.8)
+
+    client = FakeClient()
+
+    def chat(**kwargs):
+        assert analysis_started.wait(timeout=1)
+        release_analysis.set()
+        return SimpleNamespace(message=SimpleNamespace(content=VALID))
+
+    client.chat = chat
+    monkeypatch.setattr("agents.extractor.model.analyze_polarity", analyze)
+    result = make_extractor(client).extract("Relato sintético de teste.")
+    assert result.status == "ok"
 
 
 @pytest.mark.parametrize("text", ["", "  ", None, "x" * (MAX_INPUT_CHARS + 1)])

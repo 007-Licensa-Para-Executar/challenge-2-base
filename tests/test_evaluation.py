@@ -111,7 +111,12 @@ def test_runner_resume_and_changed_configuration_are_safe(tmp_path, monkeypatch,
     import ollama
 
     import agents.extractor.model as model_module
-    from agents.extractor.contracts import Extraction, ProcessingResult, RunMetadata
+    from agents.extractor.contracts import (
+        Extraction,
+        ProcessingResult,
+        RunMetadata,
+        ValidationMetrics,
+    )
     from evaluation.runner import main
 
     class Client:
@@ -135,6 +140,12 @@ def test_runner_resume_and_changed_configuration_are_safe(tmp_path, monkeypatch,
             return ProcessingResult(
                 status="ok",
                 extraction=Extraction.model_validate(load_cases("dev")[0]["expected"]),
+                validation=ValidationMetrics(
+                    nlp_polaridade="NEUTRO",
+                    nlp_score=0.0,
+                    discrepancia_detectada=False,
+                    distancia_polaridade=0.0,
+                ),
                 metadata=RunMetadata(
                     model=self.settings.model, model_digest="digest-1", latency_ms=12
                 ),

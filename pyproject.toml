@@ -3,7 +3,13 @@ name = "bem-estar-extractor"
 version = "0.1.0"
 description = "Extrator experimental de metadados de relatos sintéticos em português"
 requires-python = ">=3.12,<3.13"
-dependencies = ["ollama>=0.6,<1", "pydantic>=2.11,<3", "httpx>=0.28,<1", "prompt-toolkit>=3.0.50,<4"]
+dependencies = [
+    "ollama>=0.6,<1",
+    "pydantic>=2.11,<3",
+    "httpx>=0.28,<1",
+    "prompt-toolkit>=3.0.50,<4",
+    "vadersentiment>=3.3.2,<4",
+]
 
 [project.scripts]
 bem-estar = "app.shell:main"

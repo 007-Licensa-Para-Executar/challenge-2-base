@@ -146,22 +146,22 @@ class ProcessingResult(BaseModel):
     error: ErrorInfo | None = None
     metadata: RunMetadata
 
-        @model_validator(mode="after")
-        def consistent_result(self):
-            if self.status == "ok" and (
-                self.extraction is None or self.error is not None
-            ):
-                raise ValueError(
-                    "Resultado bem-sucedido exige extraction "
-                    "e não pode conter error."
-                )
+    @model_validator(mode="after")
+    def consistent_result(self):
+        if self.status == "ok" and (
+            self.extraction is None or self.error is not None
+        ):
+            raise ValueError(
+                "Resultado bem-sucedido exige extraction "
+                "e não pode conter error."
+            )
 
-            if self.status == "error" and (
-                self.extraction is not None or self.error is None
-            ):
-                raise ValueError(
-                    "Resultado com erro não pode conter extraction "
-                    "e deve conter error."
-                )
+        if self.status == "error" and (
+            self.extraction is not None or self.error is None
+        ):
+            raise ValueError(
+                "Resultado com erro não pode conter extraction "
+                "e deve conter error."
+            )
 
-            return self
+        return self

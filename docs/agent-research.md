@@ -30,6 +30,29 @@ PydanticAI seria uma evolução possível para agentes tipados; LangGraph, para 
 estados e transições mais complexos. Nenhum deles é necessário para o primeiro extrator.
 Não há evidência de que adicionar agentes por si só melhore precisão ou segurança.
 
+## Validação híbrida não é LLM-as-a-Judge
+
+O extrator combina uma interpretação do Qwen com uma comparação determinística de polaridade
+usando o algoritmo de pontuação do VADER e um léxico heurístico em português. Isso é uma
+**validação híbrida (LLM + PLN tradicional)**, não *LLM-as-a-Judge*: não há um segundo modelo
+de linguagem avaliando a saída do primeiro. O VADER não gera uma explicação nem julga a
+resposta inteira; calcula apenas uma polaridade geral a partir das palavras e regras cobertas
+pelo léxico.
+
+Essa escolha evita uma segunda inferência no Ollama e não consome tokens de outro modelo juiz.
+No runtime, o cálculo VADER ocorre em uma thread de CPU enquanto a requisição ao Qwen está em
+andamento. Assim, parte do trabalho pode se sobrepor à inferência, mas ainda há custo de CPU e
+criação/coordenação da thread; a execução não é literalmente gratuita e seu impacto de latência
+depende do relato e do ambiente.
+
+A comparação tem modos de falha diferentes dos do LLM e é reproduzível, o que a torna útil para
+expor alguns desacordos e organizar dados para auditoria. Isso não significa independência
+estatística, superioridade ou correção: o léxico é pequeno, ambos os métodos podem errar e a
+concordância não comprova que a classificação está certa. A métrica compara somente polaridade
+geral com uma âncora grosseira do sentimento do LLM; não detecta toda alucinação, não avalia
+tema ou indício textual e não deve corrigir a saída automaticamente. Seus limites e a forma de
+avaliá-la estão em [evaluation-method.md](evaluation-method.md).
+
 O repositório Health Journal pode ser estudado como referência, mas não será usado como base:
 sua finalidade inclui acompanhamento de sintomas/recomendações e um produto mais amplo que o
 nosso escopo. Copiar uma aplicação inteira exigiria revisar licença, dependências, tratamento

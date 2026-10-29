@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .contracts import ProcessingResult
 
-DB_VERSION = 1
+DB_VERSION = 2
 
 
 class StorageError(Exception):
@@ -30,7 +30,7 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
             os.close(fd)
         with sqlite3.connect(path) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, DB_VERSION):
+            if version not in (0, 1, DB_VERSION):
                 raise StorageError("Versão do banco incompatível.")
             if version == 0:
                 tables = connection.execute(
@@ -39,21 +39,35 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
                 if tables:
                     raise StorageError("Esquema do banco desconhecido.")
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute("""CREATE TABLE IF NOT EXISTS runs (
-                id TEXT PRIMARY KEY,
-                created_at TEXT NOT NULL,
-                synthetic INTEGER NOT NULL CHECK(synthetic = 1),
-                input_text TEXT NOT NULL,
-                result_json TEXT NOT NULL,
-                model TEXT NOT NULL,
-                model_digest TEXT,
-                prompt_version TEXT NOT NULL,
-                schema_version TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('ok', 'error'))
-            )""")
+            if version == 0:
+                connection.execute("""CREATE TABLE runs (
+                    id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    synthetic INTEGER NOT NULL CHECK(synthetic = 1),
+                    input_text TEXT NOT NULL,
+                    result_json TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    model_digest TEXT,
+                    prompt_version TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('ok', 'error')),
+                    nlp_polaridade TEXT,
+                    nlp_score REAL,
+                    discrepancia_detectada INTEGER,
+                    distancia_polaridade REAL
+                )""")
+            elif version == 1:
+                connection.execute("ALTER TABLE runs ADD COLUMN nlp_polaridade TEXT")
+                connection.execute("ALTER TABLE runs ADD COLUMN nlp_score REAL")
+                connection.execute("ALTER TABLE runs ADD COLUMN discrepancia_detectada INTEGER")
+                connection.execute("ALTER TABLE runs ADD COLUMN distancia_polaridade REAL")
             connection.execute(f"PRAGMA user_version = {DB_VERSION}")
             connection.execute(
-                "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                """INSERT INTO runs (
+                    id, created_at, synthetic, input_text, result_json, model, model_digest,
+                    prompt_version, schema_version, status, nlp_polaridade, nlp_score,
+                    discrepancia_detectada, distancia_polaridade
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     result.id,
                     result.created_at.isoformat(),
@@ -65,6 +79,10 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
                     result.metadata.prompt_version,
                     result.metadata.schema_version,
                     result.status,
+                    result.validation.nlp_polaridade if result.validation else None,
+                    result.validation.nlp_score if result.validation else None,
+                    int(result.validation.discrepancia_detectada) if result.validation else None,
+                    result.validation.distancia_polaridade if result.validation else None,
                 ),
             )
     except StorageError:

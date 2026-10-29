@@ -8,7 +8,13 @@ from pathlib import Path
 import pytest
 
 from agents.extractor import cli
-from agents.extractor.contracts import ErrorInfo, Extraction, ProcessingResult, RunMetadata
+from agents.extractor.contracts import (
+    ErrorInfo,
+    Extraction,
+    ProcessingResult,
+    RunMetadata,
+    ValidationMetrics,
+)
 
 
 @pytest.fixture
@@ -23,6 +29,12 @@ def success(monkeypatch):
                 status="ok",
                 extraction=Extraction(
                     tema="familia", sentimento="alegria", indicio_textual_risco="nao_identificado"
+                ),
+                validation=ValidationMetrics(
+                    nlp_polaridade="POSITIVO",
+                    nlp_score=0.8,
+                    discrepancia_detectada=False,
+                    distancia_polaridade=0.2,
                 ),
                 metadata=RunMetadata(model=self.settings.model),
             )
@@ -44,6 +56,7 @@ def test_unicode_input_saved(tmp_path, monkeypatch, capsys, success, file_input)
     assert cli.main(args) == 0
     captured = capsys.readouterr()
     assert json.loads(captured.out)["extraction"]["tema"] == "familia"
+    assert json.loads(captured.out)["validation"]["nlp_polaridade"] == "POSITIVO"
     assert not captured.err
     with sqlite3.connect(db_path) as db:
         assert db.execute("SELECT input_text FROM runs").fetchone()[0] == text

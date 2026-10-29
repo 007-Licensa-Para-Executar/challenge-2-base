@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 PROMPT_VERSION = "1.0.0"
 MAX_INPUT_CHARS = 2400
 MAX_INPUT_BYTES = 2400
@@ -49,6 +49,14 @@ class Extraction(BaseModel):
     indicio_textual_risco: IndicioRisco
 
 
+class ValidationMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nlp_polaridade: Literal["POSITIVO", "NEGATIVO", "NEUTRO"]
+    nlp_score: float = Field(ge=-1, le=1)
+    discrepancia_detectada: bool
+    distancia_polaridade: float = Field(ge=0, le=2)
+
+
 class RunMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
     model: str
@@ -72,13 +80,18 @@ class ProcessingResult(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: Literal["ok", "error"]
     extraction: Extraction | None = None
+    validation: ValidationMetrics | None = None
     error: ErrorInfo | None = None
     metadata: RunMetadata
 
     @model_validator(mode="after")
     def consistent_result(self):
-        if self.status == "ok" and (self.extraction is None or self.error is not None):
-            raise ValueError("Successful results require extraction and no error")
-        if self.status == "error" and (self.extraction is not None or self.error is None):
+        if self.status == "ok" and (
+            self.extraction is None or self.validation is None or self.error is not None
+        ):
+            raise ValueError("Successful results require extraction and validation, with no error")
+        if self.status == "error" and (
+            self.extraction is not None or self.validation is not None or self.error is None
+        ):
             raise ValueError("Error results must not contain an extraction")
         return self

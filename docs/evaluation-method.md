@@ -64,6 +64,24 @@ indica se todas as tentativas planejadas foram registradas; isso não significa 
   Em memória unificada do M1, não interpretá-la como uso de uma GPU separada. Indisponível
   aparece como `null`; o RSS do processo Python não substitui o consumo do modelo.
 
+O bloco `validation` compara o sentimento do LLM com o léxico heurístico do VADER em português.
+Esses scores e flags não são referências anotadas e não entram nas métricas de accuracy ou
+macro-F1 acima. Avaliar a qualidade dessa camada exige referências revisadas independentemente;
+uma divergência não identifica qual dos dois métodos está correto.
+
+Essa é uma **validação híbrida (LLM + PLN determinístico)**, não *LLM-as-a-Judge*: o Qwen
+produz a extração e o VADER calcula uma segunda polaridade por léxico e regras. Não há uma
+segunda inferência de linguagem nem tokens adicionais para um modelo juiz. O cálculo do VADER
+roda em paralelo à chamada do Ollama, em uma thread de CPU, então parte do seu tempo pode ficar
+sobreposta à inferência; o custo não é zero e o ganho de latência depende da execução.
+
+A motivação é obter uma comparação barata e reproduzível, com um mecanismo diferente do LLM,
+para facilitar a inspeção de desacordos. Essa diferença de abordagem não torna os métodos
+estatisticamente independentes nem transforma o léxico em fonte de verdade. Os dois podem
+errar, e concordância não comprova correção. A discrepância mede somente desacordo de polaridade
+geral; não detecta toda alucinação, não valida os demais campos e não é um sinal clínico. Ela
+não deve ser usada para corrigir automaticamente a extração ou orientar cuidado.
+
 Compare primeiro os três campos e a taxa de erros. Em qualidade equivalente, compare latência
 na mesma máquina e memória reportada, deixando explícito o limite da medição. Um smoke com
 um caso não escolhe modelo. Se a máquina não completar o benchmark, preserve os resultados

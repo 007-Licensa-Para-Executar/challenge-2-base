@@ -1,6 +1,7 @@
 """Adaptador síncrono do SDK oficial Ollama, com validação e erros sanitizados."""
 
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from time import perf_counter
 
@@ -18,6 +19,7 @@ from .contracts import (
     RunMetadata,
 )
 from .prompt import SYSTEM_PROMPT
+from .sentiment import analyze_polarity, validate_polarity
 
 # Serializa inclusive instâncias diferentes no processo para limitar uso de memória.
 _MODEL_LOCK = Lock()
@@ -89,22 +91,25 @@ class OllamaExtractor:
                 if not isinstance(digest, str) or not digest.strip():
                     return error("model_metadata_error", "Digest do modelo local indisponível.")
                 metadata.model_digest = digest
-                response = self.client.chat(
-                    model=self.settings.model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": text},
-                    ],
-                    format=Extraction.model_json_schema(),
-                    stream=False,
-                    think=False,
-                    keep_alive="30s",
-                    options={
-                        "temperature": 0,
-                        "num_ctx": self.settings.context_tokens,
-                        "num_predict": 160,
-                    },
-                )
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    polarity_future = executor.submit(analyze_polarity, text)
+                    response = self.client.chat(
+                        model=self.settings.model,
+                        messages=[
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": text},
+                        ],
+                        format=Extraction.model_json_schema(),
+                        stream=False,
+                        think=False,
+                        keep_alive="30s",
+                        options={
+                            "temperature": 0,
+                            "num_ctx": self.settings.context_tokens,
+                            "num_predict": 160,
+                        },
+                    )
+                    polarity = polarity_future.result()
             prompt_tokens = _field(response, "prompt_eval_count")
             if (
                 isinstance(prompt_tokens, int)
@@ -118,6 +123,7 @@ class OllamaExtractor:
             if not isinstance(content, str) or not content.strip():
                 return error("empty_response", "O modelo não retornou uma extração.")
             extraction = Extraction.model_validate_json(content)
+            validation = validate_polarity(extraction.sentimento, polarity)
         except (httpx.TimeoutException, TimeoutError):
             return error("model_timeout", "Tempo limite do Ollama local excedido.")
         except (httpx.ConnectError, ConnectionError):
@@ -131,4 +137,6 @@ class OllamaExtractor:
             # Nunca propaga mensagens que possam conter o relato ou dados do provedor.
             return error("provider_error", "Não foi possível concluir a extração local.")
         metadata.latency_ms = (perf_counter() - started) * 1000
-        return ProcessingResult(status="ok", extraction=extraction, metadata=metadata)
+        return ProcessingResult(
+            status="ok", extraction=extraction, validation=validation, metadata=metadata
+        )

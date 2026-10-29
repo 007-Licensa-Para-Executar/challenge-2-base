@@ -14,6 +14,8 @@ metadados de **textos inteiramente sintéticos**, não um produto para pacientes
 `shell/CLI → validação → Ollama local → JSON validado por Pydantic → SQLite → JSON no terminal`
 
 - Um tema e um sentimento principais, a partir de listas fechadas.
+- Polaridade determinística paralela com VADER e léxico heurístico em português; distância
+  e divergências extremas ficam no bloco `validation` e em colunas auditáveis do SQLite.
 - Um sinal de **indício textual**, com os estados `presente`, `nao_identificado` e
   `indeterminado`. Não mede gravidade, iminência ou segurança clínica.
 - Separação entre indeterminação semântica e falhas de serviço, esquema ou persistência.
@@ -153,13 +155,52 @@ A saída normal é um objeto JSON em `stdout`. Exemplo de estrutura, não result
     "tema": "trabalho",
     "sentimento": "frustracao",
     "indicio_textual_risco": "nao_identificado"
+  },
+  "validation": {
+    "nlp_polaridade": "NEGATIVO",
+    "nlp_score": -0.62,
+    "discrepancia_detectada": false,
+    "distancia_polaridade": 0.38
   }
 }
 ```
 
+`validation` compara o score composto do VADER com uma âncora de polaridade do sentimento do
+LLM (`alegria`: +1; sentimentos negativos: -1; `calma` e `nao_identificado`: 0). A distância
+é absoluta; a divergência só é marcada quando os lados discordam e ambos são extremos
+(âncora de pelo menos 0,6 e score VADER de magnitude mínima 0,7). O score `compound` fica
+entre -1 e +1: não é porcentagem, probabilidade ou intensidade clínica. Neste projeto,
+`nlp_polaridade` usa os limiares `-0,05` e `+0,05`; portanto, `0,5423` já é positivo, não
+quase neutro. A regra de discrepância continua sendo uma checagem heurística, não uma medida de
+confiança ou uma correção automática do LLM.
+
+Essa arquitetura é uma **validação híbrida (LLM + PLN determinístico)**, não
+*LLM-as-a-Judge*. No *LLM-as-a-Judge*, outro modelo de linguagem avalia a resposta do primeiro.
+Aqui, o extrator chama o Qwen uma vez, enquanto o VADER calcula a polaridade por léxico e
+regras; não há uma segunda inferência de linguagem nem tokens adicionais para um juiz. A análise
+VADER roda em uma thread separada durante a chamada ao modelo, usando CPU, e pode ter seu tempo
+parcialmente sobreposto à inferência do Ollama. Portanto, ela tende a acrescentar pouco tempo
+perceptível em relatos curtos, mas não é literalmente gratuita nem há garantia de que todo o
+custo fique oculto na latência.
+
+A combinação oferece uma segunda medida, determinística e reproduzível, com limitações
+diferentes das do LLM. Isso pode destacar alguns desacordos sem depender da avaliação de outra
+IA generativa, mas não prova que o LLM alucinou nem que o VADER está certo: ambos podem errar,
+e a regra compara apenas polaridade geral, não o contexto completo ou a correção de toda a
+extração. A divergência serve para auditoria e análise posterior, não para corrigir o resultado
+automaticamente ou orientar decisões clínicas.
+
+O léxico em português é pequeno, explícito e não treinado; suas entradas foram conferidas
+contra vocabulário do split `dev` sintético, sem ajustar o holdout. Foram incluídas algumas
+formas observadas de alegria, frustração, preocupação e calma, mas essa cobertura não equivale
+a uma avaliação independente nem torna o léxico completo. Regras de idioma, negação e
+intensificadores (incluindo “tão”) também são heurísticas. A saída não é validada para uso clínico
+e pode errar com ironia, contexto, variações regionais e palavras fora do léxico. A extração do LLM
+continua intacta. A justificativa e os limites da validação híbrida estão em
+[docs/agent-research.md](docs/agent-research.md) e [docs/evaluation-method.md](docs/evaluation-method.md).
 O objeto completo também inclui `id`, `created_at`, `error` e `metadata` com modelo, digest,
-versões de prompt/esquema, contexto, tempo e identificação sintética. Em falha, `extraction`
-é `null` e `error` contém código e mensagem sanitizada. Diagnósticos operacionais vão para
+versões de prompt/esquema, contexto, tempo e identificação sintética. Em falha, `extraction` é
+`null` e `error` contém código e mensagem sanitizada. Diagnósticos operacionais vão para
 `stderr`, sem o texto da entrada. `--help` é a exceção convencional que exibe ajuda em texto.
 
 | Exit code | Significado |
@@ -168,7 +209,9 @@ versões de prompt/esquema, contexto, tempo e identificação sintética. Em fal
 | 2 | Entrada, configuração ou processamento inválido/indisponível |
 | 3 | Falha de persistência; não considerar a execução salva |
 
-O banco guarda texto sintético, resultado, horário, versões, digest e estado. Execuções com
+O banco guarda texto sintético, resultado, polaridade, score, divergência, distância, horário,
+versões, digest e estado. Bancos da versão 1 são migrados aditivamente na primeira gravação;
+as colunas de validação de registros antigos permanecem nulas. Execuções com
 erro de modelo também são registradas quando o banco funciona; entrada inválida não é salva.
 O arquivo SQLite novo é criado com permissão `0600`. Bancos existentes não sofrem migração
 automática destrutiva; esquema incompatível gera erro.

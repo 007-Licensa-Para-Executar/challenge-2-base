@@ -16,7 +16,12 @@ from prompt_toolkit.output import DummyOutput
 from pydantic import ValidationError
 
 from agents.extractor.config import Settings
-from agents.extractor.contracts import Extraction, ProcessingResult, RunMetadata
+from agents.extractor.contracts import (
+    Extraction,
+    ProcessingResult,
+    RunMetadata,
+    ValidationMetrics,
+)
 from agents.extractor.storage import save_result
 from app.contracts import Arguments, Proposal
 from app.history import read_history
@@ -189,7 +194,10 @@ def test_history_missing_readonly_and_pagination(tmp_path):
     for _ in range(12):
         result = ProcessingResult(status="ok", metadata=RunMetadata(model="fake"),
                                   extraction=Extraction(tema="familia", sentimento="calma",
-                                                        indicio_textual_risco="nao_identificado"))
+                                                        indicio_textual_risco="nao_identificado"),
+                                  validation=ValidationMetrics(
+                                      nlp_polaridade="NEUTRO", nlp_score=0.0,
+                                      discrepancia_detectada=False, distancia_polaridade=0.0))
         save_result(path, "texto fictício\r\nsegunda linha", result)
     original = path.read_bytes()
     assert len(read_history(path)[0]) == 10

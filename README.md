@@ -1,5 +1,74 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+## Quick start: abrir e usar
+
+Abra os terminais na pasta `challenge-2-base`. É preciso ter **uv, Python 3.12 e Ollama**;
+se ainda não instalou, veja as instruções de instalação mais abaixo. Use somente relatos sintéticos.
+
+**1. Terminal 1: iniciar o Ollama após reiniciar o computador.**
+Se o Ollama já estiver aberto e disponível, pule este passo. Escolha apenas uma opção e
+deixe esse terminal aberto enquanto usa o aplicativo:
+
+macOS / Linux, com `ollama` instalado no PATH:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 ollama serve
+```
+
+Neste Mac, se aparecer `command not found: ollama`, use o runtime local já instalado:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS="$PWD/.local-runtime/models" OLLAMA_NO_CLOUD=1 ./.local-runtime/ollama/ollama serve
+```
+
+O diretório `.local-runtime` não vem no clone: essa alternativa só funciona onde o binário
+e os modelos locais já foram instalados. Nos outros computadores, instale o Ollama normalmente.
+
+Windows, no CMD, com `ollama` instalado no PATH:
+
+```bat
+set "OLLAMA_HOST=127.0.0.1:11434"
+set "OLLAMA_NO_CLOUD=1"
+ollama serve
+```
+
+Se aparecer que a porta `11434` já está em uso, não inicie outro servidor: confira `/status`
+no aplicativo. O Ollama também pode já estar rodando como aplicativo em segundo plano.
+
+**2. Terminal 2: preparar as dependências e abrir o menu.**
+
+Os mesmos comandos funcionam no macOS, Linux e CMD:
+
+```text
+uv sync --locked --python 3.12
+uv run bem-estar
+```
+
+Depois da primeira instalação, basta `uv run bem-estar`. O comando usa o ambiente Python do
+projeto; não é necessário ativar a `.venv` manualmente nem fornecer um PAT do GitHub.
+
+**3. No aplicativo: confirme `s` para dados sintéticos e use os comandos com barra.**
+
+| Comando | Para começar |
+| --- | --- |
+| `/status` | Conferir conexão com Ollama, modelos e banco |
+| `/extrair` | Digitar um relato inventado e confirmar a gravação |
+| `/historico` | Consultar os resultados locais |
+| `/ajuda` | Ver todos os comandos e atalhos |
+| `/sair` | Encerrar diretamente, sem depender do roteador |
+
+Se aparecer **`Ollama local indisponível`**, confira se o Terminal 1 continua aberto.
+Se o modelo não estiver instalado, baixe-o uma vez com o servidor ativo, em outro terminal:
+
+```text
+ollama pull qwen3:4b
+ollama pull qwen3:0.6b
+```
+
+Neste Mac sem `ollama` no PATH, use `./.local-runtime/ollama/ollama` no lugar de `ollama`
+nesses comandos. O modelo 4B faz a extração; o 0.6B interpreta pedidos em linguagem natural.
+Os comandos com barra dispensam o roteador, mas `/extrair` ainda precisa do servidor e do 4B.
+
 Protótipo acadêmico do time de seis pessoas da PUC-Campinas / Instituto Eldorado / TIC em
 Trilhas. A proposta é organizar relatos voluntários entre sessões para apoiar o acompanhamento
 humano. O público conceitual são adultos já acompanhados por psicólogo e profissionais

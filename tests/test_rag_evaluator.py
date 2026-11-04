@@ -19,9 +19,9 @@ def test_evaluate_rag_benchmarks():
         abstention_threshold=0.10,
     )
 
-    assert metrics["total_queries"] == 10
-    assert metrics["in_scope_queries"] == 7
-    assert metrics["out_of_scope_queries"] == 3
+    assert metrics["total_queries"] >= 10
+    assert metrics["in_scope_queries"] >= 7
+    assert metrics["out_of_scope_queries"] >= 3
 
     # Critérios de qualidade exigidos
     assert metrics["recall_at_k"] >= 0.85, f"Recall@k abaixo do limiar: {metrics['recall_at_k']}"

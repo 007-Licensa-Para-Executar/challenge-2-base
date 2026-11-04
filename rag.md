@@ -54,6 +54,17 @@ As fontes estão agrupadas por função. Páginas institucionais são boas porta
 - **Cuidados:** diferencie os resultados das condições experimentais das associações observadas entre padrões voluntários de uso e resultados. Associação não demonstra causalidade. Confira os detalhes no texto integral antes de registrar números ou conclusões.
 - **Prioridade:** muito alta.
 
+#### C.1. MIT Media Lab - Simulação de riscos psicológicos em interações Humano-IA
+
+- **Link:** https://arxiv.org/abs/2511.08880 (PDF: https://arxiv.org/pdf/2511.08880)
+- **Título:** *Simulating Psychological Risks in Human-AI Interactions: Real-Case Informed Modeling of AI-Induced Addiction, Anorexia, Depression, Homicide, Psychosis, and Suicide*.
+- **Autores / Laboratório:** Pataranutaporn, P., Picard, R., Maes, P. et al. (MIT Media Lab / Advancing Humans with AI).
+- **Tipo:** modelagem e simulação computacional informada por casos reais.
+- **Por que usar:** detalha os mecanismos de risco de jovens utilizando LLMs como terapeutas (sycophancy, reforço de ideações depressivas, dependência afetiva parassocial e quebra de mediação humana).
+- **Como aplicar no RAG:** compor a base de taxonomias de risco para fundamentar as hipóteses investigativas geradas para o psicólogo.
+- **Cuidados:** simulação e modelagem conceitual/qualitativa de riscos extremos; não deve ser usada como métrica estatística de prevalência clínica.
+- **Prioridade:** muito alta.
+
 ### 2.2. Evidências empíricas e revisões sobre IA e saúde mental
 
 #### D. Journal of Adolescent Health - uso de IA generativa e bem-estar socioemocional
@@ -489,6 +500,13 @@ Para cada documento, respondam:
 **Nota bibliográfica importante:** os portais de periódicos acima são pontos de partida para localizar os estudos mencionados. Antes de usar um estudo como evidência, preencham título, autores, ano, DOI, desenho metodológico e limitações a partir da publicação original. Não citem a página geral do periódico como se fosse um artigo específico.
 
 ---
+
+### Documentação Complementar do Agente 2
+Para aprofundamento da arquitetura, RAG, impacto clínico e tarefas do Agente 2, consulte os documentos dedicados em docs/:
+- [Concepção e Arquitetura do Agente 2](docs/agente-2-concepcao-e-arquitetura.md)
+- [Estratégia de RAG e Base de Conhecimento](docs/agente-2-rag-estrategia-e-dados.md)
+- [Valor Agregado, Impacto Clínico e Governança Ética](docs/agente-2-valor-agregado-e-impacto.md)
+- [Roadmap e Backlog de Tarefas do Agente 2](docs/agente-2-roadmap-e-tasks.md)
 
 ## 13. Resultado esperado do MVP
 

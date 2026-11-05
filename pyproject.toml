@@ -16,6 +16,8 @@ bem-estar = "app.shell:main"
 bem-estar-route-evaluate = "evaluation.router:main"
 bem-estar-extract = "agents.extractor.cli:main"
 bem-estar-evaluate = "evaluation.runner:main"
+bem-estar-copilot = "agents.copilot.cli:main"
+bem-estar-eval-rag = "evaluation.rag_evaluator:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.13,<1"]

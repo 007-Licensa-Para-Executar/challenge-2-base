@@ -1,6 +1,6 @@
 """Instruções versionadas para extração estruturada de relatos sintéticos."""
 
-from contracts import (
+from .contracts import (
     Sentimento,
     SinalParaRevisao,
     Tema,

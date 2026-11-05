@@ -49,6 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--file", type=Path, help="Arquivo de entrada UTF-8; padrão: stdin.")
     parser.add_argument("--db", help="Caminho do SQLite local.")
     parser.add_argument("--model", help="Modelo instalado no Ollama local.")
+    parser.add_argument(
+        "--graph",
+        action="store_true",
+        help="Executa o pipeline orquestrado pelo LangGraph com guardrails e verificação.",
+    )
     settings = None
     try:
         args = parser.parse_args(argv)
@@ -87,6 +92,21 @@ def main(argv: list[str] | None = None) -> int:
     except ArgumentError as error:
         _emit(_error("invalid_input", str(error), settings))
         return 2
+    if args.graph:
+        from .graph import run_extraction_graph
+
+        result = run_extraction_graph(
+            text,
+            settings=settings,
+            synthetic=args.synthetic,
+            db_path=settings.db_path,
+            persist=True,
+        )
+        _emit(result)
+        if result.status == "error":
+            return 3 if (result.error and result.error.code == "storage_error") else 2
+        return 0
+
     try:
         result = OllamaExtractor(settings).extract(text)
     except Exception:  # noqa: BLE001 - sanitize unexpected third-party failures

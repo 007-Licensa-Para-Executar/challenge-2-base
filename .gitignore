@@ -88,6 +88,8 @@ htmlcov/
 /outputs/
 /tmp/
 /temp/
+/mlruns/
+mlruns.db*
 *.log
 *.pid
 *.tmp

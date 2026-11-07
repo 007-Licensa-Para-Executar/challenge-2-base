@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.28,<1",
     "prompt-toolkit>=3.0.50,<4",
     "vadersentiment>=3.3.2,<4",
+    "cryptography>=42,<45",
 ]
 
 [project.scripts]
@@ -25,7 +26,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "evaluation", "app"]
+packages = ["agents", "evaluation", "app", "security"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -38,4 +39,4 @@ target-version = "py312"
 "data/synthetic" = "data/synthetic"
 
 [tool.hatch.build.targets.sdist]
-include = ["/app", "/agents", "/evaluation", "/data/synthetic", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock", "/.env.example"]
+include = ["/app", "/agents", "/evaluation", "/security", "/data/synthetic", "/tests", "/docs", "/README.md", "/pyproject.toml", "/uv.lock", "/.env.example"]

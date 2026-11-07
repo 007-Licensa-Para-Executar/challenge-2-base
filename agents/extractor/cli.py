@@ -49,6 +49,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--file", type=Path, help="Arquivo de entrada UTF-8; padrão: stdin.")
     parser.add_argument("--db", help="Caminho do SQLite local.")
     parser.add_argument("--model", help="Modelo instalado no Ollama local.")
+    parser.add_argument(
+        "--encrypt",
+        dest="encrypt",
+        action="store_true",
+        default=None,
+        help="Força criptografia do relato no banco SQLite (LGPD Art. 46).",
+    )
+    parser.add_argument(
+        "--no-encrypt",
+        dest="encrypt",
+        action="store_false",
+        help="Desativa explicitamente a criptografia em repouso.",
+    )
     settings = None
     try:
         args = parser.parse_args(argv)
@@ -93,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         # Última barreira: bibliotecas externas podem incluir o relato na exceção.
         result = _error("model_error", "Falha inesperada ao executar o modelo local.", settings)
     try:
-        save_result(settings.db_path, text, result)
+        save_result(settings.db_path, text, result, encrypt=args.encrypt)
     except StorageError:
         _emit(_error("storage_error", "A execução não foi salva no banco local.", settings))
         return 3

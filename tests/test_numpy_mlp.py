@@ -71,3 +71,21 @@ def test_numpy_mlp_predict_and_safeguard():
     # Deve recair na classe de fallback (índice 8)
     assert np.all(preds == 8)
     assert np.all(confs < 0.50)
+
+
+def test_numpy_mlp_predict_distribution_and_percentages():
+    """Valida distribuições e percentuais no baseline NumPy."""
+    mlp = NumpyClinicalMLP(in_dim=16, h1=8, out_dim=9)
+    X = np.random.randn(2, 16)
+
+    dists = mlp.predict_distribution(X)
+    assert len(dists) == 2
+    for dist in dists:
+        assert len(dist) == 9
+        assert abs(sum(dist.values()) - 1.0) < 1e-4
+
+    pcts = mlp.predict_percentages(X)
+    assert len(pcts) == 2
+    for p in pcts:
+        assert len(p) == 9
+        assert abs(sum(p.values()) - 100.0) < 0.1

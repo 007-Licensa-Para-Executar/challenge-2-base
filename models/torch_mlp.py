@@ -103,3 +103,24 @@ class ClinicalThemeMLP(nn.Module):
             max_probs < threshold, torch.tensor(fallback_idx, device=x.device), preds
         )
         return preds, max_probs
+
+    def predict_distribution(self, x: torch.Tensor) -> list[dict[str, float]]:
+        """Retorna distribuição de probabilidades para cada classe em formato de dicionário."""
+        probs = self.predict_proba(x)
+        if probs.dim() == 1:
+            probs = probs.unsqueeze(0)
+        probs_np = probs.cpu().numpy()
+        return [
+            {THEME_CLASSES[i]: float(probs_np[row, i]) for i in range(len(THEME_CLASSES))}
+            for row in range(probs_np.shape[0])
+        ]
+
+    def predict_percentages(
+        self, x: torch.Tensor, round_digits: int = 2
+    ) -> list[dict[str, float]]:
+        """Retorna separação temática em percentuais (0.0% a 100.0%) por amostra."""
+        distributions = self.predict_distribution(x)
+        return [
+            {theme: round(prob * 100.0, round_digits) for theme, prob in dist.items()}
+            for dist in distributions
+        ]

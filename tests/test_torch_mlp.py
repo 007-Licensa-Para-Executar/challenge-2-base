@@ -97,3 +97,24 @@ def test_theme_classes_list():
         "outros_indeterminado",
     ]
     assert THEME_CLASSES == expected
+
+
+def test_torch_mlp_predict_distribution_and_percentages():
+    """Valida o cálculo de distribuições de probabilidades e percentuais somando 100%."""
+    model = ClinicalThemeMLP(input_dim=1024, num_classes=9)
+    dummy_input = torch.randn(2, 1024)
+
+    # 1. Distribuição de probabilidades
+    dists = model.predict_distribution(dummy_input)
+    assert len(dists) == 2
+    for dist in dists:
+        assert len(dist) == 9
+        assert set(dist.keys()) == set(THEME_CLASSES)
+        assert abs(sum(dist.values()) - 1.0) < 1e-4
+
+    # 2. Percentuais (somando ~100.0%)
+    pcts = model.predict_percentages(dummy_input)
+    assert len(pcts) == 2
+    for p in pcts:
+        assert len(p) == 9
+        assert abs(sum(p.values()) - 100.0) < 0.1

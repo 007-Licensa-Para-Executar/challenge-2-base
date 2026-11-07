@@ -29,6 +29,18 @@ logger = logging.getLogger(__name__)
 THEME_TO_IDX: dict[str, int] = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
 IDX_TO_THEME: dict[int, str] = {idx: theme for idx, theme in enumerate(THEME_CLASSES)}
 
+PORTUGUESE_STOPWORDS: list[str] = [
+    "de", "a", "o", "que", "e", "do", "da", "em", "um", "para", "com", "nao", "não", "uma", "os", "no",
+    "se", "na", "por", "mais", "as", "dos", "como", "mas", "foi", "ao", "ele", "das", "tem", "seu", "sua",
+    "ou", "ser", "quando", "muito", "nos", "já", "ja", "eu", "também", "tambem", "só", "so", "pelo",
+    "pela", "até", "ate", "isso", "ela", "entre", "era", "depois", "sem", "mesmo", "aos", "ter", "seus",
+    "quem", "nas", "me", "esse", "eles", "estão", "estao", "você", "voce", "tinha", "foram", "essa",
+    "num", "nem", "suas", "meu", "minha", "numa", "pelos", "elas", "havia", "seja", "qual", "será",
+    "sera", "tenho", "lhe", "deles", "essas", "esses", "pelas", "este", "fosse", "dele", "tu", "te",
+    "vocês", "voces", "lhes", "meus", "minhas", "teu", "tua", "teus", "tuas", "nosso", "nossa", "nossos",
+    "nossas", "dela", "delas", "esta", "está", "estava", "estou", "estive", "estivemos", "estavam",
+]
+
 
 def load_dataset_records(data_path: str | Path) -> tuple[list[str], list[int]]:
     """Carrega relatos e converte os macrotemas em índices de classe."""
@@ -65,9 +77,9 @@ def load_dataset_records(data_path: str | Path) -> tuple[list[str], list[int]]:
 def train_theme_classifier(
     texts: list[str],
     labels: list[int],
-    epochs: int = 40,
+    epochs: int = 35,
     batch_size: int = 32,
-    lr: float = 0.001,
+    lr: float = 0.003,
     weight_decay: float = 1e-4,
     random_state: int = 42,
     experiment_name: str = "Clinical_Theme_MLP",
@@ -115,8 +127,14 @@ def train_theme_classifier(
         len(X_test_raw),
     )
 
-    # 2. Vetorização TF-IDF
-    vectorizer = TfidfVectorizer(max_features=1024, ngram_range=(1, 2), lowercase=True)
+    # 2. Vetorização TF-IDF com remoção de stop words em português e sublinear_tf
+    vectorizer = TfidfVectorizer(
+        max_features=1024,
+        ngram_range=(1, 2),
+        stop_words=PORTUGUESE_STOPWORDS,
+        sublinear_tf=True,
+        lowercase=True,
+    )
     X_train = vectorizer.fit_transform(X_train_raw).toarray()
     X_val = vectorizer.transform(X_val_raw).toarray()
     X_test = vectorizer.transform(X_test_raw).toarray()
@@ -273,9 +291,9 @@ def main() -> None:
         default="data/synthetic/synthetic_diaries.json",
         help="Caminho do arquivo de dados sintéticos",
     )
-    parser.add_argument("--epochs", type=int, default=40, help="Número de épocas de treinamento")
+    parser.add_argument("--epochs", type=int, default=35, help="Número de épocas de treinamento")
     parser.add_argument("--batch-size", type=int, default=32, help="Tamanho do lote")
-    parser.add_argument("--lr", type=float, default=0.001, help="Taxa de aprendizado")
+    parser.add_argument("--lr", type=float, default=0.003, help="Taxa de aprendizado")
     parser.add_argument("--seed", type=int, default=42, help="Semente pseudoaleatória")
     parser.add_argument(
         "--dist-dir", type=str, default="dist", help="Diretório de saída de artefatos"

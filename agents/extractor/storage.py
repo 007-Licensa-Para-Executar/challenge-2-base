@@ -15,7 +15,13 @@ class StorageError(Exception):
     """Erro sanitizado de persistência, sem detalhes do relato ou caminho."""
 
 
-def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> None:
+def save_result(
+    db_path: str | Path,
+    text: str,
+    result: ProcessingResult,
+    *,
+    encrypt: bool | None = None,
+) -> None:
     """Salva uma execução de forma atômica; nunca registra resultado parcial."""
     try:
         path = Path(db_path).expanduser()
@@ -28,6 +34,18 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
             pass
         else:
             os.close(fd)
+        should_encrypt = (
+            encrypt
+            if encrypt is not None
+            else os.environ.get("ENABLE_DIARY_ENCRYPTION", "").lower() in ("1", "true", "yes")
+        )
+        if should_encrypt:
+            from security.encryption import encrypt_diary_text
+
+            stored_text = encrypt_diary_text(text)
+        else:
+            stored_text = text
+
         with sqlite3.connect(path) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version not in (0, 1, DB_VERSION):
@@ -72,7 +90,7 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
                     result.id,
                     result.created_at.isoformat(),
                     1,
-                    text,
+                    stored_text,
                     result.model_dump_json(),
                     result.metadata.model,
                     result.metadata.model_digest,
@@ -89,3 +107,22 @@ def save_result(db_path: str | Path, text: str, result: ProcessingResult) -> Non
         raise
     except (OSError, sqlite3.Error, ValueError, RuntimeError) as from_error:
         raise StorageError("Não foi possível salvar a execução no banco local.") from from_error
+
+
+def read_result_text(db_path: str | Path, run_id: str) -> str | None:
+    """Recupera e descriptografa transparentemente o relato de uma execução (LGPD)."""
+    path = Path(db_path).expanduser().resolve()
+    if not path.is_file():
+        return None
+    try:
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+            row = connection.execute(
+                "SELECT input_text FROM runs WHERE id = ?", (run_id,)
+            ).fetchone()
+            if not row or row[0] is None:
+                return None
+            from security.encryption import decrypt_diary_text
+
+            return decrypt_diary_text(row[0])
+    except (sqlite3.Error, OSError, ValueError):
+        return None

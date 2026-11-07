@@ -174,3 +174,26 @@ class NumpyClinicalMLP:
         fallback_idx = self.out_dim - 1
         preds[confidences < threshold] = fallback_idx
         return preds, confidences
+
+    def predict_distribution(self, X: np.ndarray) -> list[dict[str, float]]:
+        """Retorna distribuição de probabilidades para cada classe em formato de dicionário."""
+        probs = self.predict_proba(X)
+        if probs.ndim == 1:
+            probs = probs.reshape(1, -1)
+        from models.torch_mlp import THEME_CLASSES
+
+        classes = THEME_CLASSES[: self.out_dim]
+        return [
+            {classes[i]: float(probs[row, i]) for i in range(len(classes))}
+            for row in range(probs.shape[0])
+        ]
+
+    def predict_percentages(
+        self, X: np.ndarray, round_digits: int = 2
+    ) -> list[dict[str, float]]:
+        """Retorna separação temática em percentuais (0.0% a 100.0%) por amostra."""
+        distributions = self.predict_distribution(X)
+        return [
+            {theme: round(prob * 100.0, round_digits) for theme, prob in dist.items()}
+            for dist in distributions
+        ]

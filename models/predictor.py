@@ -15,15 +15,19 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from models.embedder import ClinicalTextEmbedder
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_PATH = Path("dist/best_theme_mlp.pt")
-DEFAULT_VECTORIZER_PATH = Path("dist/tfidf_vectorizer.joblib")
+DEFAULT_EMBEDDER_PATH = Path("dist/theme_embedder.joblib")
+DEFAULT_VECTORIZER_PATH = Path("dist/theme_embedder.joblib")
+LEGACY_VECTORIZER_PATH = Path("dist/tfidf_vectorizer.joblib")
 
 
 @dataclass
@@ -98,7 +102,7 @@ class ClinicalThemePredictor:
         model_path: str | Path | None = None,
         vectorizer_path: str | Path | None = None,
         model: ClinicalThemeMLP | None = None,
-        vectorizer: TfidfVectorizer | None = None,
+        vectorizer: TfidfVectorizer | ClinicalTextEmbedder | None = None,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -106,12 +110,23 @@ class ClinicalThemePredictor:
         if vectorizer is not None:
             self.vectorizer = vectorizer
         else:
-            v_path = Path(vectorizer_path or DEFAULT_VECTORIZER_PATH)
-            if not v_path.exists():
-                raise FileNotFoundError(
-                    f"Vetorizador TF-IDF não encontrado em '{v_path}'. "
-                    "Execute 'python -m models.train' para treinar a rede."
-                )
+            if vectorizer_path is not None:
+                v_path = Path(vectorizer_path)
+                if not v_path.exists():
+                    raise FileNotFoundError(
+                        f"Vetorizador/Embedder TF-IDF não encontrado em '{v_path}'. "
+                        "Execute 'python -m models.train' para treinar a rede."
+                    )
+            else:
+                if DEFAULT_EMBEDDER_PATH.exists():
+                    v_path = DEFAULT_EMBEDDER_PATH
+                elif LEGACY_VECTORIZER_PATH.exists():
+                    v_path = LEGACY_VECTORIZER_PATH
+                else:
+                    raise FileNotFoundError(
+                        f"Vetorizador/Embedder TF-IDF não encontrado em '{DEFAULT_EMBEDDER_PATH}'. "
+                        "Execute 'python -m models.train' para treinar a rede."
+                    )
             self.vectorizer = joblib.load(v_path)
 
         if model is not None:
@@ -123,9 +138,23 @@ class ClinicalThemePredictor:
                     f"Pesos da rede neural não encontrados em '{m_path}'. "
                     "Execute 'python -m models.train' para treinar a rede."
                 )
-            input_dim = len(self.vectorizer.vocabulary_)
-            self.model = ClinicalThemeMLP(input_dim=input_dim, num_classes=len(THEME_CLASSES))
             state_dict = torch.load(m_path, map_location=self.device, weights_only=True)
+            vocab_size = None
+            if "embedding_bag.weight" in state_dict:
+                vocab_size = state_dict["embedding_bag.weight"].shape[0]
+                input_dim = state_dict["embedding_bag.weight"].shape[1]
+            elif hasattr(self.vectorizer, "embedding_dim"):
+                input_dim = self.vectorizer.embedding_dim
+                vocab_size = len(self.vectorizer.vocab)
+            elif hasattr(self.vectorizer, "vocabulary_"):
+                input_dim = len(self.vectorizer.vocabulary_)
+            else:
+                input_dim = 128
+            self.model = ClinicalThemeMLP(
+                input_dim=input_dim,
+                num_classes=len(THEME_CLASSES),
+                vocab_size=vocab_size,
+            )
             self.model.load_state_dict(state_dict)
             self.model.to(self.device)
 
@@ -155,7 +184,10 @@ class ClinicalThemePredictor:
                 abstention_reason="empty_input",
             )
 
-        features = self.vectorizer.transform([cleaned]).toarray()
+        features = self.vectorizer.transform([cleaned])
+        if hasattr(features, "toarray"):
+            features = features.toarray()
+        features = np.asarray(features, dtype=np.float32)
         t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
 
         with torch.no_grad():

@@ -19,13 +19,13 @@ import mlflow
 import numpy as np
 import torch
 from sklearn.dummy import DummyClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import classification_report, f1_score
 from torch import nn
 
 from data.split import stratified_split_dataset
 from data.synthetic_generator import infer_template_group
 from mlops.tracker import MLFlowTracker
+from models.embedder import PORTUGUESE_STOPWORDS, ClinicalTextEmbedder
 from models.numpy_mlp import NumpyClinicalMLP
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
@@ -144,13 +144,32 @@ def train_theme_classifier(
     splits = stratified_split_dataset(rows, random_state=random_state)
     indexes = [[row["row_index"] for row in split] for split in splits]
     y_train, y_val, y_test = [np.asarray(labels)[idx] for idx in indexes]
-    vectorizer = TfidfVectorizer(
-        max_features=1024, ngram_range=(1, 2), sublinear_tf=True, lowercase=True
+    vectorizer = ClinicalTextEmbedder(
+        embedding_dim=128,
+        max_features=1024,
+        stop_words=PORTUGUESE_STOPWORDS,
+        random_state=random_state,
     )
-    x_train = vectorizer.fit_transform([texts[i] for i in indexes[0]]).toarray()
-    x_val, x_test = [vectorizer.transform([texts[i] for i in idx]).toarray() for idx in indexes[1:]]
+    vectorizer.fit([texts[i] for i in indexes[0]])
+    x_train = vectorizer.transform([texts[i] for i in indexes[0]])
+    x_val, x_test = [vectorizer.transform([texts[i] for i in idx]) for idx in indexes[1:]]
+
+    train_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[0]])
+    val_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[1]])
+    test_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[2]])
+
     torch.manual_seed(random_state)
-    model = ClinicalThemeMLP(input_dim=x_train.shape[1], num_classes=len(THEME_CLASSES))
+    model = ClinicalThemeMLP(
+        input_dim=vectorizer.embedding_dim,
+        hidden_dim1=128,
+        hidden_dim2=64,
+        num_classes=len(THEME_CLASSES),
+        vocab_size=len(vectorizer.vocab),
+    )
+    if model.embedding_bag is not None:
+        with torch.no_grad():
+            model.embedding_bag.weight.copy_(torch.tensor(vectorizer.embedding_matrix))
+
     numpy_model = NumpyClinicalMLP(
         in_dim=x_train.shape[1],
         h1=64,
@@ -160,12 +179,10 @@ def train_theme_classifier(
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
-    train_t = torch.tensor(x_train, dtype=torch.float32)
-    val_t = torch.tensor(x_val, dtype=torch.float32)
     target_t = torch.tensor(y_train, dtype=torch.long)
     val_target_t = torch.tensor(y_val, dtype=torch.long)
     loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(train_t, target_t),
+        torch.utils.data.TensorDataset(train_tokens, target_t),
         batch_size=batch_size,
         shuffle=True,
         generator=torch.Generator().manual_seed(random_state),
@@ -191,6 +208,7 @@ def train_theme_classifier(
             ).hexdigest()
             for path in (
                 Path(__file__).resolve(),
+                Path(__file__).resolve().with_name("embedder.py"),
                 Path(__file__).resolve().with_name("numpy_mlp.py"),
                 Path(__file__).resolve().with_name("torch_mlp.py"),
                 Path(__file__).resolve().parent.parent / "data" / "split.py",
@@ -245,7 +263,7 @@ def train_theme_classifier(
             numpy_loss = numpy_model.fit(x_train, y_train, epochs=1, batch_size=batch_size)[0]
             model.eval()
             with torch.no_grad():
-                logits = model(val_t)
+                logits = model(val_tokens)
                 val_loss = criterion(logits, val_target_t).item()
                 torch_probs = torch.softmax(logits, dim=1).numpy()
             numpy_probs = numpy_model.predict_proba(x_val)
@@ -275,9 +293,10 @@ def train_theme_classifier(
         model.load_state_dict(best_torch)
         for key, value in best_numpy.items():
             setattr(numpy_model, key, value)
+        if model.embedding_bag is not None and best_torch is not None:
+            vectorizer.set_embedding_weights(best_torch["embedding_bag.weight"])
         with torch.no_grad():
-            test_t = torch.tensor(x_test, dtype=torch.float32)
-            test_logits = model(test_t)
+            test_logits = model(test_tokens)
             torch_probs = torch.softmax(test_logits, dim=1).numpy()
             test_loss = criterion(test_logits, torch.tensor(y_test, dtype=torch.long)).item()
         comparison = {
@@ -317,9 +336,15 @@ def train_theme_classifier(
             )
             tracker.log_artifact(path)
         torch.save(model.state_dict(), dist / "best_theme_mlp.pt")
+        joblib.dump(vectorizer, dist / "theme_embedder.joblib")
         joblib.dump(vectorizer, dist / "tfidf_vectorizer.joblib")
         np.savez(dist / "best_numpy_mlp.npz", **best_numpy)
-        for name in ("best_theme_mlp.pt", "tfidf_vectorizer.joblib", "best_numpy_mlp.npz"):
+        for name in (
+            "best_theme_mlp.pt",
+            "theme_embedder.joblib",
+            "tfidf_vectorizer.joblib",
+            "best_numpy_mlp.npz",
+        ):
             tracker.log_artifact(dist / name)
         return {
             "run_id": run.info.run_id,
@@ -327,7 +352,7 @@ def train_theme_classifier(
             "final_test_acc": final["accuracy"],
             "final_test_loss": test_loss,
             "model_path": str(dist / "best_theme_mlp.pt"),
-            "vectorizer_path": str(dist / "tfidf_vectorizer.joblib"),
+            "vectorizer_path": str(dist / "theme_embedder.joblib"),
             "comparison": comparison,
             "manifest_path": str(dist / "split_manifest.json"),
         }

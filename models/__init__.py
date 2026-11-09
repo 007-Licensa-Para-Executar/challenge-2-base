@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from models.embedder import ClinicalTextEmbedder
 from models.numpy_mlp import NumpyClinicalMLP
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
@@ -29,6 +30,7 @@ def __getattr__(name: str):
 
 __all__ = [
     "THEME_CLASSES",
+    "ClinicalTextEmbedder",
     "ClinicalThemeMLP",
     "ClinicalThemePredictor",
     "DiaryTopicBreakdown",

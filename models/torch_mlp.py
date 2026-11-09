@@ -33,17 +33,32 @@ class ClinicalThemeMLP(nn.Module):
 
     def __init__(
         self,
-        input_dim: int = 1024,
+        input_dim: int = 128,
         hidden_dim1: int = 128,
         hidden_dim2: int = 64,
         num_classes: int = 9,
         dropout_rate: float = 0.3,
+        vocab_size: int | None = None,
+        embedding_dim: int | None = None,
     ) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.num_classes = num_classes
+        self.vocab_size = vocab_size
 
-        self.fc1 = nn.Linear(input_dim, hidden_dim1)
+        if vocab_size is not None and vocab_size > 0:
+            actual_dim = embedding_dim or input_dim
+            self.embedding_bag = nn.EmbeddingBag(
+                num_embeddings=vocab_size,
+                embedding_dim=actual_dim,
+                mode="mean",
+                padding_idx=0,
+            )
+            self.fc1 = nn.Linear(actual_dim, hidden_dim1)
+        else:
+            self.embedding_bag = None
+            self.fc1 = nn.Linear(input_dim, hidden_dim1)
+
         self.bn1 = nn.BatchNorm1d(hidden_dim1)
         self.dropout1 = nn.Dropout(dropout_rate)
 
@@ -57,6 +72,15 @@ class ClinicalThemeMLP(nn.Module):
         # Se receber tensor 1D, adiciona dimensão de lote
         if x.dim() == 1:
             x = x.unsqueeze(0)
+
+        # Se receber tensor de índices inteiros (tokens) e possuir camada de embedding
+        if x.dtype in (torch.int32, torch.int64):
+            if self.embedding_bag is not None:
+                x = self.embedding_bag(x)
+            else:
+                raise ValueError(
+                    "Tensor de índices recebido mas o modelo não possui embedding_bag configurado."
+                )
 
         # Camada 1
         x = self.fc1(x)
@@ -75,6 +99,17 @@ class ClinicalThemeMLP(nn.Module):
         # Camada de Saída (Logits brutos para CrossEntropyLoss)
         logits = self.fc3(x)
         return logits
+
+    def get_embedding(self, x: torch.Tensor) -> torch.Tensor:
+        """Extrai a representação densa (embedding) do relato na hiperesfera unitária."""
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dtype in (torch.int32, torch.int64) and self.embedding_bag is not None:
+            emb = self.embedding_bag(x)
+            return F.normalize(emb, p=2, dim=-1)
+        elif x.dtype in (torch.float32, torch.float64):
+            return F.normalize(x, p=2, dim=-1)
+        return x
 
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
         """Retorna scores softmax normalizados, sem garantia de calibração."""

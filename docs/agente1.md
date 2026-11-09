@@ -13,7 +13,7 @@
 ```mermaid
 flowchart LR
     A["Relato Bruto (Texto / Áudio)"] --> B["Rede Neural MLP"]
-    B -->|Macrotema Padrão: 'familia' (Confiança: 91%)| C["Agente 1 (LLM Local / Ollama)"]
+    B -->|"Macrotema Padrão: 'familia' (Confiança: 91%)"| C["Agente 1 (LLM Local / Ollama)"]
     A --> C
     C -->|Executa Decomposição & Span Matching| D["Validação Pydantic (ExtractionEnvelope)"]
     D --> E[("Persistência: SQLite & Vetorizador")]

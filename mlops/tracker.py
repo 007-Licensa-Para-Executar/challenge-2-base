@@ -135,9 +135,9 @@ class MLFlowTracker:
     @staticmethod
     def get_best_model_run(
         experiment_name: str = "Clinical_Theme_MLP",
-        metric_name: str = "final_test_macro_f1",
+        metric_name: str = "best_val_macro_f1",
     ) -> Any:
-        """Busca o melhor run registrado no MLflow ordenado por uma métrica."""
+        """Seleciona pela validação; teste final não deve escolher o modelo."""
         exp = mlflow.get_experiment_by_name(experiment_name)
         if not exp:
             return None

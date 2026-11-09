@@ -1,14 +1,16 @@
-"""Pipeline de treinamento da Rede Neural MLP para classificação dos 8 macrotemas clínicos.
+"""Compare Torch, from-scratch NumPy and majority baseline on disjoint source families.
 
-Inclui divisão estratificada (70/15/15), vetorização TF-IDF, rastreamento
-de métricas e artefatos no MLflow e avaliação no conjunto de teste holdout cego.
+Synthetic reference labels are unreviewed. Results are preliminary agreement,
+not clinical validation or evidence of performance on real diaries.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -16,62 +18,85 @@ import joblib
 import mlflow
 import numpy as np
 import torch
+from sklearn.dummy import DummyClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import classification_report, f1_score
-from sklearn.model_selection import train_test_split
 from torch import nn
 
+from data.split import stratified_split_dataset
+from data.synthetic_generator import infer_template_group
 from mlops.tracker import MLFlowTracker
+from models.numpy_mlp import NumpyClinicalMLP
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 logger = logging.getLogger(__name__)
+THEME_TO_IDX = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
+IDX_TO_THEME = dict(enumerate(THEME_CLASSES))
 
-THEME_TO_IDX: dict[str, int] = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
-IDX_TO_THEME: dict[int, str] = {idx: theme for idx, theme in enumerate(THEME_CLASSES)}
 
-PORTUGUESE_STOPWORDS: list[str] = [
-    "de", "a", "o", "que", "e", "do", "da", "em", "um", "para", "com", "nao", "não", "uma", "os", "no",
-    "se", "na", "por", "mais", "as", "dos", "como", "mas", "foi", "ao", "ele", "das", "tem", "seu", "sua",
-    "ou", "ser", "quando", "muito", "nos", "já", "ja", "eu", "também", "tambem", "só", "so", "pelo",
-    "pela", "até", "ate", "isso", "ela", "entre", "era", "depois", "sem", "mesmo", "aos", "ter", "seus",
-    "quem", "nas", "me", "esse", "eles", "estão", "estao", "você", "voce", "tinha", "foram", "essa",
-    "num", "nem", "suas", "meu", "minha", "numa", "pelos", "elas", "havia", "seja", "qual", "será",
-    "sera", "tenho", "lhe", "deles", "essas", "esses", "pelas", "este", "fosse", "dele", "tu", "te",
-    "vocês", "voces", "lhes", "meus", "minhas", "teu", "tua", "teus", "tuas", "nosso", "nossa", "nossos",
-    "nossas", "dela", "delas", "esta", "está", "estava", "estou", "estive", "estivemos", "estavam",
-]
+def load_dataset_rows(data_path: str | Path) -> list[dict[str, Any]]:
+    path = Path(data_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset not found: {path}; generate it explicitly first")
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Dataset must be a nonempty list")
+    result = []
+    for i, row in enumerate(rows):
+        text = row.get("texto") or row.get("text", "")
+        label = row.get("macro_tema") or row.get("expected", {}).get("tema")
+        if not isinstance(text, str) or not text.strip() or label not in THEME_TO_IDX:
+            raise ValueError(f"Invalid text or unknown label at row {i}")
+        result.append({**row, "texto": text, "macro_tema": label})
+    return result
 
 
 def load_dataset_records(data_path: str | Path) -> tuple[list[str], list[int]]:
-    """Carrega relatos e converte os macrotemas em índices de classe."""
-    path = Path(data_path)
-    if not path.exists():
-        # Gera dataset automaticamente se não existir
-        from data.synthetic_generator import generate_synthetic_dataset
+    """Compatibility helper; the CLI also preserves groups and IDs via load_dataset_rows."""
+    rows = load_dataset_rows(data_path)
+    return [row["texto"] for row in rows], [THEME_TO_IDX[row["macro_tema"]] for row in rows]
 
-        logger.info("Dataset não encontrado em %s. Gerando dataset sintético inicial...", path)
-        generate_synthetic_dataset(output_path=str(path), samples_per_theme=40)
 
-    with open(path, "r", encoding="utf-8") as f:
-        records = json.load(f)
+def _metrics(y_true, predictions) -> dict[str, Any]:
+    return {
+        "accuracy": float(np.mean(np.asarray(y_true) == predictions)),
+        "macro_f1": float(
+            f1_score(
+                y_true,
+                predictions,
+                labels=list(range(len(THEME_CLASSES))),
+                average="macro",
+                zero_division=0,
+            )
+        ),
+        "classification_report": classification_report(
+            y_true,
+            predictions,
+            labels=list(range(len(THEME_CLASSES))),
+            target_names=THEME_CLASSES,
+            output_dict=True,
+            zero_division=0,
+        ),
+    }
 
-    texts: list[str] = []
-    labels: list[int] = []
 
-    fallback_idx = THEME_TO_IDX["outros_indeterminado"]
+def _policy(probs: np.ndarray, threshold: float):
+    preds = probs.argmax(axis=1)
+    abstained = probs.max(axis=1) < threshold
+    preds[abstained] = len(THEME_CLASSES) - 1
+    return preds, abstained
 
-    for item in records:
-        text = item.get("texto") or item.get("text", "")
-        theme = item.get("macro_tema") or item.get("expected", {}).get(
-            "tema", "outros_indeterminado"
-        )
-        label_idx = THEME_TO_IDX.get(theme, fallback_idx)
 
-        if text.strip():
-            texts.append(text)
-            labels.append(label_idx)
-
-    return texts, labels
+def _evaluate(probs, labels, threshold):
+    predictions, abstained = _policy(probs, threshold)
+    return {
+        "threshold_policy": {
+            **_metrics(labels, predictions),
+            "abstention_count": int(abstained.sum()),
+            "determined_coverage": float(1 - abstained.mean()),
+        },
+        "argmax_only": _metrics(labels, probs.argmax(axis=1)),
+    }
 
 
 def train_theme_classifier(
@@ -82,242 +107,260 @@ def train_theme_classifier(
     lr: float = 0.003,
     weight_decay: float = 1e-4,
     random_state: int = 42,
-    experiment_name: str = "Clinical_Theme_MLP",
+    experiment_name: str = "Theme_MLP_Preliminary",
     dist_dir: str | Path = "dist",
     tracking_uri: str | None = None,
+    groups: list[str] | None = None,
+    record_ids: list[str] | None = None,
+    threshold: float = 0.50,
+    numpy_lr: float = 0.05,
 ) -> dict[str, Any]:
-    """Executa o ciclo completo de treinamento, validação e teste com rastreamento no MLflow."""
-    torch.manual_seed(random_state)
-    np.random.seed(random_state)
+    """Select both neural checkpoints on validation; inspect test only afterwards.
 
-    dist_path = Path(dist_dir)
-    dist_path.mkdir(parents=True, exist_ok=True)
-
-    tracker = MLFlowTracker(experiment_name=experiment_name, tracking_uri=tracking_uri)
-
-    # 1. Divisão Estratificada: 70% Treino, 15% Validação, 15% Holdout Cego
-    X_train_raw, X_temp, y_train_raw, y_temp = train_test_split(
-        texts,
-        labels,
-        test_size=0.30,
-        random_state=random_state,
-        stratify=labels,
-    )
-    try:
-        X_val_raw, X_test_raw, y_val_raw, y_test_raw = train_test_split(
-            X_temp,
-            y_temp,
-            test_size=0.50,
-            random_state=random_state,
-            stratify=y_temp,
-        )
-    except ValueError:
-        # Fallback sem estratificação caso classes raras tenham < 2 membros no conjunto temporário
-        X_val_raw, X_test_raw, y_val_raw, y_test_raw = train_test_split(
-            X_temp,
-            y_temp,
-            test_size=0.50,
-            random_state=random_state,
-        )
-
-    logger.info(
-        "Divisão dos dados: Treino=%d, Validação=%d, Teste Holdout=%d",
-        len(X_train_raw),
-        len(X_val_raw),
-        len(X_test_raw),
-    )
-
-    # 2. Vetorização TF-IDF com remoção de stop words em português e sublinear_tf
+    Legacy calls infer known template families and exact duplicates. External
+    paraphrases require explicit source-family groups from the caller.
+    """
+    n = len(texts)
+    if n != len(labels) or not n or epochs < 1 or batch_size < 1:
+        raise ValueError("Nonempty aligned data and positive epochs/batch_size required")
+    if groups is not None and len(groups) != n or record_ids is not None and len(record_ids) != n:
+        raise ValueError("Group and record IDs must align with texts")
+    if not 0 <= threshold <= 1 or lr <= 0 or numpy_lr <= 0:
+        raise ValueError("Invalid threshold or learning rate")
+    if any(label not in IDX_TO_THEME for label in labels):
+        raise ValueError("Unknown class index")
+    rows = [
+        {
+            "id": record_ids[i] if record_ids else f"row_{i}",
+            "texto": text,
+            "macro_tema": IDX_TO_THEME[labels[i]],
+            "group_id": groups[i] if groups else infer_template_group(text),
+            "row_index": i,
+        }
+        for i, text in enumerate(texts)
+    ]
+    if len({row["id"] for row in rows}) != n:
+        raise ValueError("Record IDs must be unique")
+    splits = stratified_split_dataset(rows, random_state=random_state)
+    indexes = [[row["row_index"] for row in split] for split in splits]
+    y_train, y_val, y_test = [np.asarray(labels)[idx] for idx in indexes]
     vectorizer = TfidfVectorizer(
-        max_features=1024,
-        ngram_range=(1, 2),
-        stop_words=PORTUGUESE_STOPWORDS,
-        sublinear_tf=True,
-        lowercase=True,
+        max_features=1024, ngram_range=(1, 2), sublinear_tf=True, lowercase=True
     )
-    X_train = vectorizer.fit_transform(X_train_raw).toarray()
-    X_val = vectorizer.transform(X_val_raw).toarray()
-    X_test = vectorizer.transform(X_test_raw).toarray()
-
-    # Conversão para tensores PyTorch
-    t_X_train = torch.tensor(X_train, dtype=torch.float32)
-    t_y_train = torch.tensor(y_train_raw, dtype=torch.long)
-    t_X_val = torch.tensor(X_val, dtype=torch.float32)
-    t_y_val = torch.tensor(y_val_raw, dtype=torch.long)
-    t_X_test = torch.tensor(X_test, dtype=torch.float32)
-    t_y_test = torch.tensor(y_test_raw, dtype=torch.long)
-
-    # 3. Inicialização da Rede Neural e Otimizador AdamW
-    input_dim = t_X_train.shape[1]
-    num_classes = len(THEME_CLASSES)
-    model = ClinicalThemeMLP(input_dim=input_dim, num_classes=num_classes)
+    x_train = vectorizer.fit_transform([texts[i] for i in indexes[0]]).toarray()
+    x_val, x_test = [vectorizer.transform([texts[i] for i in idx]).toarray() for idx in indexes[1:]]
+    torch.manual_seed(random_state)
+    model = ClinicalThemeMLP(input_dim=x_train.shape[1], num_classes=len(THEME_CLASSES))
+    numpy_model = NumpyClinicalMLP(
+        in_dim=x_train.shape[1],
+        h1=64,
+        out_dim=len(THEME_CLASSES),
+        lr=numpy_lr,
+        random_state=random_state,
+    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
-
-    dataset = torch.utils.data.TensorDataset(t_X_train, t_y_train)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    with mlflow.start_run(run_name="MLP_Training_Run") as run:
-        # Registro de hiperparâmetros
+    train_t = torch.tensor(x_train, dtype=torch.float32)
+    val_t = torch.tensor(x_val, dtype=torch.float32)
+    target_t = torch.tensor(y_train, dtype=torch.long)
+    val_target_t = torch.tensor(y_val, dtype=torch.long)
+    loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(train_t, target_t),
+        batch_size=batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(random_state),
+    )
+    dist = Path(dist_dir)
+    dist.mkdir(parents=True, exist_ok=True)
+    tracker = MLFlowTracker(experiment_name=experiment_name, tracking_uri=tracking_uri)
+    baseline = DummyClassifier(strategy="most_frequent").fit(x_train, y_train)
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        commit = None
+    manifest = {
+        "dataset_sha256": hashlib.sha256(
+            json.dumps(rows, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest(),
+        "code_commit": commit,
+        "source_sha256": {
+            str(path.relative_to(Path(__file__).resolve().parent.parent)): hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+            for path in (
+                Path(__file__).resolve(),
+                Path(__file__).resolve().with_name("numpy_mlp.py"),
+                Path(__file__).resolve().with_name("torch_mlp.py"),
+                Path(__file__).resolve().parent.parent / "data" / "split.py",
+                Path(__file__).resolve().parent.parent / "data" / "synthetic_generator.py",
+            )
+        },
+        "seed": random_state,
+        "classes": THEME_CLASSES,
+        "split_policy": "class-aware source/template groups; approximate 70/15/15",
+        "reference_status": "synthetic generated labels; not independently reviewed",
+        "grouping_limit": "known templates and exact duplicates; external paraphrases need groups",
+        "threshold": threshold,
+        "numpy_lr": numpy_lr,
+        "splits": {
+            name: [{k: row[k] for k in ("id", "group_id", "macro_tema")} for row in split]
+            for name, split in zip(("train", "validation", "test"), splits, strict=True)
+        },
+        "vectorizer": vectorizer.get_params(),
+    }
+    with mlflow.start_run(run_name="Grouped_Comparison") as run:
         tracker.log_params(
             {
-                "model_architecture": "ClinicalThemeMLP",
-                "input_dim": input_dim,
+                "seed": random_state,
+                "dataset_sha256": manifest["dataset_sha256"],
+                "input_dim": x_train.shape[1],
                 "hidden_layers": [128, 64],
-                "num_classes": num_classes,
+                "numpy_hidden_units": 64,
+                "threshold": threshold,
                 "epochs": epochs,
                 "batch_size": batch_size,
                 "learning_rate": lr,
+                "numpy_lr": numpy_lr,
                 "weight_decay": weight_decay,
-                "train_samples": len(X_train_raw),
-                "val_samples": len(X_val_raw),
-                "test_samples": len(X_test_raw),
+                "train_samples": len(y_train),
+                "val_samples": len(y_val),
+                "test_samples": len(y_test),
             }
         )
-
-        best_val_f1 = -1.0
-        best_model_weights = None
-
-        # 4. Loop de Treinamento e Validação
+        best_torch, best_numpy = None, None
+        best_scores = [-1.0, -1.0]
+        best_epochs = [0, 0]
+        history = []
         for epoch in range(1, epochs + 1):
             model.train()
-            epoch_loss = 0.0
-            for batch_x, batch_y in loader:
+            train_loss = 0.0
+            for bx, by in loader:
                 optimizer.zero_grad()
-                outputs = model(batch_x)
-                loss = criterion(outputs, batch_y)
+                loss = criterion(model(bx), by)
                 loss.backward()
                 optimizer.step()
-                epoch_loss += loss.item() * batch_x.size(0)
-
-            epoch_loss /= len(dataset)
-
-            # Validação
+                train_loss += loss.item() * len(bx)
+            numpy_loss = numpy_model.fit(x_train, y_train, epochs=1, batch_size=batch_size)[0]
             model.eval()
             with torch.no_grad():
-                val_logits = model(t_X_val)
-                val_loss = criterion(val_logits, t_y_val).item()
-                val_preds = torch.argmax(val_logits, dim=-1).cpu().numpy()
-                val_f1 = float(f1_score(y_val_raw, val_preds, average="macro", zero_division=0))
-
-            tracker.log_metric("train_loss", epoch_loss, step=epoch)
-            tracker.log_metric("val_loss", val_loss, step=epoch)
-            tracker.log_metric("val_macro_f1", val_f1, step=epoch)
-
-            if val_f1 > best_val_f1:
-                best_val_f1 = val_f1
-                best_model_weights = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-
-        # 5. Avaliação Final no Conjunto de Teste Holdout Cego
-        if best_model_weights is not None:
-            model.load_state_dict(best_model_weights)
-        model.eval()
-
+                logits = model(val_t)
+                val_loss = criterion(logits, val_target_t).item()
+                torch_probs = torch.softmax(logits, dim=1).numpy()
+            numpy_probs = numpy_model.predict_proba(x_val)
+            numpy_val_loss = numpy_model.compute_loss(
+                numpy_probs, np.eye(len(THEME_CLASSES))[y_val]
+            )
+            scores = [
+                _metrics(y_val, _policy(p, threshold)[0])["macro_f1"]
+                for p in (torch_probs, numpy_probs)
+            ]
+            metrics = {
+                "train_loss": train_loss / len(y_train),
+                "val_loss": val_loss,
+                "val_macro_f1": scores[0],
+                "numpy_train_loss": numpy_loss,
+                "numpy_val_loss": numpy_val_loss,
+                "numpy_val_macro_f1": scores[1],
+            }
+            tracker.log_metrics(metrics, step=epoch)
+            history.append({"epoch": epoch, **metrics})
+            if scores[0] > best_scores[0]:
+                best_scores[0], best_epochs[0] = scores[0], epoch
+                best_torch = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            if scores[1] > best_scores[1]:
+                best_scores[1], best_epochs[1] = scores[1], epoch
+                best_numpy = {k: getattr(numpy_model, k).copy() for k in ("W1", "b1", "W2", "b2")}
+        model.load_state_dict(best_torch)
+        for key, value in best_numpy.items():
+            setattr(numpy_model, key, value)
         with torch.no_grad():
-            test_logits = model(t_X_test)
-            test_loss = criterion(test_logits, t_y_test).item()
-            test_preds = torch.argmax(test_logits, dim=-1).cpu().numpy()
-            test_f1 = float(f1_score(y_test_raw, test_preds, average="macro", zero_division=0))
-            test_acc = float((test_preds == np.array(y_test_raw)).mean())
-
+            test_t = torch.tensor(x_test, dtype=torch.float32)
+            test_logits = model(test_t)
+            torch_probs = torch.softmax(test_logits, dim=1).numpy()
+            test_loss = criterion(test_logits, torch.tensor(y_test, dtype=torch.long)).item()
+        comparison = {
+            "reference_status": manifest["reference_status"],
+            "torch": _evaluate(torch_probs, y_test, threshold),
+            "numpy": _evaluate(numpy_model.predict_proba(x_test), y_test, threshold),
+            "majority_baseline": _metrics(y_test, baseline.predict(x_test)),
+        }
+        final = comparison["torch"]["threshold_policy"]
         tracker.log_metrics(
             {
+                "final_test_macro_f1": final["macro_f1"],
+                "final_test_acc": final["accuracy"],
                 "final_test_loss": test_loss,
-                "final_test_macro_f1": test_f1,
-                "final_test_acc": test_acc,
+                "numpy_test_macro_f1": comparison["numpy"]["threshold_policy"]["macro_f1"],
+                "majority_test_macro_f1": comparison["majority_baseline"]["macro_f1"],
             }
         )
-
-        report_dict = classification_report(
-            y_test_raw,
-            test_preds,
-            target_names=[THEME_CLASSES[i] for i in sorted(set(y_test_raw + list(test_preds)))],
-            output_dict=True,
-            zero_division=0,
+        tracker.log_confusion_matrix(
+            y_test, _policy(torch_probs, threshold)[0], THEME_CLASSES, dist
         )
-
-        # 6. Registro de Matriz de Confusão e Relatórios
-        _cm_json, _cm_png = tracker.log_confusion_matrix(
-            y_true=y_test_raw,
-            y_pred=test_preds,
-            labels=THEME_CLASSES,
-            output_dir=dist_path,
+        tracker.log_metrics(
+            {"best_val_macro_f1": best_scores[0], "best_numpy_val_macro_f1": best_scores[1]}
         )
-
-        report_path = dist_path / "classification_report.json"
-        with open(report_path, "w", encoding="utf-8") as f:
-            json.dump(report_dict, f, ensure_ascii=False, indent=2)
-        tracker.log_artifact(report_path)
-
-        classes_path = dist_path / "theme_classes.json"
-        with open(classes_path, "w", encoding="utf-8") as f:
-            json.dump(THEME_CLASSES, f, ensure_ascii=False, indent=2)
-        tracker.log_artifact(classes_path)
-
-        # 7. Salvamento e Registro dos Pesos e Vetorizador
-        model_weights_path = dist_path / "best_theme_mlp.pt"
-        vectorizer_path = dist_path / "tfidf_vectorizer.joblib"
-
-        torch.save(model.state_dict(), model_weights_path)
-        joblib.dump(vectorizer, vectorizer_path)
-
-        tracker.log_artifact(model_weights_path)
-        tracker.log_artifact(vectorizer_path)
-
-        logger.info(
-            "Treinamento Concluído! Test Macro-F1: %.4f | Test Acc: %.4f | Run ID: %s",
-            test_f1,
-            test_acc,
-            run.info.run_id,
-        )
-
+        manifest["best_checkpoint_epochs"] = dict(zip(("torch", "numpy"), best_epochs, strict=True))
+        documents = {
+            "split_manifest.json": manifest,
+            "comparison_report.json": comparison,
+            "learning_curves.json": history,
+            "classification_report.json": final["classification_report"],
+            "theme_classes.json": THEME_CLASSES,
+        }
+        for name, obj in documents.items():
+            path = dist / name
+            path.write_text(
+                json.dumps(obj, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+            )
+            tracker.log_artifact(path)
+        torch.save(model.state_dict(), dist / "best_theme_mlp.pt")
+        joblib.dump(vectorizer, dist / "tfidf_vectorizer.joblib")
+        np.savez(dist / "best_numpy_mlp.npz", **best_numpy)
+        for name in ("best_theme_mlp.pt", "tfidf_vectorizer.joblib", "best_numpy_mlp.npz"):
+            tracker.log_artifact(dist / name)
         return {
             "run_id": run.info.run_id,
-            "final_test_macro_f1": test_f1,
-            "final_test_acc": test_acc,
+            "final_test_macro_f1": final["macro_f1"],
+            "final_test_acc": final["accuracy"],
             "final_test_loss": test_loss,
-            "model_path": str(model_weights_path),
-            "vectorizer_path": str(vectorizer_path),
+            "model_path": str(dist / "best_theme_mlp.pt"),
+            "vectorizer_path": str(dist / "tfidf_vectorizer.joblib"),
+            "comparison": comparison,
+            "manifest_path": str(dist / "split_manifest.json"),
         }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Pipeline de Treino do Classificador MLP de Macrotemas"
-    )
-    parser.add_argument(
-        "--data-path",
-        type=str,
-        default="data/synthetic/synthetic_diaries.json",
-        help="Caminho do arquivo de dados sintéticos",
-    )
-    parser.add_argument("--epochs", type=int, default=35, help="Número de épocas de treinamento")
-    parser.add_argument("--batch-size", type=int, default=32, help="Tamanho do lote")
-    parser.add_argument("--lr", type=float, default=0.003, help="Taxa de aprendizado")
-    parser.add_argument("--seed", type=int, default=42, help="Semente pseudoaleatória")
-    parser.add_argument(
-        "--dist-dir", type=str, default="dist", help="Diretório de saída de artefatos"
-    )
-    parser.add_argument(
-        "--experiment-name",
-        type=str,
-        default="Clinical_Theme_MLP",
-        help="Nome do experimento no MLflow",
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-path", default="data/synthetic/synthetic_diaries.json")
+    parser.add_argument("--epochs", type=int, default=35)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--lr", type=float, default=0.003)
+    parser.add_argument("--numpy-lr", type=float, default=0.05)
+    parser.add_argument("--threshold", type=float, default=0.50)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--dist-dir", default="dist")
+    parser.add_argument("--experiment-name", default="Theme_MLP_Preliminary")
     args = parser.parse_args()
-
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    texts, labels = load_dataset_records(args.data_path)
-    train_theme_classifier(
-        texts=texts,
-        labels=labels,
+    rows = load_dataset_rows(args.data_path)
+    result = train_theme_classifier(
+        [r["texto"] for r in rows],
+        [THEME_TO_IDX[r["macro_tema"]] for r in rows],
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.lr,
+        numpy_lr=args.numpy_lr,
+        threshold=args.threshold,
         random_state=args.seed,
         experiment_name=args.experiment_name,
         dist_dir=args.dist_dir,
+        groups=[r.get("group_id") or infer_template_group(r["texto"]) for r in rows],
+        record_ids=[r.get("id", f"row_{i}") for i, r in enumerate(rows)],
     )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

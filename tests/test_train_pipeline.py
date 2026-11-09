@@ -82,6 +82,7 @@ def test_train_theme_classifier_e2e(tmp_path):
         lr=0.005,
         random_state=42,
         experiment_name="Test_Theme_Classifier_E2E",
+        threshold=1.0,
         dist_dir=dist_dir,
         tracking_uri=f"sqlite:///{db_file}",
     )
@@ -97,3 +98,18 @@ def test_train_theme_classifier_e2e(tmp_path):
     assert (dist_dir / "confusion_matrix.json").exists()
     assert (dist_dir / "classification_report.json").exists()
     assert (dist_dir / "theme_classes.json").exists()
+
+    # Operational policy must be evaluated, not just argmax.
+    comparison = result["comparison"]
+    assert comparison["torch"]["threshold_policy"]["abstention_count"] > 0
+    assert comparison["torch"]["threshold_policy"]["determined_coverage"] == 0
+    assert set(comparison) >= {"torch", "numpy", "majority_baseline"}
+    manifest = json.loads((dist_dir / "split_manifest.json").read_text())
+    splits = manifest["splits"]
+    groups = [{row["group_id"] for row in splits[name]} for name in ("train", "validation", "test")]
+    assert groups[0].isdisjoint(groups[1])
+    assert groups[0].isdisjoint(groups[2])
+    assert groups[1].isdisjoint(groups[2])
+    assert len(manifest["dataset_sha256"]) == 64
+    assert (dist_dir / "best_numpy_mlp.npz").exists()
+    assert (dist_dir / "comparison_report.json").exists()

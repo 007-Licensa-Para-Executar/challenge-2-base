@@ -1,169 +1,181 @@
-"""Testes unitários para o inferenciador e decompositor temático ClinicalThemePredictor."""
+"""Contract tests with controlled weights, independent of local trained artefacts."""
 
+import joblib
 import pytest
+import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from models.predictor import (
-    ClinicalThemePredictor,
-    DiaryTopicBreakdown,
-    TopicDistribution,
-)
+from models.predictor import ClinicalThemePredictor, DiaryTopicBreakdown, TopicDistribution
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 
-@pytest.fixture(scope="module")
-def predictor():
-    """Instância compartilhada do preditor carregando os artefatos de dist/."""
-    return ClinicalThemePredictor()
+@pytest.mark.parametrize("flags", [[], ["--destrinchar"]])
+def test_cli_distinguishes_abstention_from_candidate_score(predictor, monkeypatch, capsys, flags):
+    import models.predictor as module
+
+    monkeypatch.setattr(module, "ClinicalThemePredictor", lambda: predictor)
+    monkeypatch.setattr("sys.argv", ["predictor", "--text", "palavras desconhecidas aqui.", *flags])
+    module.main()
+    output = capsys.readouterr().out
+    assert "outros_indeterminado" in output
+    assert "below_threshold" in output
+    assert "Candidato" in output
+    assert "não calibrado" in output
 
 
-def test_predictor_initialization_with_defaults(predictor):
-    """Valida inicialização padrão carregando os artefatos persistidos."""
-    assert predictor.model is not None
-    assert predictor.vectorizer is not None
+@pytest.fixture
+def components():
+    """A real MLP wired to controlled features; these are not quality benchmarks."""
+    vectorizer = TfidfVectorizer().fit(THEME_CLASSES)
+    model = ClinicalThemeMLP(input_dim=len(vectorizer.vocabulary_))
+    with torch.no_grad():
+        for parameter in model.parameters():
+            parameter.zero_()
+        model.bn1.weight.fill_(1.0)
+        model.bn1.running_mean.zero_()
+        model.bn1.running_var.fill_(1.0)
+        for idx, theme in enumerate(THEME_CLASSES):
+            model.fc1.weight[idx, vectorizer.vocabulary_[theme]] = 1.0
+            model.fc2.weight[idx, idx] = 1.0
+            model.fc3.weight[idx, idx] = 20.0
+    return model, vectorizer
+
+
+@pytest.fixture
+def predictor(components):
+    model, vectorizer = components
+    return ClinicalThemePredictor(model=model, vectorizer=vectorizer)
+
+
+def test_initialization_from_injected_components(predictor):
     assert isinstance(predictor.model, ClinicalThemeMLP)
-    assert isinstance(predictor.vectorizer, TfidfVectorizer)
     assert not predictor.model.training
 
 
-def test_predictor_predict_text_theme_separation(predictor):
-    """Valida a separação de temas com percentuais claros (ex: alto trabalho, baixo familia)."""
-    text = (
-        "Acabei de sair de uma reuniao com a diretoria da empresa e a pressao "
-        "por metas no trabalho esta insuportavel."
-    )
-    result = predictor.predict_text(text)
+def test_load_artefacts_created_in_temporary_directory(components, tmp_path):
+    model, vectorizer = components
+    model_path = tmp_path / "pesos.pt"
+    vectorizer_path = tmp_path / "vetorizador.joblib"
+    torch.save(model.state_dict(), model_path)
+    joblib.dump(vectorizer, vectorizer_path)
+    loaded = ClinicalThemePredictor(model_path=model_path, vectorizer_path=vectorizer_path)
+    assert loaded.predict_text("trabalho").primary_theme == "trabalho"
 
+
+def test_missing_artefacts_are_explicit(tmp_path):
+    with pytest.raises(FileNotFoundError, match="TF-IDF"):
+        ClinicalThemePredictor(vectorizer_path=tmp_path / "missing.joblib")
+
+
+def test_missing_weights_are_explicit(components, tmp_path):
+    _, vectorizer = components
+    with pytest.raises(FileNotFoundError, match="Pesos"):
+        ClinicalThemePredictor(vectorizer=vectorizer, model_path=tmp_path / "missing.pt")
+
+
+def test_scores_do_not_claim_multiple_topics(predictor):
+    result = predictor.predict_text("trabalho")
     assert isinstance(result, TopicDistribution)
     assert result.primary_theme == "trabalho"
-    assert result.confidence > 0.50
+    assert result.candidate_theme == "trabalho"
     assert not result.is_fallback
-
-    # Percentuais devem somar ~100.0%
-    total_pct = sum(result.percentages.values())
-    assert abs(total_pct - 100.0) < 0.2
-
-    # Probabilidades devem somar ~1.0
-    total_prob = sum(result.probabilities.values())
-    assert abs(total_prob - 1.0) < 0.01
-
-    # O tema principal deve ter o maior percentual
-    assert result.percentages["trabalho"] > 50.0
-    # Outros temas devem ter percentuais baixos ou próximos de zero
-    assert result.percentages["familia"] < 10.0
-    assert result.percentages["estudos"] < 10.0
-
-    # Validação do ranking ordenado decrescente
+    assert result.abstention_reason is None
+    assert result.score_semantics == "uncalibrated_softmax"
+    assert sum(result.probabilities.values()) == pytest.approx(1, abs=0.001)
+    assert sum(result.percentages.values()) == pytest.approx(100, abs=0.1)
+    assert len(result.top_topics) == 1
     assert result.ranking[0]["tema"] == "trabalho"
-    for i in range(len(result.ranking) - 1):
-        assert result.ranking[i]["percentual"] >= result.ranking[i + 1]["percentual"]
+    assert result.to_dict()["score_semantics"] == "uncalibrated_softmax"
 
 
-def test_predictor_destrinchar_diario_multi_topic(predictor):
-    """Valida o destrinchamento de diário contendo múltiplos tópicos e evidências literais.
+def test_low_score_abstention_keeps_candidate_score(predictor):
+    result = predictor.predict_text("vocabulário desconhecido")
+    assert result.is_fallback
+    assert result.primary_theme == "outros_indeterminado"
+    assert result.candidate_theme in THEME_CLASSES
+    assert result.confidence == pytest.approx(1 / len(THEME_CLASSES), abs=0.0001)
+    assert result.abstention_reason == "below_threshold"
+    assert result.top_topics == []
 
-    Demonstra que o diário é decomposto em tópicos com pesos proporcionais (ex: 60% tema_1,
-    15% tema_3, 0% tema_2) e citações literais ancoradas com fidelidade estrita.
-    """
-    text = (
-        "Acabei de sair de uma reuniao com a diretoria da empresa e a pressao por metas no trabalho esta insuportavel. "
-        "Ao mesmo tempo meu casamento esta em crise e meu marido reclama que estamos distantes. "
-        "Para piorar tive uma insonia horrivel e dor no corpo a noite toda."
+
+def test_empty_input_does_not_fabricate_confidence(predictor, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Empty input must not invoke the model")
+
+    monkeypatch.setattr(predictor.model, "predict_proba", forbidden)
+    result = predictor.predict_text(" \r\n ")
+    assert result.confidence == 0
+    assert result.candidate_theme is None
+    assert result.abstention_reason == "empty_input"
+    assert sum(result.probabilities.values()) == 0
+    assert result.ranking == []
+
+
+def test_segment_weights_are_measured_character_shares(predictor):
+    text = "trabalho trabalho. familia familia familia. saude_sono saude_sono."
+    result = predictor.destrinchar_diario(text, min_segment_chars=3)
+    assert isinstance(result, DiaryTopicBreakdown)
+    assert len(result.segments) == 3
+    assert [s.theme for s in result.segments] == ["trabalho", "familia", "saude_sono"]
+    count = sum(len(s.quote) for s in result.segments)
+    assert result.analyzed_chars == count
+    assert result.total_chars == len(text)
+    assert result.omitted_chars == len(text) - count
+    assert result.coverage_ratio == pytest.approx(count / len(text))
+    assert result.weight_basis == "analyzed_characters"
+    assert result.topic_weights["familia"] == pytest.approx(
+        100 * len(result.segments[1].quote) / count, abs=0.01
     )
-
-    breakdown = predictor.destrinchar_diario(text, min_segment_chars=15)
-
-    assert isinstance(breakdown, DiaryTopicBreakdown)
-    assert len(breakdown.segments) == 3
-
-    # Segmento 1: Trabalho
-    seg1 = breakdown.segments[0]
-    assert seg1.theme == "trabalho"
-    assert "trabalho" in seg1.quote.lower() or "empresa" in seg1.quote.lower()
-
-    # Segmento 2: Relacionamentos
-    seg2 = breakdown.segments[1]
-    assert seg2.theme == "relacionamentos"
-    assert "casamento" in seg2.quote.lower() or "marido" in seg2.quote.lower()
-
-    # Segmento 3: Saúde & Sono
-    seg3 = breakdown.segments[2]
-    assert seg3.theme == "saude_sono"
-    assert "insonia" in seg3.quote.lower() or "corpo" in seg3.quote.lower()
-
-    # Validação de ancoragem literal de citações (Span Fidelity):
-    # O trecho extraído deve coincidir rigorosamente com o texto original
-    for seg in breakdown.segments:
-        assert text[seg.start_char : seg.end_char] == seg.quote
-
-    # Validação de pesos proporcionais por tópico no diário
-    assert breakdown.topic_weights["trabalho"] > 0.0
-    assert breakdown.topic_weights["relacionamentos"] > 0.0
-    assert breakdown.topic_weights["saude_sono"] > 0.0
-    # Temas não abordados devem ter 0.0%
-    assert breakdown.topic_weights["familia"] == 0.0
-    assert breakdown.topic_weights["estudos"] == 0.0
-    assert breakdown.topic_weights["financas"] == 0.0
-    assert breakdown.topic_weights["luto"] == 0.0
-
-    # Tópicos detectados
-    assert "trabalho" in breakdown.detected_topics
-    assert "relacionamentos" in breakdown.detected_topics
-    assert "saude_sono" in breakdown.detected_topics
-    assert "familia" not in breakdown.detected_topics
-
-    # Resumo descritivo presente
-    assert isinstance(breakdown.summary, str)
-    assert "trabalho" in breakdown.summary
+    assert sum(result.topic_weights.values()) == pytest.approx(100, abs=0.1)
+    assert result.topic_weights["estudos"] == 0
+    for segment in result.segments:
+        assert text[segment.start_char : segment.end_char] == segment.quote
 
 
-def test_predictor_empty_and_neutral_fallback(predictor):
-    """Valida salvaguarda em textos vazios ou sem conteúdo clínico claro."""
-    # 1. Texto vazio
-    empty_res = predictor.predict_text("")
-    assert empty_res.primary_theme == "outros_indeterminado"
-    assert empty_res.is_fallback is True
-
-    empty_breakdown = predictor.destrinchar_diario("")
-    assert empty_breakdown.global_theme == "outros_indeterminado"
-    assert len(empty_breakdown.segments) == 0
-
-    # 2. Texto neutro cotidiano
-    neutral_text = "Hoje fui na padaria comprar pao e voltei ouvindo o barulho da chuva."
-    neutral_res = predictor.predict_text(neutral_text)
-    assert isinstance(neutral_res, TopicDistribution)
-    # Deve recair em outros_indeterminado
-    assert neutral_res.primary_theme == "outros_indeterminado"
+def test_unicode_crlf_and_short_segment_coverage(predictor):
+    text = "Oi!\r\n  família 🧡 trabalho trabalho!\r\nSim."
+    result = predictor.destrinchar_diario(text, min_segment_chars=15)
+    assert len(result.segments) == 1
+    segment = result.segments[0]
+    assert text[segment.start_char : segment.end_char] == segment.quote
+    assert segment.quote == "família 🧡 trabalho trabalho!"
+    assert result.omitted_chars == len(text) - len(segment.quote)
+    assert 0 < result.coverage_ratio < 1
 
 
-def test_predictor_batch_prediction(predictor):
-    """Valida inferência vetorizada em lote."""
-    texts = [
-        "Reuniao com meu chefe sobre metas de trabalho.",
-        "Meu casamento esta em crise e discutimos.",
-        "Nao durmo faz tres dias com insonia e cansaco.",
-    ]
-    results = predictor.predict_batch(texts)
-    assert len(results) == 3
-    for res in results:
-        assert isinstance(res, TopicDistribution)
-        assert res.primary_theme in THEME_CLASSES
-        assert abs(sum(res.percentages.values()) - 100.0) < 0.2
+def test_no_segments_has_no_textual_distribution(predictor):
+    result = predictor.destrinchar_diario("trabalho", min_segment_chars=15)
+    assert result.global_theme == "trabalho"
+    assert sum(result.theme_percentages.values()) == pytest.approx(100, abs=0.1)
+    assert sum(result.topic_weights.values()) == 0
+    assert result.detected_topics == []
+    assert result.analyzed_chars == 0
+    assert result.omitted_chars == len("trabalho")
+    assert result.coverage_ratio == 0
 
 
-def test_predictor_custom_instances():
-    """Valida construção injetando modelos e vetorizadores customizados em memória."""
-    vectorizer = TfidfVectorizer(max_features=32)
-    corpus = [
-        "trabalho empresa chefe",
-        "familia pai mae irmao",
-        "dia neutro padaria chuva",
-    ]
-    vectorizer.fit(corpus)
+def test_empty_breakdown_has_zero_coverage(predictor):
+    result = predictor.destrinchar_diario("")
+    assert result.global_confidence == 0
+    assert result.total_chars == result.analyzed_chars == result.omitted_chars == 0
+    assert result.coverage_ratio == 0
+    assert result.detected_topics == []
+    assert sum(result.topic_weights.values()) == 0
 
-    model = ClinicalThemeMLP(input_dim=len(vectorizer.vocabulary_), num_classes=9)
-    custom_predictor = ClinicalThemePredictor(model=model, vectorizer=vectorizer)
 
-    res = custom_predictor.predict_text("trabalho empresa")
-    assert isinstance(res, TopicDistribution)
-    assert len(res.percentages) == 9
+def test_batch_preserves_order_and_abstention(predictor):
+    results = predictor.predict_batch(["trabalho", "familia", ""])
+    assert [r.primary_theme for r in results] == ["trabalho", "familia", "outros_indeterminado"]
+
+
+@pytest.mark.parametrize("threshold", [-0.1, 1.1, float("nan")])
+def test_invalid_threshold_rejected(predictor, threshold):
+    with pytest.raises(ValueError, match="threshold"):
+        predictor.predict_text("trabalho", threshold=threshold)
+
+
+def test_invalid_segment_configuration_rejected(predictor):
+    with pytest.raises(ValueError, match="positivo"):
+        predictor.destrinchar_diario("trabalho", min_segment_chars=0)
+    with pytest.raises(ValueError, match="segment_threshold"):
+        predictor.destrinchar_diario("trabalho", segment_threshold=2)

@@ -1,19 +1,19 @@
-"""Divisão determinística estratificada de dataset sintético em Treino (70%),
+"""Deterministic class-aware split of source families, not individual rows.
 
-Validação (15%) e Holdout Cego (15%).
+Ratios are approximate because entire families stay together. Known template
+variants and exact duplicates are grouped even when their row IDs differ.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import logging
+import random
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from sklearn.model_selection import train_test_split
-
-logger = logging.getLogger(__name__)
+from data.synthetic_generator import infer_template_group
 
 
 def stratified_split_dataset(
@@ -24,97 +24,85 @@ def stratified_split_dataset(
     test_size: float = 0.15,
     random_state: int = 42,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Divide registros em treino, validação e teste de forma estratificada."""
-    total = train_size + val_size + test_size
-    if abs(total - 1.0) > 1e-4:
-        raise ValueError(f"Soma das proporções deve ser 1.0, obteve {total:.4f}")
+    """Keep source groups and known template/exact-text duplicates disjoint.
 
-    labels = [r[label_key] for r in records]
+    Each source-family group must have one label. At least three independent
+    families per observed class are required; no silent unstratified fallback.
+    """
+    ratios = (train_size, val_size, test_size)
+    if min(ratios) <= 0 or abs(sum(ratios) - 1) > 1e-6:
+        raise ValueError("Positive split proportions must sum to 1")
+    if not records:
+        raise ValueError("Dataset is empty")
+    parent = list(range(len(records)))
 
-    # Primeira divisão: Treino vs Resto (Validação + Teste)
-    temp_size = val_size + test_size
-    train_data, temp_data, _, temp_labels = train_test_split(
-        records,
-        labels,
-        test_size=temp_size,
-        stratify=labels,
-        random_state=random_state,
-    )
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
 
-    # Segunda divisão: Validação vs Teste (50% do Resto se val_size == test_size)
-    relative_test_size = test_size / temp_size
-    val_data, test_data = train_test_split(
-        temp_data,
-        test_size=relative_test_size,
-        stratify=temp_labels,
-        random_state=random_state,
-    )
+    seen = {}
+    for i, row in enumerate(records):
+        text = row.get("texto") or row.get("text", "")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("Each record requires non-empty text")
+        keys = [("family", infer_template_group(text))]
+        explicit = row.get("group_id") or row.get("template_id")
+        if explicit:
+            keys.append(("source", str(explicit)))
+        for key in keys:
+            if key in seen:
+                parent[find(i)] = find(seen[key])
+            else:
+                seen[key] = i
+    families = defaultdict(list)
+    for i, row in enumerate(records):
+        families[find(i)].append(row)
+    by_class = defaultdict(list)
+    for rows in families.values():
+        labels = {row[label_key] for row in rows}
+        if len(labels) != 1:
+            raise ValueError("A source/template family has conflicting labels")
+        by_class[next(iter(labels))].append(rows)
+    result = [[], [], []]
+    rng = random.Random(random_state)
+    for label in sorted(by_class, key=str):
+        groups = by_class[label]
+        if len(groups) < 3:
+            raise ValueError(f"Class {label!r} requires at least 3 independent source families")
+        rng.shuffle(groups)
+        n_val = max(1, round(len(groups) * val_size))
+        n_test = max(1, round(len(groups) * test_size))
+        if n_val + n_test >= len(groups):
+            raise ValueError("Not enough groups for requested proportions")
+        ranges = (groups[n_val + n_test :], groups[:n_val], groups[n_val : n_val + n_test])
+        for dest, subset in zip(result, ranges, strict=True):
+            dest.extend(row for group in subset for row in group)
+    return tuple(result)
 
-    return train_data, val_data, test_data
 
-
-def save_split_files(
-    train_data: list[dict[str, Any]],
-    val_data: list[dict[str, Any]],
-    test_data: list[dict[str, Any]],
-    output_dir: str | Path = "data/synthetic",
-) -> None:
-    """Salva as divisões em arquivos JSON separados."""
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    with open(out_dir / "train_split.json", "w", encoding="utf-8") as f:
-        json.dump(train_data, f, ensure_ascii=False, indent=2)
-
-    with open(out_dir / "val_split.json", "w", encoding="utf-8") as f:
-        json.dump(val_data, f, ensure_ascii=False, indent=2)
-
-    with open(out_dir / "holdout_split.json", "w", encoding="utf-8") as f:
-        json.dump(test_data, f, ensure_ascii=False, indent=2)
-
-    logger.info(
-        "Divisão concluída! Treino: %d, Validação: %d, Holdout: %d salvos em %s",
-        len(train_data),
-        len(val_data),
-        len(test_data),
-        out_dir,
-    )
+def save_split_files(train_data, val_data, test_data, output_dir="data/synthetic") -> None:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in zip(
+        ("train", "val", "holdout"), (train_data, val_data, test_data), strict=True
+    ):
+        (out / f"{name}_split.json").write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Script de divisão estratificada do dataset")
-    parser.add_argument(
-        "--input",
-        "-i",
-        type=str,
-        default="data/synthetic/synthetic_diaries.json",
-        help="Caminho do dataset sintético de entrada",
-    )
-    parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        default="data/synthetic",
-        help="Diretório para salvar as divisões",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Semente aleatória para reprodutibilidade",
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", "-i", default="data/synthetic/synthetic_diaries.json")
+    parser.add_argument("--output-dir", "-o", default="data/synthetic")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    input_path = Path(args.input)
-    if not input_path.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
-
-    with open(input_path, "r", encoding="utf-8") as f:
-        records = json.load(f)
-
-    train, val, test = stratified_split_dataset(records, random_state=args.seed)
-    save_split_files(train, val, test, output_dir=args.output_dir)
+    records = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    save_split_files(
+        *stratified_split_dataset(records, random_state=args.seed), output_dir=args.output_dir
+    )
 
 
 if __name__ == "__main__":

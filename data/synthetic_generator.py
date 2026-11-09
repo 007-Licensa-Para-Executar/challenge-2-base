@@ -1,12 +1,13 @@
-"""Gerador de relatos clínicos sintéticos parametrizado por personas psicológicas.
+"""Gerador de relatos fictícios por perfis e templates locais.
 
-Baseado na metodologia do PsychAdapter (Nature/arXiv 2024/2025) e simulações
-clínicas da Universidade de Ulster (2024-2026).
+Rótulos e conteúdo são sintéticos e não revisados; não há validação clínica
+nem reprodução demonstrada de um framework científico externo.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import random
@@ -61,8 +62,8 @@ DEFAULT_PERSONAS: list[dict[str, Any]] = [
     },
 ]
 
-GENERATOR_PROMPT_TEMPLATE = """Você é um simulador de diários íntimos de saúde mental baseado no framework PsychAdapter.
-Sua tarefa é redigir um desabafo autêntico em português de 1 a 3 parágrafos, como se fosse a persona descrita abaixo.
+GENERATOR_PROMPT_TEMPLATE = """Você produz relatos inteiramente fictícios para testes de classificação temática.
+Sua tarefa é redigir um desabafo fictício em português de 1 a 3 parágrafos, como se fosse a persona descrita abaixo.
 
 PERSONA:
 Nome/Perfil: {nome}
@@ -76,7 +77,7 @@ DIRETRIZES:
 3. Retorne EXCLUSIVAMENTE o texto puro do diário.
 """
 
-# Pool de modelos templates sintéticos offline de alta fidelidade
+# Pool de modelos templates sintéticos offline não revisados
 _OFFLINE_TEMPLATES: dict[str, dict[str, list[str]]] = {
     "persona_universitario": {
         "estudos": [
@@ -252,12 +253,26 @@ def load_personas(personas_path: Path | str | None = None) -> list[dict[str, Any
     return DEFAULT_PERSONAS
 
 
+def infer_template_group(text: str) -> str:
+    """Identify known template families; unknown texts get exact-content grouping.
+
+    This cannot discover arbitrary paraphrases from external/LLM-generated corpora.
+    Such corpora must provide their own source-family group_id.
+    """
+    candidates = [
+        base for pool in _OFFLINE_TEMPLATES.values() for texts in pool.values() for base in texts
+    ] + _SAFEGUARD_TEMPLATES
+    matches = [base for base in candidates if base in text]
+    canonical = max(matches, key=len) if matches else " ".join(text.split())
+    return "template_" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:20]
+
+
 def generate_single_report_offline(
     persona: dict[str, Any],
     theme: str,
     random_state: random.Random | None = None,
 ) -> str:
-    """Gera um relato sintético offline de alta fidelidade psicológica."""
+    """Gera um relato fictício offline; não representa uma pessoa real."""
     rng = random_state or random.Random()
     persona_id = persona.get("id", "persona_universitario")
 
@@ -324,6 +339,7 @@ def generate_single_report_ollama(
             f"{ollama_url.rstrip('/')}/api/chat",
             json={
                 "model": model,
+                "stream": False,
                 "messages": [{"role": "user", "content": prompt}],
                 "options": {"temperature": 0.85},
             },
@@ -357,7 +373,10 @@ def generate_synthetic_dataset(
         for i in range(samples_per_theme):
             persona = rng.choice(personas)
 
+            generation_method = "offline_template"
             if use_ollama:
+                import httpx
+
                 try:
                     text_content = generate_single_report_ollama(
                         persona=persona,
@@ -365,7 +384,8 @@ def generate_synthetic_dataset(
                         ollama_url=ollama_url,
                         model=model,
                     )
-                except (OSError, RuntimeError, ValueError) as err:
+                    generation_method = "ollama"
+                except (httpx.HTTPError, OSError, RuntimeError, ValueError) as err:
                     logger.warning(
                         "Ollama indisponível (%s). Alternando para gerador offline com templates.",
                         err,
@@ -380,6 +400,10 @@ def generate_synthetic_dataset(
                 "macro_tema": theme,
                 "texto": text_content,
                 "modalidade": "texto",
+                "group_id": infer_template_group(text_content),
+                "template_id": infer_template_group(text_content),
+                "label_origin": "synthetic_requested_theme_unreviewed",
+                "generation_method": generation_method,
             }
             dataset.append(record)
 
@@ -395,9 +419,7 @@ def generate_synthetic_dataset(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Gerador de Dataset Sintético Clínico (PsychAdapter/Ulster)"
-    )
+    parser = argparse.ArgumentParser(description="Gerador de Dataset Sintético Temático")
     parser.add_argument(
         "--output",
         "-o",

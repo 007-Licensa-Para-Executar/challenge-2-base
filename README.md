@@ -1,8 +1,7 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
-> 🚀 **Destaque do MVP (Branch `feat/dataset-neural-network-mvp`):**  
-> Implementamos o gerador de dados sintéticos clínicos baseado nas 4 personas do PsychAdapter/Ulster, a Rede Neural MLP dos 8 temas em PyTorch com baseline didático em NumPy puro, a esteira de MLOps com MLflow e 19 novos testes automatizados.  
-> 📖 **Consulte o guia completo de arquitetura e execução em [README_MVP.md](file:///README_MVP.md)**.
+> **MVP de classificação temática:** gerador de relatos fictícios, redes NumPy e PyTorch e avaliação com rastreamento no MLflow. As métricas são experimentais e devem ser obtidas com os grupos de origem separados.
+> Consulte [README_MVP.md](README_MVP.md) para instalação, treinamento, inferência e limitações.
 
 ## Quick start: abrir e usar
 

@@ -89,3 +89,35 @@ def test_numpy_mlp_predict_distribution_and_percentages():
     for p in pcts:
         assert len(p) == 9
         assert abs(sum(p.values()) - 100.0) < 0.1
+
+
+def test_analytical_gradients_match_finite_differences():
+    model = NumpyClinicalMLP(in_dim=3, h1=4, out_dim=2, lr=0)
+    x = np.array([[0.2, 0.4, 0.1], [0.8, 0.1, 0.7]])
+    target = np.eye(2)[[0, 1]]
+    model.forward(x)
+    gradients = model.backward(x, target)
+    eps = 1e-5
+    for name, gradient in zip(("W1", "b1", "W2", "b2"), gradients, strict=True):
+        weights = getattr(model, name)
+        for index in np.ndindex(weights.shape):
+            old = weights[index]
+            weights[index] = old + eps
+            plus = model.compute_loss(model.forward(x), target)
+            weights[index] = old - eps
+            minus = model.compute_loss(model.forward(x), target)
+            weights[index] = old
+            np.testing.assert_allclose(
+                gradient[index], (plus - minus) / (2 * eps), atol=1e-7, rtol=1e-5
+            )
+
+
+def test_seed_controls_training_without_global_rng():
+    x = np.arange(48).reshape(12, 4) / 48
+    y = np.arange(12) % 2
+    first = NumpyClinicalMLP(in_dim=4, h1=4, out_dim=2, random_state=7)
+    second = NumpyClinicalMLP(in_dim=4, h1=4, out_dim=2, random_state=7)
+    first.fit(x, y, epochs=3, batch_size=3)
+    np.random.seed(12345)
+    second.fit(x, y, epochs=3, batch_size=3)
+    np.testing.assert_array_equal(first.W1, second.W1)

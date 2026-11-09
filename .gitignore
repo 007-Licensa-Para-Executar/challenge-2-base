@@ -74,6 +74,7 @@ htmlcov/
 
 # Somente os arquivos sintéticos e geradores são versionados em data/.
 /data/*
+!/data/__init__.py
 !/data/personas.json
 !/data/synthetic_generator.py
 !/data/split.py
@@ -86,6 +87,7 @@ htmlcov/
 
 # Resultados, checkpoints, logs e arquivos temporários locais.
 /mlruns/
+/mlartifacts/
 /results/
 /reports/
 /artifacts/

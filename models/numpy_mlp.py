@@ -30,6 +30,7 @@ class NumpyClinicalMLP:
         self.lr = lr
 
         rng = np.random.RandomState(random_state)
+        self.rng = rng
         # Inicialização He (Kaiming) para a camada com ativação ReLU
         self.W1 = rng.randn(in_dim, h1) * np.sqrt(2.0 / in_dim)
         self.b1 = np.zeros((1, h1))
@@ -135,7 +136,7 @@ class NumpyClinicalMLP:
 
         for epoch in range(1, epochs + 1):
             # Embaralha os dados em cada época
-            indices = np.random.permutation(n_samples)
+            indices = self.rng.permutation(n_samples)
             X_shuffled = X[indices]
             y_shuffled = y_onehot[indices]
 
@@ -188,9 +189,7 @@ class NumpyClinicalMLP:
             for row in range(probs.shape[0])
         ]
 
-    def predict_percentages(
-        self, X: np.ndarray, round_digits: int = 2
-    ) -> list[dict[str, float]]:
+    def predict_percentages(self, X: np.ndarray, round_digits: int = 2) -> list[dict[str, float]]:
         """Retorna separação temática em percentuais (0.0% a 100.0%) por amostra."""
         distributions = self.predict_distribution(X)
         return [

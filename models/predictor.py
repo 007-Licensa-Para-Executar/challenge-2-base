@@ -1,11 +1,7 @@
-"""Serviço de inferência da Rede Neural para entendimento de diários e separação em tópicos.
+"""Inferência temática de textos sintéticos e segmentação com trechos literais.
 
-Cumpre os requisitos estabelecidos em docs/rede-neural.md, docs/deep-learning-neural.md
-e docs/agente1.md:
-- Compreensão de relatos de diários textuais com inferência rápida e determinística;
-- Separação percentual entre temas (ex: 60% tema_1, 15% tema_3, 0% tema_2);
-- Decomposição ("destrinchamento") do relato em tópicos e trechos literais (grounding);
-- Salvaguarda clínica matemática com fallback seguro para outros_indeterminado.
+Os scores softmax são não calibrados. A fração de caracteres analisados por tema
+é uma medida separada e não representa intensidade ou relevância clínica.
 """
 
 from __future__ import annotations
@@ -32,7 +28,7 @@ DEFAULT_VECTORIZER_PATH = Path("dist/tfidf_vectorizer.joblib")
 
 @dataclass
 class TopicDistribution:
-    """Distribuição de probabilidades e percentuais preditos pela rede neural."""
+    """Scores softmax não calibrados; campos percentuais são scores vezes 100."""
 
     primary_theme: str
     confidence: float
@@ -42,6 +38,9 @@ class TopicDistribution:
     ranking: list[dict[str, Any]]
     top_topics: list[dict[str, Any]]
     is_fallback: bool
+    candidate_theme: str | None
+    abstention_reason: str | None
+    score_semantics: str = "uncalibrated_softmax"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,6 +56,10 @@ class DiaryTopicSegment:
     theme: str
     confidence: float
     percentages: dict[str, float]
+    candidate_theme: str | None
+    is_fallback: bool
+    abstention_reason: str | None
+    score_semantics: str = "uncalibrated_softmax"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -74,6 +77,14 @@ class DiaryTopicBreakdown:
     segments: list[DiaryTopicSegment]
     detected_topics: list[str]
     summary: str
+    total_chars: int
+    analyzed_chars: int
+    omitted_chars: int
+    coverage_ratio: float
+    global_candidate_theme: str | None
+    global_abstention_reason: str | None
+    weight_basis: str = "analyzed_characters"
+    theme_score_semantics: str = "uncalibrated_softmax"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -114,39 +125,34 @@ class ClinicalThemePredictor:
                 )
             input_dim = len(self.vectorizer.vocabulary_)
             self.model = ClinicalThemeMLP(input_dim=input_dim, num_classes=len(THEME_CLASSES))
-            state_dict = torch.load(m_path, map_location=self.device)
+            state_dict = torch.load(m_path, map_location=self.device, weights_only=True)
             self.model.load_state_dict(state_dict)
             self.model.to(self.device)
 
         self.model.eval()
 
     def predict_text(self, text: str, threshold: float = 0.50) -> TopicDistribution:
-        """Processa um texto de diário e calcula a separação de temas com percentuais.
+        """Classifica um tema; não estima participação dos temas no texto.
 
-        Args:
-            text: Texto do relato do paciente.
-            threshold: Limiar de corte de salvaguarda (padrão 0.50). Se a probabilidade
-                máxima for menor que o limiar, ativa fallback para outros_indeterminado.
-
-        Returns:
-            TopicDistribution com tema primário, probabilidades e percentuais detalhados.
+        ``confidence`` é o maior score do candidato antes da abstenção. Os campos
+        ``probabilities``/``percentages`` são mantidos por compatibilidade e não
+        comprovam calibração. Entrada vazia não aciona a rede.
         """
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
         cleaned = text.strip() if isinstance(text, str) else ""
         if not cleaned:
-            # Caso vazio: fallback seguro
-            empty_probs = {theme: 0.0 for theme in THEME_CLASSES}
-            empty_probs["outros_indeterminado"] = 1.0
-            empty_pcts = {theme: 0.0 for theme in THEME_CLASSES}
-            empty_pcts["outros_indeterminado"] = 100.0
             return TopicDistribution(
                 primary_theme="outros_indeterminado",
-                confidence=1.0,
-                primary_percentage=100.0,
-                percentages=empty_pcts,
-                probabilities=empty_probs,
-                ranking=[{"tema": "outros_indeterminado", "percentual": 100.0, "probabilidade": 1.0}],
-                top_topics=[{"tema": "outros_indeterminado", "percentual": 100.0, "probabilidade": 1.0}],
+                confidence=0.0,
+                primary_percentage=0.0,
+                percentages={theme: 0.0 for theme in THEME_CLASSES},
+                probabilities={theme: 0.0 for theme in THEME_CLASSES},
+                ranking=[],
+                top_topics=[],
                 is_fallback=True,
+                candidate_theme=None,
+                abstention_reason="empty_input",
             )
 
         features = self.vectorizer.transform([cleaned]).toarray()
@@ -178,15 +184,19 @@ class ClinicalThemePredictor:
 
         ranking = sorted(
             [
-                {"tema": theme, "percentual": percentages[theme], "probabilidade": probabilities[theme]}
+                {
+                    "tema": theme,
+                    "percentual": percentages[theme],
+                    "probabilidade": probabilities[theme],
+                }
                 for theme in THEME_CLASSES
             ],
             key=lambda item: item["percentual"],
             reverse=True,
         )
 
-        # Tópicos com presença significativa (>= 1.0%)
-        top_topics = [item for item in ranking if item["percentual"] >= 1.0]
+        # Uma rede exclusiva não prova presença simultânea das outras categorias.
+        top_topics = [ranking[0]] if not is_fallback else []
 
         return TopicDistribution(
             primary_theme=primary_theme,
@@ -197,11 +207,11 @@ class ClinicalThemePredictor:
             ranking=ranking,
             top_topics=top_topics,
             is_fallback=is_fallback,
+            candidate_theme=predicted_theme,
+            abstention_reason="below_threshold" if is_fallback else None,
         )
 
-    def predict_batch(
-        self, texts: list[str], threshold: float = 0.50
-    ) -> list[TopicDistribution]:
+    def predict_batch(self, texts: list[str], threshold: float = 0.50) -> list[TopicDistribution]:
         """Executa a inferência vetorizada para um lote de relatos."""
         return [self.predict_text(text, threshold=threshold) for text in texts]
 
@@ -209,16 +219,18 @@ class ClinicalThemePredictor:
         self,
         text: str,
         threshold: float = 0.50,
-        segment_threshold: float = 0.30,
+        segment_threshold: float = 0.50,
         min_segment_chars: int = 15,
     ) -> DiaryTopicBreakdown:
-        """Decompõe o relato do paciente em tópicos, evidências literais e pesos proporcionais.
+        """Classifica sentenças e calcula sua fração dos caracteres analisados.
 
-        Conforme discutido nas diretrizes do projeto (docs/deep-learning-neural.md e
-        docs/agente1.md), cada oração/período é associada a seu tema e evidência literal,
-        permitindo ao psicólogo inspecionar a composição temática do diário (ex: 60% tema_1,
-        15% tema_3, 0% tema_2).
+        Segmentos curtos e espaços externos são omitidos da contagem. A cobertura
+        explicita essa omissão. Um mesmo segmento recebe somente um tema.
         """
+        if min_segment_chars < 1:
+            raise ValueError("min_segment_chars deve ser positivo")
+        if not 0.0 <= segment_threshold <= 1.0:
+            raise ValueError("segment_threshold deve estar entre 0 e 1")
         full_text = text if isinstance(text, str) else ""
         global_dist = self.predict_text(full_text, threshold=threshold)
 
@@ -226,12 +238,18 @@ class ClinicalThemePredictor:
             return DiaryTopicBreakdown(
                 text=full_text,
                 global_theme="outros_indeterminado",
-                global_confidence=1.0,
+                global_confidence=0.0,
                 theme_percentages=global_dist.percentages,
-                topic_weights={t: (100.0 if t == "outros_indeterminado" else 0.0) for t in THEME_CLASSES},
+                topic_weights={t: 0.0 for t in THEME_CLASSES},
                 segments=[],
-                detected_topics=["outros_indeterminado"],
+                detected_topics=[],
                 summary="Relato vazio ou sem conteúdo analisável.",
+                total_chars=len(full_text),
+                analyzed_chars=0,
+                omitted_chars=len(full_text),
+                coverage_ratio=0.0,
+                global_candidate_theme=global_dist.candidate_theme,
+                global_abstention_reason=global_dist.abstention_reason,
             )
 
         # Decomposição do texto em sentenças mantendo índices de início e fim exatos
@@ -261,6 +279,9 @@ class ClinicalThemePredictor:
                 theme=seg_theme,
                 confidence=seg_dist.confidence,
                 percentages=seg_dist.percentages,
+                candidate_theme=seg_dist.candidate_theme,
+                is_fallback=seg_dist.is_fallback,
+                abstention_reason=seg_dist.abstention_reason,
             )
             segments.append(segment)
 
@@ -275,30 +296,32 @@ class ClinicalThemePredictor:
                 for theme in THEME_CLASSES
             }
         else:
-            # Se nenhuma sentença atingiu o comprimento mínimo, usa a distribuição global
-            topic_weights = global_dist.percentages.copy()
+            # Sem segmento analisado, não há proporção textual para estimar.
+            topic_weights = {theme: 0.0 for theme in THEME_CLASSES}
 
         # Tópicos detectados com proporção relevante no relato (> 0%)
         detected = [
             theme
-            for theme, weight in sorted(topic_weights.items(), key=lambda item: item[1], reverse=True)
+            for theme, weight in sorted(
+                topic_weights.items(), key=lambda item: item[1], reverse=True
+            )
             if weight > 0.0
         ]
-        if not detected:
-            detected = [global_dist.primary_theme]
 
-        # Resumo clínico legível
+        # Resumo descritivo da contagem
         summary_parts = [
             f"{theme}: {weight:.1f}%"
-            for theme, weight in sorted(topic_weights.items(), key=lambda item: item[1], reverse=True)
+            for theme, weight in sorted(
+                topic_weights.items(), key=lambda item: item[1], reverse=True
+            )
             if weight > 0.0
         ]
         resumo = (
             f"Tema preponderante global: {global_dist.primary_theme} "
-            f"({global_dist.primary_percentage:.1f}%). "
-            f"Distribuição destrinchada nos segmentos do relato: " + ", ".join(summary_parts)
+            f"(score máximo do candidato: {global_dist.confidence:.4f}). "
+            f"Fração dos caracteres analisados por tema: " + ", ".join(summary_parts)
             if summary_parts
-            else f"Tema: {global_dist.primary_theme}"
+            else "Nenhum segmento atingiu o comprimento mínimo; pesos textuais indisponíveis."
         )
 
         return DiaryTopicBreakdown(
@@ -310,6 +333,12 @@ class ClinicalThemePredictor:
             segments=segments,
             detected_topics=detected,
             summary=resumo,
+            total_chars=len(full_text),
+            analyzed_chars=total_analyzed_chars,
+            omitted_chars=len(full_text) - total_analyzed_chars,
+            coverage_ratio=total_analyzed_chars / len(full_text),
+            global_candidate_theme=global_dist.candidate_theme,
+            global_abstention_reason=global_dist.abstention_reason,
         )
 
 
@@ -350,27 +379,39 @@ def main() -> None:
             print("=" * 60)
             print("DECOMPOSIÇÃO DE DIÁRIO EM TÓPICOS (REDE NEURAL MLP)")
             print("=" * 60)
-            print(f"Tema Preponderante Global: {breakdown.global_theme} ({breakdown.global_confidence * 100:.1f}%)")
+            print(f"Resultado global da política: {breakdown.global_theme}")
+            print(
+                f"Candidato global: {breakdown.global_candidate_theme}; "
+                f"score softmax não calibrado: {breakdown.global_confidence:.4f}; "
+                f"abstenção: {breakdown.global_abstention_reason}"
+            )
             print(f"Resumo: {breakdown.summary}\n")
-            print("Pesos Proporcionais por Tópico no Relato:")
+            print("Fração dos caracteres analisados por tema:")
             for t, w in sorted(breakdown.topic_weights.items(), key=lambda x: x[1], reverse=True):
                 if w > 0:
                     print(f"  - {t:<22}: {w:5.1f}%")
             print("\nSegmentos e Evidências Literais (Grounding):")
             for i, seg in enumerate(breakdown.segments, 1):
-                print(f"  [{i}] Tópico: {seg.theme} ({seg.confidence * 100:.1f}%) | Chars: {seg.start_char}-{seg.end_char}")
-                print(f"      \"{seg.quote}\"")
+                print(
+                    f"  [{i}] Resultado: {seg.theme} | Candidato: {seg.candidate_theme} | "
+                    f"Score do candidato: {seg.confidence:.4f} | "
+                    f"Abstenção: {seg.abstention_reason} | Chars: {seg.start_char}-{seg.end_char}"
+                )
+                print(f'      "{seg.quote}"')
     else:
         dist = predictor.predict_text(content)
         if args.json:
             print(json.dumps(dist.to_dict(), ensure_ascii=False, indent=2))
         else:
             print("=" * 60)
-            print("SEPARACAO TEMATICA DO DIARIO (PROBABILIDADES & PERCENTUAIS)")
+            print("CLASSIFICACAO TEMATICA (SCORES SOFTMAX NAO CALIBRADOS)")
             print("=" * 60)
-            print(f"Tema Primario: {dist.primary_theme} ({dist.primary_percentage:.1f}%)")
-            print(f"Confianca: {dist.confidence:.4f} | Fallback Salvaguarda: {dist.is_fallback}\n")
-            print("Distribuicao de Percentuais entre Todos os Temas:")
+            print(f"Resultado da política: {dist.primary_theme}")
+            print(
+                f"Candidato: {dist.candidate_theme} | Score softmax não calibrado: "
+                f"{dist.confidence:.4f} | Abstenção: {dist.abstention_reason}\n"
+            )
+            print("Ranking de scores por categoria (não é composição textual):")
             for item in dist.ranking:
                 bar = "#" * int(item["percentual"] // 4)
                 print(f"  - {item['tema']:<22}: {item['percentual']:6.2f}%  {bar}")

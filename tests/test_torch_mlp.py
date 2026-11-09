@@ -15,7 +15,7 @@ def test_torch_mlp_forward_and_prediction():
     logits = model(dummy_input)
     assert logits.shape == (4, 9)
 
-    # 2. Formato e calibração das probabilidades Softmax
+    # 2. Normalização dos scores Softmax (não comprova calibração)
     probs = model.predict_proba(dummy_input)
     assert probs.shape == (4, 9)
     # A soma das probabilidades de cada linha deve ser 1.0 (margem de tolerância numérica)

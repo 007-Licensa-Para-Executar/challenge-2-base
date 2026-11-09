@@ -1,6 +1,6 @@
 """Implementação da Rede Neural Perceptron Multicamadas (MLP) em PyTorch para
 
-classificação dos 8 macrotemas clínicos + classe de salvaguarda.
+classificação dos 8 macrotemas clínicos + classe indeterminada.
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ class ClinicalThemeMLP(nn.Module):
         return logits
 
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        """Calcula distribuição de probabilidades calibrada via Softmax."""
+        """Retorna scores softmax normalizados, sem garantia de calibração."""
         was_training = self.training
         self.eval()
         with torch.no_grad():
@@ -90,11 +90,13 @@ class ClinicalThemeMLP(nn.Module):
     def predict(
         self, x: torch.Tensor, threshold: float = 0.50
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Prediz classe com salvaguarda matemática.
+        """Prediz classe com regra operacional de abstenção.
 
         Se a probabilidade máxima for inferior ao limiar de corte (`threshold`),
         retorna a classe de fallback `outros_indeterminado` (índice 8).
         """
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
         probs = self.predict_proba(x)
         max_probs, preds = torch.max(probs, dim=-1)
 
@@ -115,10 +117,8 @@ class ClinicalThemeMLP(nn.Module):
             for row in range(probs_np.shape[0])
         ]
 
-    def predict_percentages(
-        self, x: torch.Tensor, round_digits: int = 2
-    ) -> list[dict[str, float]]:
-        """Retorna separação temática em percentuais (0.0% a 100.0%) por amostra."""
+    def predict_percentages(self, x: torch.Tensor, round_digits: int = 2) -> list[dict[str, float]]:
+        """Retorna scores softmax vezes 100; não representa composição textual."""
         distributions = self.predict_distribution(x)
         return [
             {theme: round(prob * 100.0, round_digits) for theme, prob in dist.items()}

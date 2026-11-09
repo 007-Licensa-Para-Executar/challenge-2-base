@@ -1,5 +1,7 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+> **MVP de RAG + rede temática:** consulta de diários inteiramente fictícios por pessoa e período, com fontes originais. Comece pelo [guia de integração e demonstração](docs/rag-mvp-integrado-rede.md). A recuperação extrativa funciona sem pesos ou Ollama; embeddings e síntese local são modos explícitos. Consulte as limitações e os resultados dos experimentos antes de interpretar as saídas.
+
 > **MVP de classificação temática:** gerador de relatos fictícios, redes NumPy e PyTorch e avaliação com rastreamento no MLflow. As métricas são experimentais e devem ser obtidas com os grupos de origem separados.
 > Consulte [README_MVP.md](README_MVP.md) para instalação, treinamento, inferência e limitações.
 

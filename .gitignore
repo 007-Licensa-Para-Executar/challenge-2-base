@@ -90,6 +90,7 @@ htmlcov/
 /temp/
 /mlruns/
 mlruns.db*
+*-artifacts/
 *.log
 *.pid
 *.tmp

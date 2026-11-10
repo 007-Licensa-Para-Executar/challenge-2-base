@@ -9,8 +9,9 @@ dependencies = [
     "httpx>=0.28,<1",
     "prompt-toolkit>=3.0.50,<4",
     "vadersentiment>=3.3.2,<4",
-    "mlflow>=3.18.0",
-    "scikit-learn>=1.9.1",
+    "mlflow>=3.18.0,<4",
+    "scikit-learn>=1.9.1,<2",
+    "matplotlib>=3.11,<4",
 ]
 
 [project.scripts]
@@ -18,7 +19,7 @@ bem-estar = "app.shell:main"
 bem-estar-route-evaluate = "evaluation.router:main"
 bem-estar-extract = "agents.extractor.cli:main"
 bem-estar-evaluate = "evaluation.runner:main"
-bem-estar-mlops = "mlops.pipeline:main"
+bem-estar-mlops = "mlops.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.13,<1"]

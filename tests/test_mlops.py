@@ -5,9 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from mlflow.tracking import MlflowClient
 
 from mlops.config import MLOpsConfig
-from mlops.pipeline import compute_file_sha256, load_dataset, run_mlops_pipeline
+from mlops.data import compute_file_sha256, load_dataset
+from mlops.gate import should_promote
+from mlops.pipeline import run_mlops_pipeline
+from mlops.store import sqlite_artifact_uri
+from mlops.tracker import MLOpsTracker
 from models.baseline import SentimentBaselineClassifier
 from models.neural_net import SentimentNeuralNetClassifier
 
@@ -63,14 +68,14 @@ def test_neural_net_classifier_lifecycle(tmp_path: Path):
     assert "confusion_matrix" in eval_results
     assert len(model.loss_curve_) > 0
 
-    # Teste de persistência (save e load)
     model_file = tmp_path / "model.joblib"
     model.save(model_file)
     assert model_file.exists()
 
     loaded_model = SentimentNeuralNetClassifier.load(model_file)
-    loaded_preds = loaded_model.predict(["Alegria e festa"])
-    assert loaded_preds == preds
+    assert loaded_model.hidden_layer_sizes == (16, 8)
+    assert loaded_model.max_iter == 150
+    assert loaded_model.predict(["Alegria e festa"]) == preds
 
 
 def test_compute_file_sha256(tmp_path: Path):
@@ -79,7 +84,6 @@ def test_compute_file_sha256(tmp_path: Path):
     hash_1 = compute_file_sha256(sample_file)
     assert len(hash_1) == 64
 
-    # Mesmo conteúdo gera mesmo hash
     sample_file_2 = tmp_path / "sample2.txt"
     sample_file_2.write_text("conteúdo de teste para hash", encoding="utf-8")
     assert compute_file_sha256(sample_file_2) == hash_1
@@ -94,25 +98,119 @@ def test_load_dataset_dev():
     assert "tristeza" in labels
 
 
-def test_mlops_pipeline_end_to_end(tmp_path: Path):
-    db_file = tmp_path / "test_mlflow.db"
-    config = MLOpsConfig(
-        split="dev",
-        random_seed=42,
-        max_iter=30,
-        hidden_layer_sizes=[16, 8],
-        tracking_uri=f"sqlite:///{db_file.as_posix()}",
-        evaluate_holdout=True,
-    )
+def test_should_promote_requires_f1_above_baseline_and_threshold():
+    assert should_promote(0.40, 0.10, 0.25) is True
+    assert should_promote(0.20, 0.10, 0.25) is False
+    assert should_promote(0.40, 0.45, 0.25) is False
+    assert should_promote(0.25, 0.25, 0.25) is True
 
+
+def test_sqlite_artifact_uri_uses_sibling_directory(tmp_path: Path):
+    db_file = tmp_path / "experimento.db"
+    location = sqlite_artifact_uri(f"sqlite:///{db_file.as_posix()}")
+    artifact_dir = tmp_path / "experimento-artifacts"
+    assert artifact_dir.is_dir()
+    assert location == artifact_dir.resolve().as_uri()
+
+
+def test_holdout_cannot_train_and_evaluate_the_same_split():
+    config = MLOpsConfig(split="holdout", evaluate_holdout=True, tracking_uri="sqlite:///unused.db")
+    with pytest.raises(ValueError, match="holdout"):
+        run_mlops_pipeline(config)
+
+
+def test_tracker_marks_failed_run(tmp_path: Path):
+    db_file = tmp_path / "failed.db"
+    tracking_uri = f"sqlite:///{db_file.as_posix()}"
+    tracker = MLOpsTracker(tracking_uri=tracking_uri, experiment_name="falha-de-treino")
+
+    with pytest.raises(RuntimeError, match="falha de treino"), tracker:
+        tracker.start_run(run_name="boom")
+        raise RuntimeError("falha de treino")
+
+    client = MlflowClient(tracking_uri)
+    experiment = client.get_experiment_by_name("falha-de-treino")
+    assert experiment is not None
+    runs = client.search_runs([experiment.experiment_id])
+    assert len(runs) == 1
+    assert runs[0].info.status == "FAILED"
+
+
+def _pipeline_config(tmp_path: Path, name: str, **overrides: object) -> MLOpsConfig:
+    db_file = tmp_path / f"{name}.db"
+    values: dict[str, object] = {
+        "split": "dev",
+        "random_seed": 42,
+        "max_iter": 30,
+        "hidden_layer_sizes": [16, 8],
+        "tracking_uri": f"sqlite:///{db_file.as_posix()}",
+        "experiment_name": name,
+        "evaluate_holdout": False,
+    }
+    values.update(overrides)
+    return MLOpsConfig(**values)
+
+
+def test_mlops_pipeline_end_to_end(tmp_path: Path):
+    config = _pipeline_config(tmp_path, "e2e", evaluate_holdout=True)
     result = run_mlops_pipeline(config)
 
     assert result["status"] == "ok"
     assert result["run_id"] != "unknown"
     assert len(result["dataset_hash"]) == 64
     assert 0.0 <= result["baseline_val_accuracy"] <= 1.0
+    assert 0.0 <= result["baseline_val_f1_macro"] <= 1.0
     assert 0.0 <= result["val_accuracy"] <= 1.0
     assert 0.0 <= result["val_f1_macro"] <= 1.0
-    assert isinstance(result["promoted"], bool)
+    assert result["promoted"] is should_promote(
+        result["val_f1_macro"],
+        result["baseline_val_f1_macro"],
+        config.min_f1_macro,
+    )
     assert result["holdout"] is not None
     assert 0.0 <= result["holdout"]["accuracy"] <= 1.0
+    assert 0.0 <= result["holdout"]["f1_macro"] <= 1.0
+
+
+def test_rejected_model_is_not_registered_and_artifacts_stay_beside_db(tmp_path: Path):
+    config = _pipeline_config(tmp_path, "gate-rejeita", min_f1_macro=0.99, max_iter=15)
+    result = run_mlops_pipeline(config)
+
+    assert result["promoted"] is False
+    assert result["registered_model"] is None
+
+    client = MlflowClient(config.tracking_uri)
+    assert client.search_registered_models() == []
+    artifact_dir = tmp_path / "gate-rejeita-artifacts"
+    assert list(artifact_dir.rglob("confusion_matrix.png"))
+    assert list(artifact_dir.rglob("classification_report.json"))
+
+    experiment = client.get_experiment_by_name(config.experiment_name)
+    assert experiment is not None
+    run = client.get_run(result["run_id"])
+    assert run.data.tags["promoted"] == "false"
+    assert "model_promoted" not in run.data.params
+
+
+def test_promoted_model_is_registered(tmp_path: Path):
+    config = _pipeline_config(
+        tmp_path,
+        "gate-promove",
+        min_f1_macro=0.0,
+        model_name="mlp-teste-promocao",
+    )
+    result = run_mlops_pipeline(config)
+
+    assert result["promoted"] is True
+    assert result["registered_model"] == "mlp-teste-promocao"
+    client = MlflowClient(config.tracking_uri)
+    registered = client.search_registered_models(filter_string="name='mlp-teste-promocao'")
+    assert len(registered) == 1
+
+
+def test_same_seed_reproduces_validation_f1(tmp_path: Path):
+    first = run_mlops_pipeline(_pipeline_config(tmp_path, "repro-a", max_iter=20))
+    second = run_mlops_pipeline(_pipeline_config(tmp_path, "repro-b", max_iter=20))
+    assert first["val_f1_macro"] == second["val_f1_macro"]
+    assert first["val_accuracy"] == second["val_accuracy"]
+    assert first["dataset_hash"] == second["dataset_hash"]

@@ -18,7 +18,7 @@ class MLOpsConfig(BaseModel):
     )
     split: str = Field(
         default="dev",
-        description="Divisão do dataset para treino/validação ('dev' ou 'all')",
+        description="Split usado no treino. O holdout fica reservado à avaliação cega.",
     )
     test_size: float = Field(
         default=0.25,
@@ -62,7 +62,9 @@ class MLOpsConfig(BaseModel):
         default=False,
         description="Se verdadeiro, realiza teste cego final no split holdout",
     )
-    min_accuracy_threshold: float = Field(
-        default=0.20,
-        description="Acurácia mínima exigida para aprovação do modelo",
+    min_f1_macro: float = Field(
+        default=0.25,
+        ge=0.0,
+        le=1.0,
+        description="F1 macro mínimo na validação para promover o modelo",
     )

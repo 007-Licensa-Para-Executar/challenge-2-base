@@ -1,5 +1,7 @@
 # Guia de Desenvolvimento: Rede Neural Simples (Deep Learning MLP)
 
+**Estado atual.** A rede versionada classifica sentimento, não os macrotemas descritos abaixo. O código está em `models/neural_net.py` e `models/baseline.py`; o treino, o baseline e o MLflow estão em `mlops/` e em [`docs/mlops.md`](mlops.md). O desenho PyTorch e o baseline NumPy desta página ainda não têm arquivos no repositório.
+
 ## 1. Identificação e Propósito do Componente
 * **Arquivos no Código:** 
   - Produção (PyTorch): `models/torch_mlp.py` e `models/train.py`

@@ -7,16 +7,11 @@ from typing import Any
 
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
+from sklearn.metrics import confusion_matrix
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
+
+from models.metrics import score_predictions
 
 
 class SentimentNeuralNetClassifier:
@@ -89,18 +84,12 @@ class SentimentNeuralNetClassifier:
 
     def evaluate(self, texts: list[str], labels: list[str]) -> dict[str, Any]:
         """Calcula métricas de desempenho e matriz de confusão."""
-        preds = self.predict(texts)
+        predictions = self.predict(texts)
         classes = self.classes_
-        cm = confusion_matrix(labels, preds, labels=classes).tolist()
-        return {
-            "accuracy": float(accuracy_score(labels, preds)),
-            "f1_macro": float(f1_score(labels, preds, average="macro", zero_division=0)),
-            "precision_macro": float(precision_score(labels, preds, average="macro", zero_division=0)),
-            "recall_macro": float(recall_score(labels, preds, average="macro", zero_division=0)),
-            "confusion_matrix": cm,
-            "classes": classes,
-            "report": classification_report(labels, preds, output_dict=True, zero_division=0),
-        }
+        metrics = score_predictions(labels, predictions)
+        metrics["confusion_matrix"] = confusion_matrix(labels, predictions, labels=classes).tolist()
+        metrics["classes"] = classes
+        return metrics
 
     def save(self, filepath: Path | str) -> None:
         """Serializa o pipeline treinado."""
@@ -110,7 +99,18 @@ class SentimentNeuralNetClassifier:
 
     @classmethod
     def load(cls, filepath: Path | str) -> SentimentNeuralNetClassifier:
-        """Carrega um modelo serializado."""
-        instance = cls()
-        instance.pipeline = joblib.load(filepath)
+        """Carrega um modelo serializado e recupera os hiperparâmetros do pipeline."""
+        pipeline = joblib.load(filepath)
+        tfidf: TfidfVectorizer = pipeline.named_steps["tfidf"]
+        mlp: MLPClassifier = pipeline.named_steps["mlp"]
+        instance = cls(
+            hidden_layer_sizes=tuple(mlp.hidden_layer_sizes),
+            alpha=float(mlp.alpha),
+            learning_rate_init=float(mlp.learning_rate_init),
+            max_iter=int(mlp.max_iter),
+            random_state=int(mlp.random_state),
+            max_features=int(tfidf.max_features),
+            ngram_range=tuple(tfidf.ngram_range),
+        )
+        instance.pipeline = pipeline
         return instance

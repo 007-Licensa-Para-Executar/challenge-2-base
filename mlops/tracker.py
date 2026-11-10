@@ -27,7 +27,14 @@ class MLFlowTracker:
         self.db_uri = tracking_uri or os.environ.get("MLFLOW_TRACKING_URI") or db_uri
         self.tracking_uri = self.db_uri
         mlflow.set_tracking_uri(self.tracking_uri)
-        mlflow.set_experiment(self.experiment_name)
+        try:
+            mlflow.set_experiment(self.experiment_name)
+        except ModuleNotFoundError:
+            os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
+            db_dir = Path(self.tracking_uri.removeprefix("sqlite:///")).resolve().parent
+            self.tracking_uri = (db_dir / "mlruns").as_uri()
+            mlflow.set_tracking_uri(self.tracking_uri)
+            mlflow.set_experiment(self.experiment_name)
 
     def log_params(self, params: dict[str, Any]) -> None:
         """Registra dicionário de hiperparâmetros na run ativa."""

@@ -258,6 +258,7 @@ def train_theme_classifier(
                 optimizer.zero_grad()
                 loss = criterion(model(bx), by)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
                 train_loss += loss.item() * len(bx)
             numpy_loss = numpy_model.fit(x_train, y_train, epochs=1, batch_size=batch_size)[0]

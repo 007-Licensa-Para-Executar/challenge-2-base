@@ -118,3 +118,33 @@ def test_torch_mlp_predict_distribution_and_percentages():
     for p in pcts:
         assert len(p) == 9
         assert abs(sum(p.values()) - 100.0) < 0.1
+
+
+def test_torch_mlp_normalizations():
+    """Valida LayerNorm e RMSNorm no ClinicalThemeMLP."""
+    x = torch.randn(3, 32)
+    for norm in ("layer_norm", "rms_norm"):
+        model = ClinicalThemeMLP(input_dim=32, norm_type=norm)
+        probs = model.predict_proba(x)
+        assert probs.shape == (3, 9)
+        assert torch.allclose(probs.sum(dim=-1), torch.ones(3), atol=1e-5)
+
+
+def test_sequential_classifier_lstm_gru_rnn():
+    """Valida ClinicalSequentialClassifier (LSTM, GRU e RNN) com Embedding, LayerNorm e RMSNorm."""
+    from models.torch_mlp import ClinicalSequentialClassifier
+
+    tokens = torch.randint(0, 80, (4, 12))
+    for rec_type, norm in (("lstm", "layer_norm"), ("gru", "rms_norm"), ("rnn", "layer_norm")):
+        model = ClinicalSequentialClassifier(
+            vocab_size=80,
+            embed_dim=16,
+            hidden_dim=32,
+            recurrent_type=rec_type,
+            norm_type=norm,
+        )
+        probs = model.predict_proba(tokens)
+        assert probs.shape == (4, 9)
+        assert torch.allclose(probs.sum(dim=-1), torch.ones(4), atol=1e-5)
+        pcts = model.predict_percentages(tokens)
+        assert abs(sum(pcts[0].values()) - 100.0) < 0.1

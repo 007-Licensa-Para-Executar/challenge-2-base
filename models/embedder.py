@@ -246,14 +246,15 @@ class ClinicalTextEmbedder:
 
         # Inicialização com Semântica Distribucional (TruncatedSVD sobre co-ocorrência termo-documento)
         initialized_svd = False
+        self._svd_model: TruncatedSVD | None = None
         if (
             self.init_strategy == "svd"
             and len(texts) >= self.embedding_dim
             and vocab_size > self.embedding_dim + 2
         ):
             try:
-                # Constrói matriz esparsa termo-documento TF-IDF
-                term_doc = np.zeros((vocab_size, len(texts)), dtype=np.float32)
+                # Constrói matriz documento-termo TF-IDF: shape (n_docs, vocab_size)
+                doc_term = np.zeros((len(texts), vocab_size), dtype=np.float32)
                 for d_idx, doc_toks in enumerate(tokenized_docs):
                     doc_tok_counts: dict[str, int] = {}
                     for t in doc_toks:
@@ -263,11 +264,14 @@ class ClinicalTextEmbedder:
                         v_idx = self.vocab[t]
                         # Sublinear TF * IDF
                         tf = 1.0 + np.log(cnt)
-                        term_doc[v_idx, d_idx] = tf * self.idf_weights.get(t, 1.0)
+                        doc_term[d_idx, v_idx] = tf * self.idf_weights.get(t, 1.0)
 
-                svd = TruncatedSVD(n_components=self.embedding_dim, random_state=self.random_state)
-                svd_matrix = svd.fit_transform(term_doc)
-                self.embedding_matrix = svd_matrix.astype(np.float32)
+                self._svd_model = TruncatedSVD(
+                    n_components=self.embedding_dim, random_state=self.random_state
+                )
+                self._svd_model.fit(doc_term)
+                # Os pesos de embedding por palavra correspondem aos componentes LSA: shape (vocab_size, embedding_dim)
+                self.embedding_matrix = self._svd_model.components_.T.astype(np.float32)
                 self.embedding_matrix[self.PAD_IDX] = 0.0
                 if vocab_size > 2:
                     self.embedding_matrix[self.UNK_IDX] = (
@@ -276,6 +280,7 @@ class ClinicalTextEmbedder:
                 initialized_svd = True
             except Exception:
                 initialized_svd = False
+                self._svd_model = None
 
         if not initialized_svd:
             # Inicialização He / Xavier Normal para os pesos dos embeddings
@@ -321,6 +326,26 @@ class ClinicalTextEmbedder:
             raise RuntimeError(
                 "ClinicalTextEmbedder precisa ser ajustado com fit() antes de transform()."
             )
+
+        svd_model = getattr(self, "_svd_model", None)
+        if svd_model is not None and self.init_strategy == "svd":
+            vocab_size = len(self.vocab)
+            doc_term = np.zeros((len(texts), vocab_size), dtype=np.float32)
+            for d_idx, text in enumerate(texts):
+                toks = self._tokenize(text)
+                tok_cnt: dict[str, int] = {}
+                for t in toks:
+                    if t in self.vocab:
+                        tok_cnt[t] = tok_cnt.get(t, 0) + 1
+                for t, cnt in tok_cnt.items():
+                    v_idx = self.vocab[t]
+                    tf = 1.0 + np.log(cnt)
+                    doc_term[d_idx, v_idx] = tf * self.idf_weights.get(t, 1.0)
+            embeddings = svd_model.transform(doc_term).astype(np.float32)
+            if normalize:
+                norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+                embeddings = np.where(norms > 1e-9, embeddings / norms, embeddings)
+            return embeddings
 
         embeddings = np.zeros((len(texts), self.embedding_dim), dtype=np.float32)
 

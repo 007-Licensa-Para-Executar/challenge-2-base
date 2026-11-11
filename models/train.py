@@ -275,7 +275,7 @@ def train_theme_classifier(
                 numpy_probs, np.eye(len(THEME_CLASSES))[y_val]
             )
             scores = [
-                _metrics(y_val, _policy(p, threshold)[0])["macro_f1"]
+                _metrics(y_val, p.argmax(axis=1))["macro_f1"]
                 for p in (torch_probs, numpy_probs)
             ]
             metrics = {

@@ -30,9 +30,9 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 3. Guias de Inteligência Artificial e Dados
-* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
-  - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
-  - *Código:* `models/torch_mlp.py` e `models/train.py`.
+* [**`rede-neural.md`**](rede-neural.md): **Desenho de uma MLP para macrotemas clínicos**.
+  - *O que faz:* registra uma proposta ainda não implementada de classificador de temas em PyTorch e NumPy.
+  - *Código em uso:* a rede versionada classifica sentimento em `models/neural_net.py`. O ciclo de treino está em [`mlops.md`](mlops.md).
 * [**`banco-vetorial.md`**](file:///docs/banco-vetorial.md): **Banco Vetorial Local (`sqlite-vec`)**.
   - *O que faz:* Armazenamento relacional e vetorial de 384 dimensões 100% local, criptografado e sem envio de dados para a nuvem.
   - *Código:* `knowledge_base/vector_store.py` e `knowledge_base/schema.sql`.
@@ -49,5 +49,6 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 * [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
   - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
   - *Código:* `app/dashboard.py`.
-* [**`mlops-pipeline.md`**](file:///docs/mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
-  - *O que faz:* Rastreamento de experimentos, curvas de loss, Macro-F1, matriz de confusão e CI automatizado com Ruff e Pytest.
+* [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
+  - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.
+  - *Código:* `mlops/pipeline.py`, `mlops/tracker.py` e [`mlops.md`](mlops.md).

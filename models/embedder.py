@@ -236,7 +236,7 @@ class ClinicalTextEmbedder:
         n_docs = max(1, len(texts))
         self.idf_weights = {
             token: float(np.log((n_docs + 1.0) / (doc_counts.get(token, 0) + 1.0)) + 1.0)
-            for token in self.vocab.keys()
+            for token in self.vocab
         }
         self.idf_weights[self.PAD_TOKEN] = 0.0
         self.idf_weights[self.UNK_TOKEN] = 1.0
@@ -278,7 +278,7 @@ class ClinicalTextEmbedder:
                         np.mean(self.embedding_matrix[2:], axis=0) * 0.1
                     ).astype(np.float32)
                 initialized_svd = True
-            except Exception:
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError):
                 initialized_svd = False
                 self._svd_model = None
 

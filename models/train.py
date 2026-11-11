@@ -304,7 +304,7 @@ def train_theme_classifier(
             with torch.no_grad():
                 val_raw_logits = model(x_val_t)
             optimal_temp = model.calibrate_temperature(val_raw_logits, val_target_t)
-        except Exception:
+        except (RuntimeError, ValueError):
             optimal_temp = 1.0
 
         with torch.no_grad():

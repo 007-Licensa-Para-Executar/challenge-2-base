@@ -153,6 +153,34 @@ def test_real_predictor_loads_temporary_artifacts_and_records_version(tmp_path):
     assert result.original_text == diary().original_text
 
 
+def test_unpickle_of_missing_class_is_classification_failure(tmp_path):
+    vector = tmp_path / "obsolete.joblib"
+    weights = tmp_path / "unused.pt"
+    # Pickle refuses to dump a class whose module cannot be imported.
+    vector.write_bytes(
+        b"\x80\x04"
+        b"\x8c\x0fmodels.embedder\x94"
+        b"\x8c\x14ClinicalTextEmbedder\x94"
+        b"\x93\x94)\x81\x94."
+    )
+    weights.write_bytes(b"unused")
+    result = classify_record(diary(), model_path=weights, vectorizer_path=vector)
+    assert result.classification.status == "error"
+    assert result.classification.error_code == "classification_failed"
+    assert result.classification.primary_theme is None
+    assert "embedder" not in result.classification.model_dump_json()
+    assert result.original_text == diary().original_text
+
+
+def test_missing_import_outside_unpickle_is_not_hidden():
+    class Broken:
+        def predict_text(self, text):
+            raise ModuleNotFoundError("no module named programming_error")
+
+    with pytest.raises(ModuleNotFoundError):
+        classify_record(diary(), predictor=Broken())
+
+
 def test_corrupt_checkpoint_becomes_operational_error(tmp_path):
     import joblib
     from sklearn.feature_extraction.text import TfidfVectorizer

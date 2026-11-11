@@ -22,11 +22,10 @@ def test_demo_has_two_fictitious_people_and_no_unknown_gold():
     assert report["negative_questions"] == 4
     assert report["recall_at_k"] == 1
     assert report["hit_rate_at_k"] == 1
-    # "cartão bancário" overlaps "cartão-postal": measure the known lexical
-    # false positive rather than asserting that word overlap proves relevance.
-    assert report["correct_abstention_rate"] == 0.75
+    assert report["correct_abstention_rate"] == 1
     negative = next(d for d in report["details"] if d["query_id"] == "test_05")
-    assert negative["retrieved_record_ids"] == ["bruno_10"]
+    assert negative["retrieved_record_ids"] == []
+    assert negative["abstained"] is True
 
 
 def test_recall_counts_fraction_of_gold_not_any_hit():

@@ -79,6 +79,48 @@ def test_extractive_uses_raw_text_despite_failed_classifier(store):
     assert "sem síntese por LLM" in result.answer
 
 
+def test_extractive_rejects_ranked_text_that_shares_no_whole_term(store):
+    query = Query(patient_id="ana", question="Qual é a senha do cartão bancário?")
+    ranked = Retriever().search(
+        store.list_records(Query(patient_id="ana", question="avós")), "avós"
+    )
+    retriever = Mock(backend="bm25")
+    retriever.search.return_value = ranked
+    generator = Mock(model="fake")
+    result = CopilotService(store, retriever, generator).answer(query, "extractive")
+    assert result.status == "insufficient_evidence"
+    assert result.evidence == []
+    generator.generate.assert_not_called()
+
+
+def test_extractive_demo_keeps_supported_quotes_and_abstains_without_them(tmp_path):
+    from evaluation.patient_rag import DEMO_ROOT, load_jsonl
+
+    store = DiaryStore(tmp_path / "demo.sqlite3")
+    for row in load_jsonl(DEMO_ROOT / "diaries.jsonl"):
+        store.save(DiaryRecord.model_validate(row))
+    service = CopilotService(store, Retriever())
+    denied = service.answer(
+        Query(patient_id="patient_bruno", question="Qual é a senha do cartão bancário?"),
+        "extractive",
+    )
+    assert denied.status == "insufficient_evidence"
+    assert denied.evidence == []
+    kept = service.answer(
+        Query(patient_id="patient_ana", question="Quais cuidados dos avós foram descritos?"),
+        "extractive",
+    )
+    assert kept.status == "ok"
+    assert {item.record_id for item in kept.evidence} == {"ana_01", "ana_03", "ana_05"}
+    saved = {
+        item.record_id: item
+        for item in store.list_records(Query(patient_id="patient_ana", question="avós"))
+    }
+    for item in kept.evidence:
+        assert item.quote == saved[item.record_id].original_text[item.start_char : item.end_char]
+        assert item.chunk_id == f"{item.record_id}:{item.start_char}:{item.end_char}"
+
+
 def test_empty_window_skips_retrieval_and_generation(store):
     retriever = Mock(backend="bm25")
     generator = Mock(model="fake")

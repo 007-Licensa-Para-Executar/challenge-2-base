@@ -16,13 +16,34 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion, DynamicCompleter
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.output import ColorDepth
+from pydantic import ValidationError
 
+from agents.copilot.cli import DEMO
+from agents.copilot.contracts import DiaryRecord, Query
+from agents.copilot.literature import LiteratureService, LiteratureStore, load_catalog
+from agents.copilot.model import OllamaGenerator
+from agents.copilot.retriever import Retriever
+from agents.copilot.service import CopilotService
+from agents.copilot.storage import DiaryStore, DuplicateRecordError
 from agents.extractor.config import Settings
 from agents.extractor.contracts import MAX_INPUT_BYTES, ProcessingResult
 from app.contracts import COMMANDS, Arguments, Proposal
 from app.history import read_history
 from app.processes import ROOT, run_module
 from app.router import installed_models
+
+_COPILOT_ERRORS = {
+    "generation_timeout": "A geração excedeu o tempo limite. Nenhuma resposta foi inventada.",
+    "service_unavailable": "Ollama indisponível. Nenhuma resposta foi inventada.",
+    "model_unavailable": "O modelo não está disponível no Ollama.",
+    "generation_service_error": "Ollama não concluiu a geração.",
+    "invalid_response": "A resposta do modelo não pôde ser validada.",
+    "invalid_citation": "A resposta citou uma evidência que não foi recuperada.",
+    "invalid_references": "A resposta citou uma evidência que não foi recuperada.",
+    "model_refusal": "O modelo recusou a resposta.",
+    "generator_unavailable": "A geração não está disponível neste modo.",
+    "invalid_evidence": "As evidências recuperadas não conferem com o original.",
+}
 
 
 def safe_text(value: object) -> str:
@@ -108,6 +129,8 @@ class Shell:
         self.synthetic = False
         self.running = True
         self.last_progress = 0.0
+        self.copilot_db = ROOT / "data" / "copilot_demo.sqlite3"
+        self.literature_db = ROOT / "data" / "literature_demo.sqlite3"
 
     def say(self, value):
         self.write_raw(safe_text(value))
@@ -275,6 +298,138 @@ class Shell:
                 self.router_timeout = value
             self.say("Preferência alterada somente nesta sessão.")
 
+    def load_synthetic_diaries(self):
+        store = DiaryStore(self.copilot_db)
+        for line in DEMO.read_text(encoding="utf-8-sig").splitlines():
+            if not line.strip():
+                continue
+            record = DiaryRecord.model_validate_json(line)
+            if not record.synthetic:
+                raise ValueError("O copiloto do menu só aceita relatos sintéticos")
+            try:
+                store.save(record)
+            except DuplicateRecordError:
+                continue
+        return store
+
+    def copilot_generator(self):
+        try:
+            names = [item["name"] for item in self.models()]
+        except (httpx.HTTPError, ConnectionError, TypeError, RuntimeError, OSError):
+            self.say("Ollama indisponível. Escolha o modo extrativo; o menu continua ativo.")
+            return None
+        if self.settings.model not in names:
+            self.say(f"Modelo {self.settings.model} não está instalado no Ollama.")
+            return None
+        return OllamaGenerator(
+            model=self.settings.model,
+            host=self.settings.host,
+            timeout=self.settings.timeout_seconds,
+        )
+
+    def copilot(self, proposal):
+        collection = self.choose("Coleção", ["diarios", "literatura"], "diarios")
+        if collection == "literatura":
+            self.literature(proposal)
+            return
+        self.say("Diários fictícios. O identificador filtra a consulta e não autentica.")
+        mode = self.choose("Modo de resposta", ["ollama", "extrativo"], "ollama")
+        generation = "ollama" if mode == "ollama" else "extractive"
+        details = {
+            "banco_diarios": str(self.copilot_db), "backend": "bm25", "geracao": generation,
+            "classificacao": False,
+        }
+        if generation == "ollama":
+            details["modelo"] = self.settings.model
+        if not self.propose(proposal, details):
+            return
+        generator = self.copilot_generator() if generation == "ollama" else None
+        if generation == "ollama" and generator is None:
+            return
+        try:
+            store = self.load_synthetic_diaries()
+        except (OSError, sqlite3.Error, ValueError, ValidationError):
+            self.say("Diários sintéticos indisponíveis. O menu continua ativo.")
+            return
+        patients = sorted({
+            DiaryRecord.model_validate_json(line).patient_id
+            for line in DEMO.read_text(encoding="utf-8-sig").splitlines() if line.strip()
+        })
+        patient = self.choose("Identificador sintético", [*patients, "voltar"], "voltar")
+        if patient == "voltar":
+            return
+        service = CopilotService(store, Retriever(), generator)
+        while True:
+            question = self.ask("Pergunta sobre os diários (voltar encerra): ")
+            if not question or question.casefold() == "voltar":
+                return
+            try:
+                result = service.answer(
+                    Query(patient_id=patient, question=question), generation, top_k=3,
+                )
+            except (OSError, sqlite3.Error, ValueError, ValidationError, RuntimeError):
+                self.say("Consulta não concluída. Nenhuma evidência foi fabricada.")
+                continue
+            self.say(result.answer)
+            if result.status == "error":
+                self.say(_COPILOT_ERRORS.get(
+                    result.error_code, "Falha de geração; o menu continua ativo.",
+                ))
+                continue
+            if result.status != "ok":
+                continue
+            for item in result.evidence:
+                self.say(
+                    f"Origem {item.patient_id} | {item.record_id} | {item.source_title} | "
+                    f"{item.chunk_id}"
+                )
+
+    def literature(self, proposal):
+        self.say("Literatura local. Os textos de demonstração não são artigos publicados nem pacientes.")
+        mode = self.choose("Modo de resposta", ["ollama", "extrativo"], "ollama")
+        generation = "ollama" if mode == "ollama" else "extractive"
+        details = {
+            "banco_literatura": str(self.literature_db), "backend": "bm25", "geracao": generation,
+            "classificacao": False,
+        }
+        if generation == "ollama":
+            details["modelo"] = self.settings.model
+        if not self.propose(proposal, details):
+            return
+        generator = self.copilot_generator() if generation == "ollama" else None
+        if generation == "ollama" and generator is None:
+            return
+        try:
+            store = LiteratureStore(self.literature_db)
+            load_catalog(store)
+            service = LiteratureService(store, Retriever(), generator)
+        except (OSError, sqlite3.Error, ValueError, ValidationError, json.JSONDecodeError):
+            self.say("Literatura local indisponível. O menu continua ativo.")
+            return
+        while True:
+            question = self.ask("Pergunta sobre a literatura (voltar encerra): ")
+            if not question or question.casefold() == "voltar":
+                return
+            try:
+                result = service.answer(question, generation, top_k=3)
+            except (OSError, sqlite3.Error, ValueError, ValidationError, RuntimeError):
+                self.say("Consulta não concluída. Nenhuma evidência foi fabricada.")
+                continue
+            self.say(result.answer)
+            if result.status == "error":
+                self.say(_COPILOT_ERRORS.get(
+                    result.error_code, "Falha de geração; o menu continua ativo.",
+                ))
+                continue
+            for source in result.sources:
+                year = source.year if source.year is not None else "-"
+                locator = source.doi or source.url or "-"
+                self.say(
+                    f"Origem literatura | {source.document_id} | {source.title} | "
+                    f"{', '.join(source.authors)} | {year} | {locator} | "
+                    f"{source.section} | {source.chunk_id}"
+                )
+
     def evaluate(self, proposal):
         mode = proposal.argumentos.modo or self.choose("Avaliação", ["smoke", "dev", "holdout"])
         names = [item["name"] for item in self.models()]
@@ -346,6 +501,8 @@ class Shell:
             self.configure(proposal)
         elif tool == "avaliar":
             self.evaluate(proposal)
+        elif tool == "copiloto":
+            self.copilot(proposal)
         elif tool == "testes":
             if self.propose(proposal, {"execucao": "python -m pytest -q"}):
                 result = self.process("pytest", ["-q"])

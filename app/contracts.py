@@ -14,11 +14,12 @@ COMMANDS = {
     "testes": "Executar a suíte automatizada do projeto",
     "config": "Consultar ou alterar preferências desta sessão",
     "limpar": "Limpar a tela, preservando arquivos",
+    "copiloto": "Consultar diários sintéticos ou literatura local com trechos e citações",
     "sair": "Encerrar o shell",
 }
 Tool = Literal[
     "ajuda", "status", "extrair", "historico", "modelos", "avaliar", "testes", "config",
-    "limpar", "sair", "esclarecer",
+    "limpar", "copiloto", "sair", "esclarecer",
 ]
 
 

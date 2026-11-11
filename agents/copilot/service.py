@@ -5,6 +5,7 @@ from collections import Counter
 from typing import Literal
 
 from .contracts import CopilotAnswer, Evidence, Query
+from .retriever import RetrievalError, supported_evidence
 
 
 class CopilotService:
@@ -66,21 +67,23 @@ class CopilotService:
                 answer="Nenhum registro desta pessoa no período solicitado.",
                 **common,
             )
-        from .retriever import RetrievalError
-
         try:
             evidence = self.retriever.search(records, query.question, top_k=top_k)
         except RetrievalError as error:
             return failure(error.code)
+        if evidence:
+            originals = {r.record_id: r for r in records}
+            if not all(self._valid_evidence(ev, originals, query) for ev in evidence):
+                return failure("invalid_evidence")
+            # shortcut: E5 is not judged by term coverage, add its own check if it answers.
+            if backend == "bm25":
+                evidence = supported_evidence(query.question, evidence, query.patient_id)
         if not evidence:
             return CopilotAnswer(
                 status="insufficient_evidence",
                 answer="Não foram encontrados trechos suficientes para responder.",
                 **common,
             )
-        originals = {r.record_id: r for r in records}
-        if not all(self._valid_evidence(ev, originals, query) for ev in evidence):
-            return failure("invalid_evidence")
         if generation_mode == "extractive":
             answer = "Trechos recuperados (sem síntese por LLM):\n" + "\n".join(
                 f"[{ev.chunk_id}] {ev.quote}" for ev in evidence

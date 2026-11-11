@@ -42,6 +42,7 @@ packages = ["agents", "evaluation", "app", "models", "mlops", "data"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "knowledge_base/patient_demo" = "knowledge_base/patient_demo"
+"knowledge_base/literature" = "knowledge_base/literature"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,4 +52,4 @@ line-length = 100
 target-version = "py312"
 
 [tool.hatch.build.targets.sdist]
-include = ["/app", "/agents", "/evaluation", "/models", "/mlops", "/data", "/knowledge_base/patient_demo", "/tests", "/docs", "/README.md", "/README_MVP.md", "/pyproject.toml", "/uv.lock", "/.env.example"]
+include = ["/app", "/agents", "/evaluation", "/models", "/mlops", "/data", "/knowledge_base/patient_demo", "/knowledge_base/literature", "/tests", "/docs", "/README.md", "/README_MVP.md", "/pyproject.toml", "/uv.lock", "/.env.example"]

@@ -30,6 +30,15 @@ def test_bm25_returns_literal_ranked_evidence():
     assert evidence.score > 0
 
 
+def test_hyphenated_compound_is_not_a_fragment_of_the_question():
+    diary = record("Comprei um cartão-postal para guardar como lembrança.")
+    assert Retriever().search([diary], "Qual é a senha do cartão bancário?") == []
+    found = Retriever().search([diary], "O que aparece sobre o cartão-postal?")
+    assert [item.record_id for item in found] == ["r1"]
+    assert diary.original_text[found[0].start_char : found[0].end_char] == found[0].quote
+    assert found[0].chunk_id == f"r1:{found[0].start_char}:{found[0].end_char}"
+
+
 def test_no_overlap_empty_records_and_blank_query_return_no_evidence():
     retriever = Retriever()
     assert retriever.search([record()], "vulcão satélite") == []

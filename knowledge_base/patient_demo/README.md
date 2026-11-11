@@ -6,6 +6,6 @@ Todos os textos, pessoas, datas e acontecimentos são fictícios. `diaries.jsonl
 
 O conjunto é pequeno, elaborado para demonstração e testes de contexto. Não é uma avaliação independente validada por especialistas. Não ajustar parâmetros continuamente às perguntas de teste; mudar a preparação exige documentar a nova versão e reservar outro teste quando necessário.
 
-A busca lexical tem uma limitação intencionalmente visível: a pergunta sobre senha de cartão bancário pode recuperar um relato sobre cartão-postal. Compartilhar uma palavra não demonstra que a fonte responde à pergunta. O relatório conserva esse falso positivo, e a demonstração deve explicá-lo.
+Um composto hifenizado é um termo só. A resposta extrativa exige que um mesmo relato cubra a maioria estrita dos termos da pergunta; um termo isolado não basta. `sufficiency/` acrescenta casos de sentido diferente, resposta ausente, cobertura parcial, sinônimo, fatos distribuídos e mais de um assunto. Sinônimos e um par de fatos sem nenhum relato que cubra a maioria continuam sem resposta lexical.
 
 O backend E5 usa somente um modelo disponível em diretório local explicitamente indicado. Ele não baixa modelos, não troca para serviços externos e não garante maior qualidade. O limiar padrão é uma configuração inicial, não uma confiança calibrada. Comparações reais devem registrar modelo, revisão, chunking, limiar, corpus, perguntas e execução.

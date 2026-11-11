@@ -10,6 +10,16 @@ from typing import Any
 from .contracts import DiaryRecord, ThemePrediction
 
 
+def _raised_while_unpickling(error: BaseException) -> bool:
+    tb = error.__traceback__
+    while tb is not None:
+        filename = tb.tb_frame.f_code.co_filename.replace("\\", "/")
+        if filename.endswith("/pickle.py") or "/joblib/" in filename:
+            return True
+        tb = tb.tb_next
+    return False
+
+
 def _model_version(model_path: Path, vectorizer_path: Path) -> str:
     digest = hashlib.sha256()
     for path in (model_path, vectorizer_path):
@@ -62,6 +72,12 @@ def classify_record(
     except FileNotFoundError:
         classification = ThemePrediction(
             status="error", error_code="classification_model_unavailable"
+        )
+    except ModuleNotFoundError as error:
+        if not _raised_while_unpickling(error):
+            raise
+        classification = ThemePrediction(
+            status="error", error_code="classification_failed", model_version=model_version
         )
     except (ValueError, TypeError, AttributeError):
         classification = ThemePrediction(

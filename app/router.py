@@ -70,6 +70,7 @@ def request_intents(request: str) -> set[str]:
         "testes": r"testes?|suite",
         "config": r"config|preferencias|contexto|timeout|caminho do banco",
         "limpar": r"limpar|apagar a tela",
+        "copiloto": r"copiloto|diarios sinteticos",
         "sair": r"sair|encerrar|fechar|terminar a sessao",
     }
     intents = {tool for tool, pattern in patterns.items() if re.search(pattern, normalized)}

@@ -78,10 +78,90 @@ _STOPWORDS = {
 
 
 def _tokens(text: str) -> list[str]:
+    """Content terms. A hyphenated compound is one term, not its fragments."""
     normalized = "".join(
         c for c in unicodedata.normalize("NFKD", text.casefold()) if not unicodedata.combining(c)
     )
-    return [w for w in re.findall(r"\w+", normalized) if len(w) > 1 and w not in _STOPWORDS]
+    terms = []
+    for token in re.findall(r"\w+(?:-\w+)*", normalized):
+        if "-" in token:
+            parts = token.split("-")
+            if all(len(part) <= 1 or part in _STOPWORDS for part in parts):
+                continue
+            terms.append(token)
+            continue
+        if len(token) > 1 and token not in _STOPWORDS:
+            terms.append(token)
+    return terms
+
+
+def shares_content_term(question: str, quote: str) -> bool:
+    """Lexical overlap of whole terms. This is not a relevance probability."""
+    asked = set(_tokens(question))
+    return bool(asked and asked & set(_tokens(quote)))
+
+
+# Reporting words of a question, not the subject being asked about.
+_QUESTION_WORDS = {
+    "aconteceu",
+    "aparece",
+    "apareceu",
+    "aparecer",
+    "descrita",
+    "descritas",
+    "descrito",
+    "descritos",
+    "descreveu",
+    "dita",
+    "dito",
+    "escreveu",
+    "escrito",
+    "experiencia",
+    "falado",
+    "falou",
+    "houve",
+    "mencionada",
+    "mencionado",
+    "mencionados",
+    "onde",
+    "porque",
+    "quem",
+    "registrada",
+    "registrado",
+    "registrados",
+    "registrou",
+    "relatada",
+    "relatado",
+    "relatados",
+    "relatou",
+}
+
+
+def _question_terms(question: str, patient_id: str = "") -> set[str]:
+    labels = {token for token in _tokens(patient_id.replace("_", " ")) if token != "patient"}
+    return set(_tokens(question)) - _QUESTION_WORDS - labels
+
+
+def supported_evidence(
+    question: str, evidence: list[Evidence], patient_id: str = ""
+) -> list[Evidence]:
+    """Keep quotes only when one of them covers a strict majority of the question.
+
+    shortcut: synonyms and a split with no covering quote stay unanswered, add a
+    tested local embedding check when that model exists.
+    """
+    required = _question_terms(question, patient_id)
+    if not required or not evidence:
+        return []
+    needed = len(required) // 2 + 1
+    found = [(item, required & set(_tokens(item.quote))) for item in evidence]
+    anchor: set[str] = set()
+    for _item, have in found:
+        if len(have) >= needed:
+            anchor |= have
+    if len(anchor) < needed:
+        return []
+    return [item for item, have in found if have & anchor]
 
 
 def chunk_record(record: DiaryRecord, chunk_chars: int) -> list[Evidence]:

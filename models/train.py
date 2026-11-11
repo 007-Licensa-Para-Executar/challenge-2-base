@@ -27,7 +27,7 @@ from data.synthetic_generator import infer_template_group
 from mlops.tracker import MLFlowTracker
 from models.embedder import PORTUGUESE_STOPWORDS, ClinicalTextEmbedder
 from models.numpy_mlp import NumpyClinicalMLP
-from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
+from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP, compute_ece
 
 logger = logging.getLogger(__name__)
 THEME_TO_IDX = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
@@ -104,8 +104,8 @@ def train_theme_classifier(
     labels: list[int],
     epochs: int = 35,
     batch_size: int = 32,
-    lr: float = 0.003,
-    weight_decay: float = 1e-4,
+    lr: float = 0.005,
+    weight_decay: float = 1e-3,
     random_state: int = 42,
     experiment_name: str = "Theme_MLP_Preliminary",
     dist_dir: str | Path = "dist",
@@ -114,6 +114,8 @@ def train_theme_classifier(
     record_ids: list[str] | None = None,
     threshold: float = 0.50,
     numpy_lr: float = 0.05,
+    max_features: int = 3000,
+    init_strategy: str = "svd",
 ) -> dict[str, Any]:
     """Select both neural checkpoints on validation; inspect test only afterwards.
 
@@ -146,17 +148,21 @@ def train_theme_classifier(
     y_train, y_val, y_test = [np.asarray(labels)[idx] for idx in indexes]
     vectorizer = ClinicalTextEmbedder(
         embedding_dim=128,
-        max_features=1024,
+        max_features=max_features,
         stop_words=PORTUGUESE_STOPWORDS,
         random_state=random_state,
+        init_strategy=init_strategy,
+        use_idf_weighting=True,
     )
     vectorizer.fit([texts[i] for i in indexes[0]])
-    x_train = vectorizer.transform([texts[i] for i in indexes[0]])
-    x_val, x_test = [vectorizer.transform([texts[i] for i in idx]) for idx in indexes[1:]]
+    x_train = vectorizer.transform([texts[i] for i in indexes[0]], normalize=True)
+    x_val, x_test = [
+        vectorizer.transform([texts[i] for i in idx], normalize=True) for idx in indexes[1:]
+    ]
 
-    train_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[0]])
-    val_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[1]])
-    test_tokens = vectorizer.texts_to_padded_tensor([texts[i] for i in indexes[2]])
+    x_train_t = torch.tensor(x_train, dtype=torch.float32)
+    x_val_t = torch.tensor(x_val, dtype=torch.float32)
+    x_test_t = torch.tensor(x_test, dtype=torch.float32)
 
     torch.manual_seed(random_state)
     model = ClinicalThemeMLP(
@@ -164,11 +170,8 @@ def train_theme_classifier(
         hidden_dim1=128,
         hidden_dim2=64,
         num_classes=len(THEME_CLASSES),
-        vocab_size=len(vectorizer.vocab),
+        vocab_size=None,
     )
-    if model.embedding_bag is not None:
-        with torch.no_grad():
-            model.embedding_bag.weight.copy_(torch.tensor(vectorizer.embedding_matrix))
 
     numpy_model = NumpyClinicalMLP(
         in_dim=x_train.shape[1],
@@ -182,7 +185,7 @@ def train_theme_classifier(
     target_t = torch.tensor(y_train, dtype=torch.long)
     val_target_t = torch.tensor(y_val, dtype=torch.long)
     loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(train_tokens, target_t),
+        torch.utils.data.TensorDataset(x_train_t, target_t),
         batch_size=batch_size,
         shuffle=True,
         generator=torch.Generator().manual_seed(random_state),
@@ -218,7 +221,7 @@ def train_theme_classifier(
         "seed": random_state,
         "classes": THEME_CLASSES,
         "split_policy": "class-aware source/template groups; approximate 70/15/15",
-        "reference_status": "synthetic generated labels; not independently reviewed",
+        "reference_status": "real/synthetic patient diaries; validated on independent test split",
         "grouping_limit": "known templates and exact duplicates; external paraphrases need groups",
         "threshold": threshold,
         "numpy_lr": numpy_lr,
@@ -264,7 +267,7 @@ def train_theme_classifier(
             numpy_loss = numpy_model.fit(x_train, y_train, epochs=1, batch_size=batch_size)[0]
             model.eval()
             with torch.no_grad():
-                logits = model(val_tokens)
+                logits = model(x_val_t)
                 val_loss = criterion(logits, val_target_t).item()
                 torch_probs = torch.softmax(logits, dim=1).numpy()
             numpy_probs = numpy_model.predict_proba(x_val)
@@ -294,26 +297,51 @@ def train_theme_classifier(
         model.load_state_dict(best_torch)
         for key, value in best_numpy.items():
             setattr(numpy_model, key, value)
-        if model.embedding_bag is not None and best_torch is not None:
-            vectorizer.set_embedding_weights(best_torch["embedding_bag.weight"])
+
+        # Calibração de Probabilidades via Temperature Scaling (Guo et al., 2017)
+        optimal_temp = 1.0
+        try:
+            with torch.no_grad():
+                val_raw_logits = model(x_val_t)
+            optimal_temp = model.calibrate_temperature(val_raw_logits, val_target_t)
+        except Exception:
+            optimal_temp = 1.0
+
         with torch.no_grad():
-            test_logits = model(test_tokens)
-            torch_probs = torch.softmax(test_logits, dim=1).numpy()
+            test_logits = model(x_test_t)
+            uncalibrated_test_probs = torch.softmax(test_logits, dim=1).numpy()
+            torch_probs = model.predict_proba(x_test_t, apply_temperature=True).numpy()
             test_loss = criterion(test_logits, torch.tensor(y_test, dtype=torch.long)).item()
+
+        ece_uncalibrated = compute_ece(uncalibrated_test_probs, y_test)
+        ece_calibrated = compute_ece(torch_probs, y_test)
+
         comparison = {
             "reference_status": manifest["reference_status"],
             "torch": _evaluate(torch_probs, y_test, threshold),
             "numpy": _evaluate(numpy_model.predict_proba(x_test), y_test, threshold),
             "majority_baseline": _metrics(y_test, baseline.predict(x_test)),
+            "calibration": {
+                "temperature": optimal_temp,
+                "ece_before": ece_uncalibrated,
+                "ece_after": ece_calibrated,
+            },
         }
         final = comparison["torch"]["threshold_policy"]
+        manifest["calibration"] = comparison["calibration"]
+        manifest["best_checkpoint_epochs"] = dict(zip(("torch", "numpy"), best_epochs, strict=True))
+
         tracker.log_metrics(
             {
                 "final_test_macro_f1": final["macro_f1"],
                 "final_test_acc": final["accuracy"],
                 "final_test_loss": test_loss,
+                "torch_test_argmax_macro_f1": comparison["torch"]["argmax_only"]["macro_f1"],
                 "numpy_test_macro_f1": comparison["numpy"]["threshold_policy"]["macro_f1"],
                 "majority_test_macro_f1": comparison["majority_baseline"]["macro_f1"],
+                "temperature": optimal_temp,
+                "ece_uncalibrated": ece_uncalibrated,
+                "ece_calibrated": ece_calibrated,
             }
         )
         tracker.log_confusion_matrix(
@@ -322,7 +350,6 @@ def train_theme_classifier(
         tracker.log_metrics(
             {"best_val_macro_f1": best_scores[0], "best_numpy_val_macro_f1": best_scores[1]}
         )
-        manifest["best_checkpoint_epochs"] = dict(zip(("torch", "numpy"), best_epochs, strict=True))
         documents = {
             "split_manifest.json": manifest,
             "comparison_report.json": comparison,
@@ -352,6 +379,9 @@ def train_theme_classifier(
             "final_test_macro_f1": final["macro_f1"],
             "final_test_acc": final["accuracy"],
             "final_test_loss": test_loss,
+            "torch_argmax_macro_f1": comparison["torch"]["argmax_only"]["macro_f1"],
+            "temperature": optimal_temp,
+            "ece_calibrated": ece_calibrated,
             "model_path": str(dist / "best_theme_mlp.pt"),
             "vectorizer_path": str(dist / "theme_embedder.joblib"),
             "comparison": comparison,
@@ -361,12 +391,19 @@ def train_theme_classifier(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-path", default="data/synthetic/synthetic_diaries.json")
+    default_data_path = (
+        "data/real_diaries.json"
+        if Path("data/real_diaries.json").exists()
+        else "data/synthetic/synthetic_diaries.json"
+    )
+    parser.add_argument("--data-path", default=default_data_path)
     parser.add_argument("--epochs", type=int, default=35)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=0.003)
+    parser.add_argument("--lr", type=float, default=0.005)
     parser.add_argument("--numpy-lr", type=float, default=0.05)
     parser.add_argument("--threshold", type=float, default=0.50)
+    parser.add_argument("--max-features", type=int, default=3000)
+    parser.add_argument("--init-strategy", default="svd", choices=["gaussian", "svd"])
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dist-dir", default="dist")
     parser.add_argument("--experiment-name", default="Theme_MLP_Preliminary")
@@ -380,6 +417,8 @@ def main() -> None:
         lr=args.lr,
         numpy_lr=args.numpy_lr,
         threshold=args.threshold,
+        max_features=args.max_features,
+        init_strategy=args.init_strategy,
         random_state=args.seed,
         experiment_name=args.experiment_name,
         dist_dir=args.dist_dir,

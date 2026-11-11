@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -90,6 +91,7 @@ class ClinicalThemeMLP(nn.Module):
         self.dropout2 = nn.Dropout(dropout_rate * 0.7)
 
         self.fc3 = nn.Linear(hidden_dim2, num_classes)
+        self.temperature = nn.Parameter(torch.ones(1), requires_grad=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Passagem direta computando os logits não normalizados."""
@@ -138,12 +140,35 @@ class ClinicalThemeMLP(nn.Module):
             return F.normalize(x, p=2, dim=-1)
         return x
 
-    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
-        """Retorna scores softmax normalizados, sem garantia de calibração."""
+    def calibrate_temperature(
+        self, val_logits: torch.Tensor, val_labels: torch.Tensor, max_iter: int = 50
+    ) -> float:
+        """Calibra as probabilidades da Softmax via Temperature Scaling (Guo et al., ICML 2017)."""
+        temp_param = nn.Parameter(torch.ones(1) * 1.2)
+        optimizer = torch.optim.LBFGS([temp_param], lr=0.01, max_iter=max_iter)
+        criterion = nn.CrossEntropyLoss()
+
+        def _step():
+            optimizer.zero_grad()
+            t = torch.clamp(temp_param, min=0.05, max=10.0)
+            loss = criterion(val_logits / t, val_labels)
+            loss.backward()
+            return loss
+
+        optimizer.step(_step)
+        optimal_t = float(torch.clamp(temp_param, min=0.05, max=10.0).item())
+        self.temperature.copy_(torch.tensor([optimal_t]))
+        return optimal_t
+
+    def predict_proba(self, x: torch.Tensor, apply_temperature: bool = True) -> torch.Tensor:
+        """Retorna scores softmax, calibrados se temperature scaling foi executado."""
         was_training = self.training
         self.eval()
         with torch.no_grad():
             logits = self.forward(x)
+            if apply_temperature and hasattr(self, "temperature") and self.temperature is not None:
+                t = torch.clamp(self.temperature, min=0.05, max=10.0)
+                logits = logits / t
             probs = F.softmax(logits, dim=-1)
         if was_training:
             self.train()
@@ -308,3 +333,21 @@ class ClinicalSequentialClassifier(nn.Module):
             }
             for row in range(probs.shape[0])
         ]
+
+
+def compute_ece(probs: np.ndarray, labels: np.ndarray, n_bins: int = 10) -> float:
+    """Calcula o Erro de Calibração Esperado (Expected Calibration Error - ECE)."""
+    bin_boundaries = np.linspace(0, 1, n_bins + 1)
+    ece = 0.0
+    confidences = np.max(probs, axis=1)
+    predictions = np.argmax(probs, axis=1)
+    accuracies = predictions == labels
+
+    for i in range(n_bins):
+        in_bin = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i + 1])
+        prop_in_bin = np.mean(in_bin)
+        if prop_in_bin > 0:
+            accuracy_in_bin = np.mean(accuracies[in_bin])
+            avg_confidence_in_bin = np.mean(confidences[in_bin])
+            ece += np.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+    return float(ece)

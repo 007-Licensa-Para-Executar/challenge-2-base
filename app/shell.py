@@ -22,6 +22,7 @@ from agents.extractor.contracts import MAX_INPUT_BYTES, ProcessingResult
 from app.contracts import COMMANDS, Arguments, Proposal
 from app.history import read_history
 from app.processes import ROOT, run_module
+from app.rag_shell import RagMenu
 from app.router import installed_models
 
 
@@ -90,7 +91,7 @@ def bindings():
     return keys
 
 
-class Shell:
+class Shell(RagMenu):
     def __init__(self, settings=None, *, session=None, write=print, runner=run_module):
         self.settings = settings or Settings.from_env()
         db = Path(self.settings.db_path).expanduser()
@@ -336,6 +337,8 @@ class Shell:
             self.session.app.output.erase_screen()
             self.session.app.output.cursor_goto(0, 0)
             self.session.app.output.flush()
+        elif tool == "rag":
+            self.rag(proposal, natural=natural)
         elif tool == "extrair":
             self.extract(proposal)
         elif tool == "historico":
@@ -346,12 +349,11 @@ class Shell:
             self.configure(proposal)
         elif tool == "avaliar":
             self.evaluate(proposal)
-        elif tool == "testes":
-            if self.propose(proposal, {"execucao": "python -m pytest -q"}):
-                result = self.process("pytest", ["-q"])
-                self.say(result.stdout)
-                self.say(result.stderr)
-                self.say(f"Testes encerrados com código {result.code}.")
+        elif tool == "testes" and self.propose(proposal, {"execucao": "python -m pytest -q"}):
+            result = self.process("pytest", ["-q"])
+            self.say(result.stdout)
+            self.say(result.stderr)
+            self.say(f"Testes encerrados com código {result.code}.")
 
     def handle(self, text):
         if not text:

@@ -20,17 +20,20 @@
 
 ---
 
-## 2. Arquitetura da Rede Neural (Multi-Layer Perceptron)
+## 2. Arquitetura da Rede Neural (Multi-Layer Perceptron com Embeddings Densos)
 
 ```
-[ Texto do Relato ]
+[ Texto do Relato Clínico ]
         │
         ▼
-[ TF-IDF Vectorizer (1.024 atributos mais informativos) ]
+[ ClinicalTextEmbedder (Vocabulário clínico, tokens <PAD>/<UNK>, stop words em PT) ]
+        │
+        ▼
+[ Camada de Embedding / EmbeddingBag(128 dimensões, Mean Pooling, inicialização Xavier) ]
         │
         ▼
 ┌────────────────────────────────────────────────────────┐
-│ Camada 1: Linear(1024 -> 128)                          │
+│ Camada 1: Linear(128 -> 128)                           │
 │ Batch Normalization 1D                                 │
 │ Ativação: ReLU                                         │
 │ Dropout (taxa = 0.3)                                   │
@@ -134,11 +137,12 @@ def train_theme_classifier(
         X_temp, y_temp, test_size=0.50, random_state=42, stratify=y_temp
     )
 
-    # 2. Vetorização TF-IDF
-    vectorizer = TfidfVectorizer(max_features=1024, ngram_range=(1, 2), lowercase=True)
-    X_train = vectorizer.fit_transform(X_train_raw).toarray()
-    X_val = vectorizer.transform(X_val_raw).toarray()
-    X_test = vectorizer.transform(X_test_raw).toarray()
+    # 2. Extração de Embeddings Neurais (ClinicalTextEmbedder)
+    vectorizer = ClinicalTextEmbedder(embedding_dim=128, max_features=1024, stop_words=PORTUGUESE_STOPWORDS)
+    vectorizer.fit(X_train_raw)
+    X_train = vectorizer.transform(X_train_raw)
+    X_val = vectorizer.transform(X_val_raw)
+    X_test = vectorizer.transform(X_test_raw)
 
     # Conversão para tensores PyTorch
     t_X_train = torch.tensor(X_train, dtype=torch.float32)
@@ -160,7 +164,7 @@ def train_theme_classifier(
             "epochs": epochs,
             "batch_size": batch_size,
             "learning_rate": lr,
-            "input_features": 1024,
+            "input_features": 128,
             "hidden_layers": [128, 64]
         })
 
@@ -214,9 +218,10 @@ def train_theme_classifier(
         # Salva Artefatos
         os.makedirs("dist", exist_ok=True)
         torch.save(best_model_weights, "dist/best_theme_mlp.pt")
+        joblib.dump(vectorizer, "dist/theme_embedder.joblib")
         joblib.dump(vectorizer, "dist/tfidf_vectorizer.joblib")
         mlflow.log_artifact("dist/best_theme_mlp.pt")
-        mlflow.log_artifact("dist/tfidf_vectorizer.joblib")
+        mlflow.log_artifact("dist/theme_embedder.joblib")
 
         print(f"Treinamento Concluído! Test Macro-F1: {test_f1:.4f} | Test Acc: {test_acc:.4f}")
 ```

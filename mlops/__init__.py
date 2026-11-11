@@ -1,7 +1,5 @@
-"""Módulo de MLOps: rastreamento, governança e pipelines de experimentação."""
+"""Módulo de MLOps: Rastreamento, reprodutibilidade e gestão de ciclo de vida de ML."""
 
-from mlops.config import MLOpsConfig
-from mlops.pipeline import run_mlops_pipeline
-from mlops.tracker import MLOpsTracker
+from mlops.tracker import MLFlowTracker
 
-__all__ = ["MLOpsConfig", "MLOpsTracker", "run_mlops_pipeline"]
+__all__ = ["MLFlowTracker"]

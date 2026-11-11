@@ -1,5 +1,39 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+## Demonstração de pesquisa: rede + RAG no shell
+
+Na pasta do repositório, no macOS/Linux ou no **CMD do Windows**:
+
+```text
+uv sync --locked --python 3.12
+uv run bem-estar
+```
+
+Confirme dados fictícios com `s`. Digite `/rag` e siga estas ações (uma por vez):
+
+1. `treinar`: treina as redes com o dataset sintético e salva em `dist/rag-demo/`.
+2. `preparar` → `sim`: classifica e importa 20 diários fictícios em um banco novo.
+3. `perguntar` → `patient_ana` → Enter nos dois limites de data →
+   `Quais cuidados dos avós foram descritos?` → `extractive`.
+4. Confira os trechos originais, datas e identificadores apresentados como fontes.
+5. Repita com `ollama` para síntese pelo Qwen local, ou escolha `avaliar` para métricas.
+
+O treino e a resposta `extractive` funcionam **sem Ollama**. Para a síntese `ollama`,
+inicie o serviço conforme o quick start abaixo e instale `qwen3:4b` explicitamente
+com `ollama pull qwen3:4b`, uma única vez. Nada é baixado automaticamente pelo menu.
+Pesos e bancos são locais: cada integrante deve treinar/preparar sua própria demonstração.
+O banco preparado fica selecionado até sair do shell; a próxima sessão começa no banco
+padrão `data/copilot_demo.sqlite3`. Os caminhos aparecem antes das ações.
+
+Trata-se exclusivamente de um **protótipo acadêmico**, sem uso com pessoas reais.
+As previsões são experimentais e podem errar. Veja o
+[roteiro completo e as limitações](docs/rag-mvp-integrado-rede.md).
+
+> **MVP de RAG + rede temática:** consulta de diários inteiramente fictícios por pessoa e período, com fontes originais. Comece pelo [guia de integração e demonstração](docs/rag-mvp-integrado-rede.md). A recuperação extrativa funciona sem pesos ou Ollama; embeddings e síntese local são modos explícitos. Consulte as limitações e os resultados dos experimentos antes de interpretar as saídas.
+
+> **MVP de classificação temática:** gerador de relatos fictícios, redes NumPy e PyTorch e avaliação com rastreamento no MLflow. As métricas são experimentais e devem ser obtidas com os grupos de origem separados.
+> Consulte [README_MVP.md](README_MVP.md) para instalação, treinamento, inferência e limitações.
+
 ## Quick start: abrir e usar
 
 Abra os terminais na pasta `challenge-2-base`. É preciso ter **uv, Python 3.12 e Ollama**;

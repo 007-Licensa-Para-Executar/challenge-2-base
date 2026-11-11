@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 COMMANDS = {
     "ajuda": "Mostrar comandos, atalhos e exemplos",
     "status": "Consultar Ollama, modelos e banco local",
+    "rag": "Rede + RAG: treinar, preparar diários, consultar fontes e avaliar",
     "extrair": "Analisar e salvar um relato sintético (formulário)",
     "historico": "Consultar registros locais com paginação",
     "modelos": "Listar modelos e escolher modelo para esta sessão",
@@ -18,7 +19,7 @@ COMMANDS = {
 }
 Tool = Literal[
     "ajuda", "status", "extrair", "historico", "modelos", "avaliar", "testes", "config",
-    "limpar", "sair", "esclarecer",
+    "limpar", "sair", "esclarecer", "rag",
 ]
 
 

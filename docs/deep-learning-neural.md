@@ -102,3 +102,43 @@ Diários de pacientes reais envolvem sigilo médico e proteção de dados sensí
 ### Baseline Didático em NumPy vs. Módulo PyTorch
 - **Baseline em NumPy Puro:** Para demonstrar domínio conceitual dos algoritmos de backpropagation e cálculo analítico de gradientes (atendendo ao checklist didático do projeto), a biblioteca disponibiliza a versão vetorizada em NumPy puro (`models/numpy_mlp.py`).
 - **Módulo de Produção em PyTorch:** Para integração escalável no MVP, integração com GPU/MPS e suporte ao pipeline do MLflow (`models/torch_mlp.py`).
+
+---
+
+## 5. Viabilização Arquitetural: MLPs vs. Modelos Sequenciais (RNNs, LSTMs, GRUs)
+
+Para processamento de relatos clínicos, o ecossistema disponibiliza tanto modelos baseados em vetores densos/esparsos quanto processadores de sequências temporais de texto (`models/torch_mlp.py`):
+
+| Arquitetura | Mecanismo Central | Ponto Forte no Projeto | Quando Utilizar |
+| :--- | :--- | :--- | :--- |
+| **MLP (`ClinicalThemeMLP`)** | Camadas densas lineares + `EmbeddingBag` / Embeddings médios | Ultrarrápido (< 5ms), determinístico, baixa latência | **Padrão do MVP:** Classificar o tema dominante do diário a partir do vocabulário e embeddings. |
+| **Simple RNN (`ClinicalSequentialClassifier`)** | Estado oculto recorrente: $h_t = \text{ReLU}(W x_t + U h_{t-1} + b)$ | Captura ordem temporal de palavras com poucos parâmetros | Textos curtos e didática de dependência temporal básica. |
+| **LSTM (Long Short-Term Memory)** | Células com portões de esquecimento (*forget*), entrada (*input*) e saída (*output*) | Resolve dependências de longo prazo e mitiga vanishing gradients | Relatos longos onde o contexto do início do diário altera o sentido clínico do final. |
+| **GRU (Gated Recurrent Unit)** | Portões de atualização (*update*) e reinício (*reset*) | Convergência mais rápida que LSTM com desempenho equivalente | Cenários com menor volume de dados ou restrição de memória/latência. |
+
+---
+
+## 6. Técnicas de Normalização: BatchNorm vs. LayerNorm vs. RMSNorm
+
+1. **Batch Normalization (`BatchNorm1d`):** Normaliza ao longo do lote ($\hat{x} = \frac{x - \mu_B}{\sqrt{\sigma^2_B + \epsilon}} \gamma + \beta$). Ideal para o MLP em lotes $\ge 16$.
+2. **Layer Normalization (`LayerNorm`):** Normaliza ao longo das *features* de cada amostra individualmente. Padrão em NLP e modelos sequenciais (RNN/LSTM/GRU/Transformers) por independer do tamanho do lote.
+3. **RMSNorm (`RMSNorm`):** Normaliza pela raiz quadrática média ($\text{RMS}(x) = \sqrt{\frac{1}{d} \sum x_i^2 + \epsilon}$) sem subtrair a média, reduzindo custo computacional com mesma estabilidade numérica.
+
+---
+
+## 7. Diagnóstico e Resolução de Vanishing e Exploding Gradients
+
+- **Vanishing Gradients:** *Diagnóstico:* Loss estagnada e $||\nabla W_1|| < 10^{-6}$. *Resolução:* Ativações não saturantes (ReLU), inicialização He/Kaiming ($W \sim \mathcal{N}(0, \sqrt{2/d_{\text{in}}})$), normalização (BatchNorm/LayerNorm/RMSNorm) e gates aditivos (LSTM/GRU).
+- **Exploding Gradients:** *Diagnóstico:* Loss `NaN`/`Inf` ou saltos bruscos. *Resolução:* **Gradient Clipping** (`torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)`) ativo no loop de treino (`models/train.py`).
+
+---
+
+## 8. Quando Usar MSE, MAE, Binary Cross-Entropy e Categorical Cross-Entropy
+
+| Função de Perda | Problema | Quando Usar no Projeto |
+| :--- | :--- | :--- |
+| **Categorical Cross-Entropy (CCE)** | Multiclasse mutuamente exclusiva (soma Softmax = 100%) | **Adotada nos 8 temas + salvaguarda.** |
+| **Binary Cross-Entropy (BCE)** | Binária ou Multirrótulo independente (Sigmoid por classe) | Triagem binária de risco ou múltiplos temas simultâneos independentes. |
+| **MSE (Mean Squared Error)** | Regressão contínua ($\frac{1}{N}\sum (y - \hat{y})^2$) | Predição de escores contínuos (ex.: PHQ-9) penalizando desvios grandes. |
+| **MAE (Mean Absolute Error)** | Regressão robusta ($\frac{1}{N}\sum \|y - \hat{y}\|$) | Estimativas contínuas na presença de *outliers* severos. |
+

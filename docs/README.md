@@ -30,6 +30,8 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 3. Guias de Inteligência Artificial e Dados
+* [**`neural-network-flow.md`**](file:///docs/neural-network-flow.md): **Fluxograma e Funcionamento da Rede Neural**.
+  - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência e treino), formulação matemática, comparação MLP vs RNN/LSTM/GRU, normalizações (BatchNorm/LayerNorm/RMSNorm), resolução de gradientes e exemplo real.
 * [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
   - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
   - *Código:* `models/torch_mlp.py` e `models/train.py`.

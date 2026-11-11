@@ -53,5 +53,6 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 * [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
   - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
   - *Código:* `app/dashboard.py`.
-* [**`mlops-pipeline.md`**](file:///docs/mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
-  - *O que faz:* Rastreamento de experimentos, curvas de loss, Macro-F1, matriz de confusão e CI automatizado com Ruff e Pytest.
+* [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
+  - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.
+  - *Código:* `mlops/pipeline.py`, `mlops/tracker.py` e [`mlops.md`](mlops.md).

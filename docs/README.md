@@ -30,6 +30,10 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 3. Guias de Inteligência Artificial e Dados
+* [**`dossie-tecnico-rede-neural.md`**](file:///docs/dossie-tecnico-rede-neural.md): **Dossiê Técnico e Teórico da Rede Neural (Master Reference)**.
+  - *O que faz:* Formalização matemática completa, dedução do gradiente da Softmax/Cross-Entropy, engenharia de embeddings no `ClinicalTextEmbedder`, dualidade NumPy puro vs PyTorch, otimizadores e regularização.
+* [**`neural-network-flow.md`**](file:///docs/neural-network-flow.md): **Fluxograma e Funcionamento da Rede Neural**.
+  - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência e treino), formulação matemática, comparação MLP vs RNN/LSTM/GRU, normalizações (BatchNorm/LayerNorm/RMSNorm), resolução de gradientes e exemplo real.
 * [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
   - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
   - *Código:* `models/torch_mlp.py` e `models/train.py`.
@@ -49,5 +53,6 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 * [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
   - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
   - *Código:* `app/dashboard.py`.
-* [**`mlops-pipeline.md`**](file:///docs/mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
-  - *O que faz:* Rastreamento de experimentos, curvas de loss, Macro-F1, matriz de confusão e CI automatizado com Ruff e Pytest.
+* [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
+  - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.
+  - *Código:* `mlops/pipeline.py`, `mlops/tracker.py` e [`mlops.md`](mlops.md).

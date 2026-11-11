@@ -24,7 +24,7 @@ def smoke():
         assert any('Estado: ok' in line for line in output)
         assert any('ana_03:0:' in line for line in output)
         assert instance.rag_db.is_file()
-    print('RAG shell smoke OK: formulário → subprocesso → SQLite → pergunta → fontes')
+    print('RAG shell smoke OK: form -> subprocess -> SQLite -> query -> sources')
 
 
 if __name__ == '__main__':

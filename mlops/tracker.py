@@ -52,8 +52,11 @@ class MLFlowTracker:
         """Registra um arquivo como artefato da run ativa."""
         p = Path(artifact_path)
         if p.exists():
-            mlflow.log_artifact(str(p))
-            logger.info("Artefato registrado no MLflow: %s", p)
+            try:
+                mlflow.log_artifact(str(p))
+                logger.info("Artefato registrado no MLflow: %s", p)
+            except Exception as e:
+                logger.warning("Falha ao registrar artefato no MLflow (%s): %s", p, e)
         else:
             logger.warning("Artefato não encontrado para registro: %s", p)
 

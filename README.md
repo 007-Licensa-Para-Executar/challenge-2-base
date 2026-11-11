@@ -14,7 +14,7 @@ Confirme dados fictícios com `s`. Digite `/rag` e siga estas ações (uma por v
 1. `treinar`: treina as redes com o dataset sintético e salva em `dist/rag-demo/`.
 2. `preparar` → `sim`: classifica e importa 20 diários fictícios em um banco novo.
 3. `perguntar` → `patient_ana` → Enter nos dois limites de data →
-   `Quais cuidados dos avós foram descritos?` → `extractive` → `s`.
+   `Quais cuidados dos avós foram descritos?` → `extractive`.
 4. Confira os trechos originais, datas e identificadores apresentados como fontes.
 5. Repita com `ollama` para síntese pelo Qwen local, ou escolha `avaliar` para métricas.
 

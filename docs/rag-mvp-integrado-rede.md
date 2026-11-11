@@ -240,3 +240,9 @@ confiável. Os gráficos, relatórios por classe e manifesto estão em `dist/rag
 O CI inclui smoke do RAG no Ubuntu, macOS e Windows com `shell: cmd`; os resultados
 remotos devem ser conferidos no commit final. O comportamento visual em uma janela
 CMD física não foi inspecionado nesta máquina macOS.
+
+A síntese real com Qwen3 4B também foi repetida em 11/11 após o novo treino:
+retornou `ok`, com as três fontes de avós acima. É um exemplo demonstrativo,
+não uma medição geral de fidelidade. Consultas diretas pelo formulário não pedem
+confirmação adicional; ações de escrita e avaliações continuam exigindo confirmação.
+Pedidos pelo roteador exibem proposta antes da consulta.

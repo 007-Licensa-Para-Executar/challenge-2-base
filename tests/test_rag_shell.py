@@ -90,7 +90,7 @@ def test_query_shows_original_sources_and_passes_exact_scope(tmp_path):
 
     instance, output, _ = shell(tmp_path, [
         'perguntar', 'patient_ana', '2026-11-01T00:00:00Z', '2026-11-02T00:00:00Z',
-        'avós', 'extractive', 's',
+        'avós', 'extractive',
     ], runner=runner)
     instance.synthetic = True
     instance.rag_db = db
@@ -100,9 +100,10 @@ def test_query_shows_original_sources_and_passes_exact_scope(tmp_path):
 
 
 def test_cancelled_query_never_invokes_tool(tmp_path):
-    instance, _, calls = shell(tmp_path, ['perguntar', 'patient_ana', '', '', 'avós', '', 'n'])
+    instance, _, calls = shell(tmp_path, ['perguntar', 'patient_ana', '', KeyboardInterrupt()])
     instance.synthetic = True
-    instance.handle('/rag')
+    with pytest.raises(KeyboardInterrupt):
+        instance.handle('/rag')
     assert not calls
 
 

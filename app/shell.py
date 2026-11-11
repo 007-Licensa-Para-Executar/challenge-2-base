@@ -338,7 +338,7 @@ class Shell(RagMenu):
             self.session.app.output.cursor_goto(0, 0)
             self.session.app.output.flush()
         elif tool == "rag":
-            self.rag(proposal)
+            self.rag(proposal, natural=natural)
         elif tool == "extrair":
             self.extract(proposal)
         elif tool == "historico":

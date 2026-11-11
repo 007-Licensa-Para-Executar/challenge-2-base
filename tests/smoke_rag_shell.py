@@ -15,7 +15,7 @@ def smoke():
         session = Scripted([
             's', '/rag', 'preparar', 'nao', 's',
             '/rag', 'perguntar', 'patient_ana', '', '',
-            'Quais cuidados dos avós foram descritos?', 'extractive', 's', '/sair',
+            'Quais cuidados dos avós foram descritos?', 'extractive', '/sair',
         ])
         with patch('app.rag_shell.ROOT', Path(folder)):
             instance = Shell(Settings(), session=session, write=output.append)

@@ -8,7 +8,7 @@ from app.processes import ROOT
 
 
 class RagMenu:
-    def rag(self, proposal):
+    def rag(self, proposal, *, natural=False):
         action = self.choose("RAG de pesquisa", [
             "treinar", "preparar", "registrar", "listar", "perguntar", "avaliar", "voltar",
         ], "voltar")
@@ -98,7 +98,10 @@ class RagMenu:
                      "--ollama-host", self.settings.host, "--timeout", "90"]
         # Consulta direta é somente leitura; pedido natural confirma a ação/contexto.
         self.say(f"Contexto: {patient}; banco: {db}; período: {start or '*'} até {end or '*'}")
-        if not self.confirm("Consultar este contexto?"):
+        if natural and not self.propose(proposal, {
+            "acao": action, "paciente": patient, "de": start, "ate": end,
+            "pergunta": question, "banco": str(db),
+        }):
             return
         self.rag_result(self.process("agents.copilot", args))
 

@@ -6,7 +6,7 @@ Equipe 007 - Licensa para Executar. Implementação de referência para a entreg
 
 Um fluxo executável de consulta a diários inteiramente fictícios. A entrada recebe identidade, data e texto original; opcionalmente passa pelo classificador temático do PR #13; é persistida; e pode ser recuperada por pergunta, pessoa e período. O copiloto apresenta trechos originais ou redige uma resposta local com referências.
 
-A branch `feature/rag-mvp-integrado-rede` parte de `12f84d4`, da rede neural. Seu PR para `main` inclui essa base enquanto o PR #13 não estiver integrado. A implementação de `feat/rag-conceptualization` foi analisada como ponto de partida; seus contratos de dossiê, sentimento, sinal de risco e fallback clínico não foram transportados. O novo serviço atende ao escopo temático e informacional. Não foi feito merge do PR antigo de RAG.
+A branch `feature/rag-mvp-integrado-rede` incorpora `e14d4b6`, da rede neural e da main atualizada. Seu PR para `main` inclui essa base enquanto o PR #13 não estiver integrado. A implementação de `feat/rag-conceptualization` foi analisada como ponto de partida; seus contratos de dossiê, sentimento, sinal de risco e fallback clínico não foram transportados. O novo serviço atende ao escopo temático e informacional. Não foi feito merge do PR antigo de RAG.
 
 A rede classifica temas. O RAG recupera informações. A geração apresenta uma síntese limitada aos trechos fornecidos. A rede pode errar ou se abster sem impedir a busca nos originais; uma categoria prevista não é filtro obrigatório de recuperação.
 
@@ -79,7 +79,7 @@ Treine os modelos seguindo `README_MVP.md`. Depois, crie um banco novo com class
 
 ```text
 uv run python -m models.train --epochs 40 --batch-size 32 --lr 0.001 --numpy-lr 0.05 --threshold 0.50
-uv run bem-estar-copilot seed --synthetic --classify --db data/copilot_classified_demo.sqlite3 --model-path dist/best_theme_mlp.pt --vectorizer-path dist/tfidf_vectorizer.joblib
+uv run bem-estar-copilot seed --synthetic --classify --db data/copilot_classified_demo.sqlite3 --model-path dist/best_theme_mlp.pt --vectorizer-path dist/theme_embedder.joblib
 uv run bem-estar-copilot ask "Quais cuidados dos avós foram descritos?" --patient-id patient_ana --db data/copilot_classified_demo.sqlite3 --generation extractive
 ```
 
@@ -178,3 +178,65 @@ Referências técnicas: [RAG original, Lewis et al., 2020](https://proceedings.n
 7. Apresentar métricas, erros e limitações; explicar o que será desenvolvido depois.
 
 É um recorte demonstrável de rede e RAG. Não representa aplicativo clínico validado, prontuário completo, memória infalível ou conclusão de todas as restrições do Challenge. A biblioteca científica, o dashboard, os subtemas e as ferramentas de escrita do produto permanecem evoluções explícitas.
+
+
+## Integração do shell — 11/11/2026
+
+`uv run bem-estar` agora oferece `/rag`, também listado no autocomplete `/`.
+O formulário permite `treinar`, `preparar`, `registrar`, `listar`, `perguntar` e
+`avaliar`. As ações são executadas por módulos Python previamente cadastrados,
+com argumentos separados e interrupção pelo mecanismo multiplataforma existente.
+O relato é enviado por stdin como dado literal. O roteador pode propor abrir o
+menu RAG; o paciente, período e operação são escolhidos no formulário.
+
+`treinar` chama `python -m app.research_demo train`, que usa explicitamente
+`data/synthetic/synthetic_diaries.json`, 35 épocas, seed 42 e inicialização gaussiana.
+Não usa o dataset público adicionado na branch da rede. O embedding de classificação
+é independente dos embeddings E5 opcionais da recuperação. Pesos, embedder, comparação
+NumPy/PyTorch/baseline e manifesto ficam em `dist/rag-demo/`; o tracking usa SQLite
+nesse diretório. A ação substitui esses artefatos demonstrativos após confirmação.
+Isso é um treino inicial didático, não garantia de bom desempenho.
+
+`preparar` cria um banco novo a cada execução e o seleciona para a sessão, evitando
+reutilizar classificações de pesos anteriores. Os IDs fictícios são `patient_ana`
+e `patient_bruno`. Os bancos anteriores permanecem preservados. Sem pesos, a opção
+`sim` não importa os registros; use `treinar` primeiro ou escolha `nao` para testar
+somente recuperação. Em falha da rede, o CLI preserva o original e mostra erro de
+classificação; isso não equivale a uma classificação bem-sucedida.
+
+`perguntar` pede o paciente, limites opcionais ISO-8601 com fuso, pergunta e modo.
+Exemplo de período: `2026-11-01T00:00:00Z` até `2026-11-08T23:59:59Z`.
+Enter nos limites consulta todo o histórico daquele paciente. Mostra resposta,
+contagem de registros e fontes literais. `extractive` não usa LLM nem embeddings;
+`ollama` usa o modelo local da sessão com timeout de 90 segundos. Sem serviço,
+mostra erro e não muda automaticamente de modo.
+
+`avaliar` executa o conjunto congelado de recuperação BM25 (`dev` ou `test`),
+não a base editada na sessão; salva o relatório em `results/`. Essa distinção
+permite repetir a avaliação sem confundir a demonstração interativa com o benchmark.
+
+Correções necessárias após incorporar a rede atual: recomposição do lockfile,
+preservação de `MLOpsTracker` junto de `MLFlowTracker`, normalização do embedder na
+inferência igual à do treino e carregamento estrito dos pesos, sem criação de
+camadas aleatórias. Checkpoints antigos sem temperatura usam identidade (1).
+O teste de regressão verifica que recarregar o checkpoint preserva as previsões.
+
+Para sexta: demonstrar treino → preparar com classificação → pergunta sobre avós
+→ abrir as evidências → repetir com outro paciente/período → avaliação e limitações.
+A interface continua sendo terminal; voz, dashboard, subtemas e chat por paciente
+não fazem parte deste recorte. Não há compromisso de uso clínico ou implantação real.
+
+
+Validação local atualizada em 11/11: **296 testes aprovados**, Ruff aprovado e
+smoke real do menu RAG com subprocessos, SQLite e fontes, sem modelo simulado na
+recuperação. O treino sintético gerou os pesos e o embedder; 20 registros foram
+classificados e importados sem erro operacional. A pergunta sobre avós recuperou
+`ana_03:0:113`, `ana_01:0:123` e `ana_05:0:128`.
+No experimento sintético de 35 épocas, o macro-F1 do teste com a política de
+abstenção foi aproximadamente 0,1113 (PyTorch), 0,0145 (NumPy) e 0,0231 (baseline
+majoritária). A execução funciona, mas a qualidade temática continua baixa e
+precisa ser apresentada como resultado de pesquisa, não como funcionalidade
+confiável. Os gráficos, relatórios por classe e manifesto estão em `dist/rag-demo/`.
+O CI inclui smoke do RAG no Ubuntu, macOS e Windows com `shell: cmd`; os resultados
+remotos devem ser conferidos no commit final. O comportamento visual em uma janela
+CMD física não foi inspecionado nesta máquina macOS.

@@ -139,23 +139,22 @@ class ClinicalThemePredictor:
                     "Execute 'python -m models.train' para treinar a rede."
                 )
             state_dict = torch.load(m_path, map_location=self.device, weights_only=True)
-            vocab_size = None
-            if "embedding_bag.weight" in state_dict:
-                vocab_size = state_dict["embedding_bag.weight"].shape[0]
-                input_dim = state_dict["embedding_bag.weight"].shape[1]
-            elif hasattr(self.vectorizer, "embedding_dim"):
-                input_dim = self.vectorizer.embedding_dim
-                vocab_size = len(self.vectorizer.vocab)
-            elif hasattr(self.vectorizer, "vocabulary_"):
-                input_dim = len(self.vectorizer.vocabulary_)
-            else:
-                input_dim = 128
+            # Reconstruct only layers actually stored; never invent random missing weights.
+            vocab_size = (state_dict["embedding_bag.weight"].shape[0]
+                          if "embedding_bag.weight" in state_dict else None)
+            input_dim = state_dict["fc1.weight"].shape[1]
+            norm_type = ("batch_norm" if "bn1.running_mean" in state_dict else
+                         "layer_norm" if "bn1.bias" in state_dict else
+                         "rms_norm" if "bn1.scale" in state_dict else "none")
             self.model = ClinicalThemeMLP(
                 input_dim=input_dim,
-                num_classes=len(THEME_CLASSES),
-                vocab_size=vocab_size,
+                hidden_dim1=state_dict["fc1.weight"].shape[0],
+                hidden_dim2=state_dict["fc2.weight"].shape[0],
+                num_classes=len(THEME_CLASSES), vocab_size=vocab_size, norm_type=norm_type,
             )
-            self.model.load_state_dict(state_dict, strict=False)
+            # Older checkpoints predate temperature scaling (identity temperature).
+            state_dict.setdefault("temperature", torch.ones(1))
+            self.model.load_state_dict(state_dict, strict=True)
             self.model.to(self.device)
 
         self.model.eval()
@@ -184,7 +183,9 @@ class ClinicalThemePredictor:
                 abstention_reason="empty_input",
             )
 
-        features = self.vectorizer.transform([cleaned])
+        features = (self.vectorizer.transform([cleaned], normalize=True)
+                    if isinstance(self.vectorizer, ClinicalTextEmbedder)
+                    else self.vectorizer.transform([cleaned]))
         if hasattr(features, "toarray"):
             features = features.toarray()
         features = np.asarray(features, dtype=np.float32)

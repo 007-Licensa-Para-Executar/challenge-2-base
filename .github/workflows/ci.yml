@@ -33,4 +33,6 @@ jobs:
         run: uv run bem-estar --help
       - name: Native terminal input smoke (CMD on Windows)
         run: uv run python -m tests.smoke_shell
+      - name: RAG shell integration smoke (offline, CMD on Windows)
+        run: uv run python -m tests.smoke_rag_shell
       - run: uv build

@@ -77,7 +77,7 @@ def test_closed_schema():
 
 def test_completer_only_main_slash():
     completer = CommandCompleter()
-    assert len(list(completer.get_completions(Document("/"), None))) == 10
+    assert len(list(completer.get_completions(Document("/"), None))) == 11
     assert [c.text for c in completer.get_completions(Document("/ext"), None)] == ["/extrair"]
     assert not list(completer.get_completions(Document("meu /relato"), None))
     assert not list(completer.get_completions(Document("/extrair argumento"), None))
@@ -333,7 +333,7 @@ def test_menu_arrows_enter_and_escape():
                 if session.default_buffer.complete_state:
                     break
             state = session.default_buffer.complete_state
-            assert state is not None and len(state.completions) == 10
+            assert state is not None and len(state.completions) == 11
             pipe.send_text("\x1b[B")
             await asyncio.sleep(0.05)
             first = session.default_buffer.complete_state.current_completion.text

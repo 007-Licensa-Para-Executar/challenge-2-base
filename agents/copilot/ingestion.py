@@ -63,7 +63,7 @@ def classify_record(
         classification = ThemePrediction(
             status="error", error_code="classification_model_unavailable"
         )
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError, KeyError):
         classification = ThemePrediction(
             status="error", error_code="classification_invalid_output", model_version=model_version
         )

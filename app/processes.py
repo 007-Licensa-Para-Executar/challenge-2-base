@@ -11,7 +11,8 @@ from pathlib import Path
 from agents.extractor.config import Settings
 
 ROOT = Path(__file__).resolve().parent.parent
-MODULES = {"agents.extractor", "app.router", "evaluation.runner", "pytest"}
+MODULES = {"agents.extractor", "app.router", "evaluation.runner", "pytest",
+           "agents.copilot", "evaluation.patient_rag", "app.research_demo"}
 
 
 @dataclass(frozen=True)

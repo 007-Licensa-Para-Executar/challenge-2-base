@@ -78,6 +78,8 @@ htmlcov/
 !/data/personas.json
 !/data/synthetic_generator.py
 !/data/split.py
+!/data/fetch_real_dataset.py
+!/data/real_diaries.json
 !/data/synthetic/
 /data/synthetic/*
 !/data/synthetic/README.md

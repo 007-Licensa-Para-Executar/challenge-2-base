@@ -1,0 +1,58 @@
+[
+  {
+    "id": "persona_universitario",
+    "nome": "Lucas, 21 anos, estudante de engenharia",
+    "tracos": "Alto neuroticismo, autocrítica severa, procrastinador",
+    "ocean": {
+      "abertura": "media",
+      "conscienciosidade": "baixa",
+      "extroversao": "media",
+      "amabilidade": "media",
+      "neuroticismo": "alto"
+    },
+    "temas_frequentes": ["estudos", "autoestima", "saude_sono"],
+    "estilo_linguagem": "Uso de gírias jovens, frases fragmentadas, desespero por prazos"
+  },
+  {
+    "id": "persona_cuidador",
+    "nome": "Mariana, 38 anos, cuida da mãe idosa",
+    "tracos": "Alta amabilidade, sobrecarregada, culpa constante",
+    "ocean": {
+      "abertura": "media",
+      "conscienciosidade": "alta",
+      "extroversao": "baixa",
+      "amabilidade": "alta",
+      "neuroticismo": "alto"
+    },
+    "temas_frequentes": ["familia", "financas"],
+    "estilo_linguagem": "Tom exausto, relatos de atritos com parentes que não ajudam"
+  },
+  {
+    "id": "persona_burnout",
+    "nome": "Roberto, 44 anos, gerente de projetos",
+    "tracos": "Perfeccionista, alta conscienciosidade, irritável",
+    "ocean": {
+      "abertura": "baixa",
+      "conscienciosidade": "alta",
+      "extroversao": "baixa",
+      "amabilidade": "baixa",
+      "neuroticismo": "alto"
+    },
+    "temas_frequentes": ["trabalho", "saude_sono"],
+    "estilo_linguagem": "Vocabulário corporativo, menção a dores de estômago e taquicardia"
+  },
+  {
+    "id": "persona_luto",
+    "nome": "Clara, 29 anos, perdeu o pai recentemente",
+    "tracos": "Introspectiva, triste, desapegada da rotina",
+    "ocean": {
+      "abertura": "media",
+      "conscienciosidade": "baixa",
+      "extroversao": "baixa",
+      "amabilidade": "alta",
+      "neuroticismo": "alto"
+    },
+    "temas_frequentes": ["luto", "relacionamentos"],
+    "estilo_linguagem": "Frases lentas, referências a saudades, fotos antigas e silêncio"
+  }
+]

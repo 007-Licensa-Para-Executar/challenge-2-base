@@ -72,15 +72,24 @@ htmlcov/
 *.tar.gz
 *.tgz
 
-# Somente os três arquivos sintéticos conhecidos são versionados em data/.
+# Somente os arquivos sintéticos e geradores são versionados em data/.
 /data/*
+!/data/__init__.py
+!/data/personas.json
+!/data/synthetic_generator.py
+!/data/split.py
+!/data/fetch_real_dataset.py
+!/data/real_diaries.json
 !/data/synthetic/
 /data/synthetic/*
 !/data/synthetic/README.md
 !/data/synthetic/dev.jsonl
 !/data/synthetic/holdout.jsonl
+!/data/synthetic/synthetic_diaries.json
 
 # Resultados, checkpoints, logs e arquivos temporários locais.
+/mlruns/
+/mlartifacts/
 /results/
 /reports/
 /artifacts/

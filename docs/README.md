@@ -30,9 +30,13 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 3. Guias de Inteligência Artificial e Dados
-* [**`rede-neural.md`**](rede-neural.md): **Desenho de uma MLP para macrotemas clínicos**.
-  - *O que faz:* registra uma proposta ainda não implementada de classificador de temas em PyTorch e NumPy.
-  - *Código em uso:* a rede versionada classifica sentimento em `models/neural_net.py`. O ciclo de treino está em [`mlops.md`](mlops.md).
+* [**`dossie-tecnico-rede-neural.md`**](file:///docs/dossie-tecnico-rede-neural.md): **Dossiê Técnico e Teórico da Rede Neural (Master Reference)**.
+  - *O que faz:* Formalização matemática completa, dedução do gradiente da Softmax/Cross-Entropy, engenharia de embeddings no `ClinicalTextEmbedder`, dualidade NumPy puro vs PyTorch, otimizadores e regularização.
+* [**`neural-network-flow.md`**](file:///docs/neural-network-flow.md): **Fluxograma e Funcionamento da Rede Neural**.
+  - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência e treino), formulação matemática, comparação MLP vs RNN/LSTM/GRU, normalizações (BatchNorm/LayerNorm/RMSNorm), resolução de gradientes e exemplo real.
+* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
+  - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
+  - *Código:* `models/torch_mlp.py` e `models/train.py`.
 * [**`banco-vetorial.md`**](file:///docs/banco-vetorial.md): **Banco Vetorial Local (`sqlite-vec`)**.
   - *O que faz:* Armazenamento relacional e vetorial de 384 dimensões 100% local, criptografado e sem envio de dados para a nuvem.
   - *Código:* `knowledge_base/vector_store.py` e `knowledge_base/schema.sql`.

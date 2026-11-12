@@ -1,5 +1,8 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+> **MVP de classificação temática:** gerador de relatos fictícios, redes NumPy e PyTorch e avaliação com rastreamento no MLflow. As métricas são experimentais e devem ser obtidas com os grupos de origem separados.
+> Consulte [README_MVP.md](README_MVP.md) para instalação, treinamento, inferência e limitações.
+
 ## Quick start: abrir e usar
 
 Abra os terminais na pasta `challenge-2-base`. É preciso ter **uv, Python 3.12 e Ollama**;

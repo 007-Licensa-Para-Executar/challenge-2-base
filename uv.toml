@@ -1,0 +1,2 @@
+# Configuração para evitar erro de hardlink no sistema de arquivos do OneDrive no Windows
+link-mode = "copy"

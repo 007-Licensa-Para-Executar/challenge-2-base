@@ -1,0 +1,150 @@
+"""Testes unitários para o modelo PyTorch ClinicalThemeMLP."""
+
+import torch
+from torch import nn
+
+from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
+
+
+def test_torch_mlp_forward_and_prediction():
+    """Valida forward pass e probabilidades Softmax conforme especificado em docs/rede-neural.md."""
+    model = ClinicalThemeMLP(input_dim=1024, num_classes=9)
+    dummy_input = torch.randn(4, 1024)
+
+    # 1. Formato de saída dos logits
+    logits = model(dummy_input)
+    assert logits.shape == (4, 9)
+
+    # 2. Normalização dos scores Softmax (não comprova calibração)
+    probs = model.predict_proba(dummy_input)
+    assert probs.shape == (4, 9)
+    # A soma das probabilidades de cada linha deve ser 1.0 (margem de tolerância numérica)
+    assert torch.allclose(probs.sum(dim=-1), torch.ones(4), atol=1e-5)
+
+
+def test_torch_mlp_single_sample_inference():
+    """Valida inferência em tensor 1D ou batch de tamanho 1."""
+    model = ClinicalThemeMLP(input_dim=1024, num_classes=9)
+    model.eval()
+
+    # Tensor 1D
+    single_1d = torch.randn(1024)
+    probs_1d = model.predict_proba(single_1d)
+    assert probs_1d.shape == (1, 9)
+    assert torch.isclose(probs_1d.sum(), torch.tensor(1.0), atol=1e-5)
+
+    # Tensor 2D com batch=1
+    single_2d = torch.randn(1, 1024)
+    probs_2d = model.predict_proba(single_2d)
+    assert probs_2d.shape == (1, 9)
+
+
+def test_torch_mlp_safeguard_fallback():
+    """Valida salvaguarda quando probabilidade máxima for inferior a 0.50."""
+    model = ClinicalThemeMLP(input_dim=10, num_classes=9)
+
+    # Cria probabilidades deliberadamente planas (uniformes = 1/9 ≈ 0.111 < 0.50)
+    flat_input = torch.zeros(2, 10)
+    # Força os pesos da última camada a zero para saída uniforme
+    with torch.no_grad():
+        model.fc3.weight.fill_(0.0)
+        model.fc3.bias.fill_(0.0)
+
+    preds, confs = model.predict(flat_input, threshold=0.50)
+
+    # Como a confiança máxima é < 0.50, deve recair na classe outros_indeterminado (índice 8)
+    assert torch.all(preds == 8)
+    assert torch.all(confs < 0.50)
+
+
+def test_torch_mlp_training_step():
+    """Valida que uma passada de backward e otimizador atualiza os pesos da rede."""
+    model = ClinicalThemeMLP(input_dim=32, hidden_dim1=16, hidden_dim2=8, num_classes=9)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
+    criterion = nn.CrossEntropyLoss()
+
+    x = torch.randn(8, 32)
+    y = torch.randint(0, 9, (8,))
+
+    # Salva cópia inicial dos pesos
+    initial_w1 = model.fc1.weight.clone()
+
+    model.train()
+    optimizer.zero_grad()
+    out = model(x)
+    loss = criterion(out, y)
+    loss.backward()
+    optimizer.step()
+
+    # Pesos devem ter mudado
+    assert not torch.equal(initial_w1, model.fc1.weight)
+    assert loss.item() > 0.0
+
+
+def test_theme_classes_list():
+    """Garante que THEME_CLASSES possui exatamente os 8 macrotemas + outros_indeterminado."""
+    assert len(THEME_CLASSES) == 9
+    assert THEME_CLASSES[-1] == "outros_indeterminado"
+    expected = [
+        "familia",
+        "trabalho",
+        "relacionamentos",
+        "estudos",
+        "saude_sono",
+        "financas",
+        "luto",
+        "autoestima",
+        "outros_indeterminado",
+    ]
+    assert THEME_CLASSES == expected
+
+
+def test_torch_mlp_predict_distribution_and_percentages():
+    """Valida o cálculo de distribuições de probabilidades e percentuais somando 100%."""
+    model = ClinicalThemeMLP(input_dim=1024, num_classes=9)
+    dummy_input = torch.randn(2, 1024)
+
+    # 1. Distribuição de probabilidades
+    dists = model.predict_distribution(dummy_input)
+    assert len(dists) == 2
+    for dist in dists:
+        assert len(dist) == 9
+        assert set(dist.keys()) == set(THEME_CLASSES)
+        assert abs(sum(dist.values()) - 1.0) < 1e-4
+
+    # 2. Percentuais (somando ~100.0%)
+    pcts = model.predict_percentages(dummy_input)
+    assert len(pcts) == 2
+    for p in pcts:
+        assert len(p) == 9
+        assert abs(sum(p.values()) - 100.0) < 0.1
+
+
+def test_torch_mlp_normalizations():
+    """Valida LayerNorm e RMSNorm no ClinicalThemeMLP."""
+    x = torch.randn(3, 32)
+    for norm in ("layer_norm", "rms_norm"):
+        model = ClinicalThemeMLP(input_dim=32, norm_type=norm)
+        probs = model.predict_proba(x)
+        assert probs.shape == (3, 9)
+        assert torch.allclose(probs.sum(dim=-1), torch.ones(3), atol=1e-5)
+
+
+def test_sequential_classifier_lstm_gru_rnn():
+    """Valida ClinicalSequentialClassifier (LSTM, GRU e RNN) com Embedding, LayerNorm e RMSNorm."""
+    from models.torch_mlp import ClinicalSequentialClassifier
+
+    tokens = torch.randint(0, 80, (4, 12))
+    for rec_type, norm in (("lstm", "layer_norm"), ("gru", "rms_norm"), ("rnn", "layer_norm")):
+        model = ClinicalSequentialClassifier(
+            vocab_size=80,
+            embed_dim=16,
+            hidden_dim=32,
+            recurrent_type=rec_type,
+            norm_type=norm,
+        )
+        probs = model.predict_proba(tokens)
+        assert probs.shape == (4, 9)
+        assert torch.allclose(probs.sum(dim=-1), torch.ones(4), atol=1e-5)
+        pcts = model.predict_percentages(tokens)
+        assert abs(sum(pcts[0].values()) - 100.0) < 0.1

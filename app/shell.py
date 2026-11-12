@@ -346,12 +346,13 @@ class Shell:
             self.configure(proposal)
         elif tool == "avaliar":
             self.evaluate(proposal)
-        elif tool == "testes":
-            if self.propose(proposal, {"execucao": "python -m pytest -q"}):
-                result = self.process("pytest", ["-q"])
-                self.say(result.stdout)
-                self.say(result.stderr)
-                self.say(f"Testes encerrados com código {result.code}.")
+        elif tool == "testes" and self.propose(
+            proposal, {"execucao": "python -m pytest -q"}
+        ):
+            result = self.process("pytest", ["-q"])
+            self.say(result.stdout)
+            self.say(result.stderr)
+            self.say(f"Testes encerrados com código {result.code}.")
 
     def handle(self, text):
         if not text:

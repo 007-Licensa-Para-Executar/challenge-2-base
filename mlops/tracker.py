@@ -6,10 +6,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import Any, Self
 
 import mlflow
 import numpy as np
+from mlflow.tracking import MlflowClient
+
+from mlops.store import sqlite_artifact_uri
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +30,16 @@ class MLFlowTracker:
         self.experiment_name = experiment_name
         self.db_uri = tracking_uri or os.environ.get("MLFLOW_TRACKING_URI") or db_uri
         self.tracking_uri = self.db_uri
+        self.artifact_location = sqlite_artifact_uri(self.tracking_uri)
+
         mlflow.set_tracking_uri(self.tracking_uri)
         try:
+            client = MlflowClient(tracking_uri=self.tracking_uri)
+            if client.get_experiment_by_name(self.experiment_name) is None:
+                client.create_experiment(
+                    self.experiment_name,
+                    artifact_location=self.artifact_location,
+                )
             mlflow.set_experiment(self.experiment_name)
         except ModuleNotFoundError:
             os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
@@ -157,3 +169,77 @@ class MLFlowTracker:
             max_results=1,
         )
         return runs.iloc[0] if not runs.empty else None
+
+
+class MLOpsTracker(MLFlowTracker):
+    """Compatibilidade com a API antiga do projeto e com o uso por context manager."""
+
+    def __init__(
+        self,
+        experiment_name: str = "Clinical_Theme_MLP",
+        db_uri: str = "sqlite:///mlflow.db",
+        tracking_uri: str | None = None,
+    ) -> None:
+        super().__init__(experiment_name=experiment_name, db_uri=db_uri, tracking_uri=tracking_uri)
+        self.active_run: Any | None = None
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
+        if self.active_run is not None:
+            if exc_val is None:
+                mlflow.end_run()
+            else:
+                mlflow.end_run(status="FAILED")
+            self.active_run = None
+        return False
+
+    def start_run(
+        self,
+        run_name: str = "training_run",
+        tags: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Inicia uma run ativa e armazena o estado atual para o contexto."""
+        self.active_run = mlflow.start_run(run_name=run_name, tags=tags or {}, **kwargs)
+        return self.active_run
+
+    def set_tag(self, key: str, value: str) -> None:
+        """Registra uma tag na run ativa."""
+        mlflow.set_tag(key, value)
+
+    def log_figure(self, figure: Any, artifact_file: str | Path) -> None:
+        """Registra uma figura matplotlib como artefato."""
+        mlflow.log_figure(figure, artifact_file)
+
+    def log_dict(self, data: dict[str, Any], artifact_file: str | Path) -> None:
+        """Registra um dicionário JSON como artefato."""
+        mlflow.log_dict(data, artifact_file)
+
+    def log_model(
+        self,
+        model: Any,
+        registered_model_name: str | None = None,
+        artifact_path: str = "model",
+        **kwargs: Any,
+    ) -> Any:
+        """Registra um modelo scikit-learn no MLflow."""
+        safe_kwargs = {"serialization_format": mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE}
+        safe_kwargs.update(kwargs)
+        if registered_model_name:
+            return mlflow.sklearn.log_model(
+                model,
+                artifact_path=artifact_path,
+                registered_model_name=registered_model_name,
+                **safe_kwargs,
+            )
+        return mlflow.sklearn.log_model(model, artifact_path=artifact_path, **safe_kwargs)
+
+
+__all__ = ["MLFlowTracker", "MLOpsTracker"]

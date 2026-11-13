@@ -20,6 +20,7 @@ import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from models.embedder import ClinicalTextEmbedder
+from models.sbert_embedder import SBERTEmbedder
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ class ClinicalThemePredictor:
         model_path: str | Path | None = None,
         vectorizer_path: str | Path | None = None,
         model: ClinicalThemeMLP | None = None,
-        vectorizer: TfidfVectorizer | ClinicalTextEmbedder | None = None,
+        vectorizer: TfidfVectorizer | ClinicalTextEmbedder | SBERTEmbedder | None = None,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -145,7 +146,9 @@ class ClinicalThemePredictor:
                 input_dim = state_dict["embedding_bag.weight"].shape[1]
             elif hasattr(self.vectorizer, "embedding_dim"):
                 input_dim = self.vectorizer.embedding_dim
-                vocab_size = len(self.vectorizer.vocab)
+                # SBERT não tem vocabulário próprio: o MLP recebe o vetor pronto (float).
+                vocab = getattr(self.vectorizer, "vocab", None)
+                vocab_size = len(vocab) if vocab else None
             elif hasattr(self.vectorizer, "vocabulary_"):
                 input_dim = len(self.vectorizer.vocabulary_)
             else:

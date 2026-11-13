@@ -127,7 +127,18 @@ A geração por LLM pode variar. Registre sua origem e confira o conteúdo antes
 uv run python -m models.train --epochs 40 --batch-size 32 --lr 0.001 --numpy-lr 0.05 --threshold 0.50
 ```
 
-O pipeline registra os resultados da execução atual. Os artefatos locais ficam no diretório de saída; pesos e vetorizador precisam ser produzidos antes de uma demonstração com o preditor padrão. Não adicionar esses arquivos ao Git para fazer os testes passarem.
+Por padrão, o comando carrega e concatena `data/real_diaries.json` e
+`data/synthetic/synthetic_diaries.json`. É possível informar outro conjunto ou
+mais de um conjunto com `--data-path arquivo1.json arquivo2.json`; IDs
+duplicados são rejeitados. Os grupos continuam separados pelo `group_id` no
+split, evitando que a mesma família/template atravesse treino, validação e teste.
+
+O pipeline registra os resultados da execução atual. `classification_report.json`
+mostra o desempenho bruto por argmax; `threshold_classification_report.json`
+mostra separadamente a política de abstinência (`--threshold`). Os artefatos
+locais ficam no diretório de saída; pesos e vetorizador precisam ser produzidos
+antes de uma demonstração com o preditor padrão. Não adicionar esses arquivos ao
+Git para fazer os testes passarem.
 
 Além dos pesos e relatórios por classe, são gerados `comparison_report.json`, `split_manifest.json`, `learning_curves.json` e `best_numpy_mlp.npz`. O manifesto identifica os grupos de cada split e as versões do ensaio. Em empate de macro-F1 de validação, conserva-se o primeiro checkpoint.
 

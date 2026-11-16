@@ -1,97 +1,81 @@
-# 07 - MLOps: Rastreabilidade, Automação e Ciclo de Vida dos Modelos
+# MLOps e rede neural: arquitetura e rastreamento
 
-## 1. Visão Geral e Atendimento às Restrições
+Este documento descreve o pipeline implementado para o **Challenge 2 - Bem-Estar**. Ele cobre o rastreamento reproduzível (`infra: mlops`) e a rede neural treinada pelo grupo (`feature: neural-network`).
 
-Este documento formaliza as práticas de engenharia de software e operações de aprendizado de máquina para atender integralmente ao **Requisito 3 (Aplicar MLOps)** e **Requisito 6 (Utilizar ferramenta de versionamento de código)**.
-
-O objetivo do nosso pipeline de MLOps é garantir que todo experimento de modelagem neural, versão de prompt de agente e ingestão na base de conhecimento seja estritamente **reprodutível, rastreável e auditável**.
+Os rótulos de `data/synthetic/` estão com `annotation_status: unreviewed`. O gate abaixo é um critério de engenharia para publicar um artefato. Ele não valida uso clínico nem qualidade da anotação.
 
 ---
 
-## 2. Componentes Estruturais do Pipeline de MLOps
+## 1. Visão geral
 
-```
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                               PIPELINE DE MLOPS                                   │
-└───────────────────────────────────────────────────────────────────────────────────┘
-         │
-         ├─► [ 1. Versionamento & CI/CD ]
-         │     • Git / GitHub: Branches 'feat/*', 'fix/*', PRs com revisão
-         │     • GitHub Actions: Linter Ruff + Suíte de Testes Pytest
-         │     • uv: Bloqueio estrito de dependências via 'uv.lock'
-         │
-         ├─► [ 2. Rastreamento de Experimentos (MLflow) ]
-         │     • Logging de hiperparâmetros (learning rate, batch size, dropout)
-         │     • Métricas em tempo real (train/val loss, Macro-F1, Confusion Matrix)
-         │     • Registro de artefatos (.pt, .joblib, classification_report.json)
-         │
-         ├─► [ 3. Governança de Prompts e Schemas ]
-         │     • Hash do digest dos modelos locais (Ollama Qwen/Gemma)
-         │     • Versionamento semântico de contratos Pydantic (SCHEMA_VERSION)
-         │     • Versionamento de templates de prompts (PROMPT_VERSION)
-         │
-         └─► [ 4. Avaliação Contínua e Detecção de Drift ]
-               • Holdout set cego para validação de integridade
-               • Monitoramento de taxas de abstenção e latência P95
+O comando `bem-estar-mlops` lê o split `dev`, treina um baseline e uma rede, registra a rodada no MLflow e só publica o modelo quando o F1 macro da validação passa no gate. O holdout entra apenas na avaliação cega.
+
+```mermaid
+flowchart TD
+    A["data/synthetic/dev.jsonl<br/>SHA-256"] --> B["Divisão estratificada<br/>treino e validação"]
+    B --> C["Baseline<br/>classe mais frequente"]
+    B --> D["TF-IDF e MLP<br/>32 e 16 neurônios, ReLU"]
+    C --> E["F1 macro na validação"]
+    D --> E
+    E --> F{"F1 macro maior ou igual<br/>ao baseline e ao limiar"}
+    F -->|Promovido| G["Model Registry<br/>nome configurado"]
+    F -->|Recusado| H["Métricas e matriz ficam no run<br/>sem versão registrada"]
+    D --> I["Opcional: holdout.jsonl<br/>não altera o gate"]
 ```
 
 ---
 
-## 3. Rastreamento de Experimentos com MLflow
+## 2. Componentes
 
-Para monitorar o treinamento da Rede Neural MLP dos 8 temas clínicos, utilizamos o **MLflow** integrado ao banco local SQLite (`mlflow.db`):
+### `models/`
 
-### Parâmetros Rastreados (Params)
-- `model_architecture`: MLP-128-64-9
-- `feature_extractor`: `TF-IDF-1024` ou `e5-small-dense`
-- `learning_rate`: $10^{-3}$
-- `batch_size`: 32
-- `dropout_rate`: 0.3
-- `optimizer`: `AdamW`
-- `weight_decay`: $10^{-4}$
-- `seed`: 42
+- [`models/baseline.py`](../models/baseline.py): `SentimentBaselineClassifier`, um `DummyClassifier` da classe mais frequente.
+- [`models/neural_net.py`](../models/neural_net.py): `SentimentNeuralNetClassifier`, TF-IDF com n-gramas 1-2 e `MLPClassifier`.
+- [`models/metrics.py`](../models/metrics.py): acurácia, F1 macro, precisão, recall e relatório, usados pelos dois modelos.
 
-### Métricas Monitoradas por Época (Metrics)
-- `train_loss` e `val_loss` (curva de convergência para detectar overfitting)
-- `val_accuracy`
-- `val_macro_f1`
-- `top2_accuracy`
+A rede classifica o campo `expected.sentimento` dos relatos sintéticos. Ela não substitui o extrator em `agents/extractor/`, que continua usando o modelo de linguagem e o VADER.
 
-### Artefatos Versionados (Artifacts)
-- Pesos serializados do modelo (`best_model.pt`)
-- Vetorizador ajustado (`tfidf_vectorizer.joblib`)
-- Gráfico da Matriz de Confusão (`confusion_matrix.png`)
-- Relatório analítico completo por classe (`classification_report.json`)
+### `mlops/`
+
+- [`mlops/config.py`](../mlops/config.py): configuração tipada. O limiar padrão de promoção é `min_f1_macro = 0.25`.
+- [`mlops/data.py`](../mlops/data.py): leitura do JSONL e SHA-256 do arquivo.
+- [`mlops/gate.py`](../mlops/gate.py): promove quando o F1 macro da validação é maior ou igual ao do baseline e ao limiar.
+- [`mlops/store.py`](../mlops/store.py): para um tracking `sqlite:///...`, cria o diretório irmão `<banco>-artifacts`.
+- [`mlops/tracker.py`](../mlops/tracker.py): abre o run, registra parâmetros, métricas, figura e, só na promoção, o modelo. Uma exceção encerra o run como `FAILED`.
+- [`mlops/pipeline.py`](../mlops/pipeline.py): orquestra a rodada.
+- [`mlops/cli.py`](../mlops/cli.py): comando `bem-estar-mlops`.
+- [`mlops/plots.py`](../mlops/plots.py): matriz de confusão.
+
+O resultado da promoção fica na tag `promoted` e na métrica `promoted`. Ele não entra como hiperparâmetro.
 
 ---
 
-## 4. Governança de Código, CI/CD e Reprodutibilidade
+## 3. Como executar
 
-### Gerenciamento de Ambiente com `uv`
-- Todas as dependências e sub-dependências estão trancadas deterministicamente no arquivo `uv.lock`.
-- Um desenvolvedor pode clonar o repositório em máquina limpa e restaurar com um único comando:
-  ```bash
-  uv sync --frozen
-  ```
+```sh
+uv run bem-estar-mlops --holdout
+```
 
-### Integração Contínua (CI) via GitHub Actions
-O arquivo `.github/workflows/ci.yml` executa automaticamente a cada push ou pull request:
-1. **Verificação Estática de Código:**
-   ```bash
-   uv run ruff check .
-   uv run ruff format --check .
-   ```
-2. **Execução de Testes Automatizados:**
-   ```bash
-   uv run pytest -v --cov=app --cov=agents --cov=models
-   ```
-3. **Bloqueio de Merge:** Nenhum código é integrado à branch principal (`main`) se houver quebra de testes ou regressão no linter.
+Parâmetros:
+
+- `--split`: split de treino. Só `dev` é aceito, para o holdout permanecer cego.
+- `--holdout`: avalia `data/synthetic/holdout.jsonl` sem usá-lo no gate.
+- `--seed`: semente, padrão 42.
+- `--max-iter`: iterações do MLP, padrão 200.
+- `--min-f1`: F1 macro mínimo na validação, padrão 0.25.
+- `--tracking-uri`: padrão `sqlite:///mlflow.db`. Os arquivos da rodada ficam em `mlflow-artifacts/`, ao lado do banco.
+- `--output`: grava o sumário JSON.
+
+Para inspecionar a rodada:
+
+```sh
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+Abra `http://127.0.0.1:5000`. O banco e o diretório de artefatos são locais e estão no `.gitignore`.
 
 ---
 
-## 5. Versionamento de Contratos de Dados e Prompts
+## 4. Integração contínua
 
-Para impedir desalinhamento entre o que os agentes produzem e o que a interface exibe, todas as chamadas de inferência salvam os seguintes metadados nos logs:
-- `SCHEMA_VERSION`: Versão do contrato Pydantic dos agentes (ex: `1.1.0`).
-- `PROMPT_VERSION`: Versão do template de prompt utilizado (ex: `1.0.0`).
-- `MODEL_DIGEST`: Hash SHA-256 do peso do modelo local do Ollama, garantindo que alterações silenciosas no modelo base sejam detectadas.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) roda `uv sync --locked`, Ruff e `uv run pytest -q` em Ubuntu, macOS e Windows. `tests/test_mlops.py` cobre o ciclo, o gate, o registry, o diretório de artefatos, a reprodutibilidade da semente e o status `FAILED`.

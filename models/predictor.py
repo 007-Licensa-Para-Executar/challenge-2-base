@@ -155,7 +155,7 @@ class ClinicalThemePredictor:
                 num_classes=len(THEME_CLASSES),
                 vocab_size=vocab_size,
             )
-            self.model.load_state_dict(state_dict)
+            self.model.load_state_dict(state_dict, strict=False)
             self.model.to(self.device)
 
         self.model.eval()

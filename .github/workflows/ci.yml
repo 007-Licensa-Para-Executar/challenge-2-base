@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with:
-          version: "0.9.8"
+          version: "0.11.15"
           enable-cache: true
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check .

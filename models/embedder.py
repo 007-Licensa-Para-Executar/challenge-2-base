@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import torch
+from sklearn.decomposition import TruncatedSVD
 
 PORTUGUESE_STOPWORDS: list[str] = [
     "de",
@@ -171,11 +172,15 @@ class ClinicalTextEmbedder:
         max_features: int = 1024,
         stop_words: list[str] | None = None,
         random_state: int = 42,
+        init_strategy: Literal["gaussian", "svd"] = "gaussian",
+        use_idf_weighting: bool = True,
     ) -> None:
         self.embedding_dim = embedding_dim
         self.max_features = max_features
         self.stop_words = {self._strip_accents(w) for w in stop_words} if stop_words else set()
         self.random_state = random_state
+        self.init_strategy = init_strategy
+        self.use_idf_weighting = use_idf_weighting
 
         self.vocab: dict[str, int] = {self.PAD_TOKEN: self.PAD_IDX, self.UNK_TOKEN: self.UNK_IDX}
         self.inverse_vocab: dict[int, str] = {
@@ -183,6 +188,7 @@ class ClinicalTextEmbedder:
             self.UNK_IDX: self.UNK_TOKEN,
         }
         self.word_counts: dict[str, int] = {}
+        self.idf_weights: dict[str, float] = {}
         self.embedding_matrix: np.ndarray | None = None
         self._is_fitted: bool = False
 
@@ -203,9 +209,16 @@ class ClinicalTextEmbedder:
     def fit(self, texts: list[str]) -> ClinicalTextEmbedder:
         """Constrói o vocabulário e inicializa a matriz de embeddings contínuos."""
         counts: dict[str, int] = {}
+        doc_counts: dict[str, int] = {}
+        tokenized_docs: list[list[str]] = []
+
         for text in texts:
-            for token in self._tokenize(text):
+            toks = self._tokenize(text)
+            tokenized_docs.append(toks)
+            for token in toks:
                 counts[token] = counts.get(token, 0) + 1
+            for token in set(toks):
+                doc_counts[token] = doc_counts.get(token, 0) + 1
 
         self.word_counts = counts
         # Ordena por frequência decrescente
@@ -219,14 +232,63 @@ class ClinicalTextEmbedder:
             self.vocab[token] = idx
         self.inverse_vocab = {idx: token for token, idx in self.vocab.items()}
 
-        # Inicialização He / Xavier Normal para os pesos dos embeddings
+        # Calcula pesos IDF suavizados
+        n_docs = max(1, len(texts))
+        self.idf_weights = {
+            token: float(np.log((n_docs + 1.0) / (doc_counts.get(token, 0) + 1.0)) + 1.0)
+            for token in self.vocab
+        }
+        self.idf_weights[self.PAD_TOKEN] = 0.0
+        self.idf_weights[self.UNK_TOKEN] = 1.0
+
         rng = np.random.RandomState(self.random_state)
-        scale = np.sqrt(1.0 / self.embedding_dim)
-        self.embedding_matrix = (rng.randn(len(self.vocab), self.embedding_dim) * scale).astype(
-            np.float32
-        )
-        # O vetor de <PAD> deve ser estritamente nulo
-        self.embedding_matrix[self.PAD_IDX] = 0.0
+        vocab_size = len(self.vocab)
+
+        # Inicialização com Semântica Distribucional (TruncatedSVD sobre co-ocorrência termo-documento)
+        initialized_svd = False
+        self._svd_model: TruncatedSVD | None = None
+        if (
+            self.init_strategy == "svd"
+            and len(texts) >= self.embedding_dim
+            and vocab_size > self.embedding_dim + 2
+        ):
+            try:
+                # Constrói matriz documento-termo TF-IDF: shape (n_docs, vocab_size)
+                doc_term = np.zeros((len(texts), vocab_size), dtype=np.float32)
+                for d_idx, doc_toks in enumerate(tokenized_docs):
+                    doc_tok_counts: dict[str, int] = {}
+                    for t in doc_toks:
+                        if t in self.vocab:
+                            doc_tok_counts[t] = doc_tok_counts.get(t, 0) + 1
+                    for t, cnt in doc_tok_counts.items():
+                        v_idx = self.vocab[t]
+                        # Sublinear TF * IDF
+                        tf = 1.0 + np.log(cnt)
+                        doc_term[d_idx, v_idx] = tf * self.idf_weights.get(t, 1.0)
+
+                self._svd_model = TruncatedSVD(
+                    n_components=self.embedding_dim, random_state=self.random_state
+                )
+                self._svd_model.fit(doc_term)
+                # Os pesos de embedding por palavra correspondem aos componentes LSA: shape (vocab_size, embedding_dim)
+                self.embedding_matrix = self._svd_model.components_.T.astype(np.float32)
+                self.embedding_matrix[self.PAD_IDX] = 0.0
+                if vocab_size > 2:
+                    self.embedding_matrix[self.UNK_IDX] = (
+                        np.mean(self.embedding_matrix[2:], axis=0) * 0.1
+                    ).astype(np.float32)
+                initialized_svd = True
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError):
+                initialized_svd = False
+                self._svd_model = None
+
+        if not initialized_svd:
+            # Inicialização He / Xavier Normal para os pesos dos embeddings
+            scale = np.sqrt(1.0 / self.embedding_dim)
+            self.embedding_matrix = (
+                rng.randn(vocab_size, self.embedding_dim) * scale
+            ).astype(np.float32)
+            self.embedding_matrix[self.PAD_IDX] = 0.0
 
         self._is_fitted = True
         return self
@@ -265,6 +327,26 @@ class ClinicalTextEmbedder:
                 "ClinicalTextEmbedder precisa ser ajustado com fit() antes de transform()."
             )
 
+        svd_model = getattr(self, "_svd_model", None)
+        if svd_model is not None and self.init_strategy == "svd":
+            vocab_size = len(self.vocab)
+            doc_term = np.zeros((len(texts), vocab_size), dtype=np.float32)
+            for d_idx, text in enumerate(texts):
+                toks = self._tokenize(text)
+                tok_cnt: dict[str, int] = {}
+                for t in toks:
+                    if t in self.vocab:
+                        tok_cnt[t] = tok_cnt.get(t, 0) + 1
+                for t, cnt in tok_cnt.items():
+                    v_idx = self.vocab[t]
+                    tf = 1.0 + np.log(cnt)
+                    doc_term[d_idx, v_idx] = tf * self.idf_weights.get(t, 1.0)
+            embeddings = svd_model.transform(doc_term).astype(np.float32)
+            if normalize:
+                norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+                embeddings = np.where(norms > 1e-9, embeddings / norms, embeddings)
+            return embeddings
+
         embeddings = np.zeros((len(texts), self.embedding_dim), dtype=np.float32)
 
         for i, text in enumerate(texts):
@@ -273,8 +355,23 @@ class ClinicalTextEmbedder:
                 # Texto vazio ou sem tokens reconhecidos: fallback para UNK
                 vec = self.embedding_matrix[self.UNK_IDX].copy()
             else:
-                # Agregação por Mean Pooling dos tokens presentes
-                vec = np.mean(self.embedding_matrix[indices], axis=0)
+                if self.use_idf_weighting and self.idf_weights:
+                    weights = np.array(
+                        [
+                            self.idf_weights.get(self.inverse_vocab.get(idx, ""), 1.0)
+                            for idx in indices
+                        ],
+                        dtype=np.float32,
+                    )
+                    sum_w = np.sum(weights)
+                    if sum_w > 1e-9:
+                        vec = np.sum(
+                            self.embedding_matrix[indices] * weights[:, None], axis=0
+                        ) / sum_w
+                    else:
+                        vec = np.mean(self.embedding_matrix[indices], axis=0)
+                else:
+                    vec = np.mean(self.embedding_matrix[indices], axis=0)
 
             if normalize:
                 norm = np.linalg.norm(vec)
@@ -312,4 +409,6 @@ class ClinicalTextEmbedder:
             "embedding_dim": self.embedding_dim,
             "max_features": self.max_features,
             "random_state": self.random_state,
+            "init_strategy": self.init_strategy,
+            "use_idf_weighting": self.use_idf_weighting,
         }

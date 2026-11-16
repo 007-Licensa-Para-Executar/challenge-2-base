@@ -370,8 +370,8 @@ usam explicitamente CMD. Os modelos são simulados no CI. Não há vencedor decl
 | `data/synthetic/` | Casos inventados e anotações preliminares |
 | `tests/` | Testes automatizados isolados de serviços reais |
 | `knowledge_base/` | Reservado para a futura base de conhecimento |
-| `mlops/` | Reservado para a evolução de pipelines de experimentação |
-| `models/` | Reservado para a rede neural a ser construída pelo grupo |
+| `mlops/` | Pipeline de experimento, tracking MLflow e gate por F1 macro |
+| `models/` | Baseline e rede MLP de sentimento, com métricas compartilhadas |
 | `docs/` | Pesquisa, referências, avaliação e planejamento |
 
 O uso de um LLM pronto não substitui construir e testar a rede neural exigida pelo Challenge.

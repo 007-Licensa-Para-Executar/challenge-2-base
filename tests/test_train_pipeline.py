@@ -94,7 +94,7 @@ def test_train_theme_classifier_e2e(tmp_path):
 
     # Verifica que todos os artefatos esperados foram gerados no disco
     assert (dist_dir / "best_theme_mlp.pt").exists()
-    assert (dist_dir / "tfidf_vectorizer.joblib").exists()
+    assert (dist_dir / "theme_embedder.joblib").exists()
     assert (dist_dir / "confusion_matrix.json").exists()
     assert (dist_dir / "classification_report.json").exists()
     assert (dist_dir / "theme_classes.json").exists()

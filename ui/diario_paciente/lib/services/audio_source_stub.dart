@@ -31,3 +31,7 @@ class UnavailableAudioCapture implements AudioCapture {
   @override
   Future<void> play(Uint8List bytes, String name) async {}
 }
+
+Future<String> previewTranscript(AudioDraft draft) {
+  throw StateError('O transcritor local só existe no navegador.');
+}

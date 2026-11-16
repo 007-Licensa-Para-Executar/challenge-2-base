@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_repository.dart';
 import '../widgets/entry_card.dart';
+import '../widgets/quiet_notice.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key, required this.repository, required this.onOpen});
@@ -26,9 +27,13 @@ class _HistoryPageState extends State<HistoryPage> {
       return true;
     }).toList();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
       children: [
         Text('Histórico', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        const Text(
+          'Relatos escritos e áudios ficam separados. A transcrição exibida é fictícia e não substitui o arquivo.',
+        ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
@@ -62,16 +67,38 @@ class _HistoryPageState extends State<HistoryPage> {
         if (widget.repository.loading)
           const Center(child: CircularProgressIndicator())
         else if (widget.repository.failure != null)
-          const Text('Não foi possível carregar o histórico.')
+          const QuietNotice(
+            icon: Icons.cloud_off_outlined,
+            text: 'Não foi possível carregar o histórico.',
+          )
+        else if (widget.repository.entries.isEmpty)
+          const QuietNotice(text: 'Nenhum registro ainda. Você pode começar por um relato.')
         else if (visible.isEmpty)
-          const Text('Nenhum registro com esse filtro.')
+          const QuietNotice(text: 'Nenhum registro com esse filtro.')
         else
-          for (final entry in visible) ...[
-            EntryCard(entry: entry, onOpen: () => widget.onOpen(entry)),
-            const SizedBox(height: 12),
-          ],
+          ..._grouped(context, visible),
       ],
     );
+  }
+
+  List<Widget> _grouped(BuildContext context, List<DiaryEntry> visible) {
+    final widgets = <Widget>[];
+    String? lastDay;
+    for (final entry in visible) {
+      final day = MaterialLocalizations.of(context).formatFullDate(entry.createdAt.toLocal());
+      if (day != lastDay) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: lastDay == null ? 4 : 12, bottom: 8),
+            child: Text(day, style: Theme.of(context).textTheme.titleMedium),
+          ),
+        );
+        lastDay = day;
+      }
+      widgets.add(EntryCard(entry: entry, onOpen: () => widget.onOpen(entry)));
+      widgets.add(const SizedBox(height: 12));
+    }
+    return widgets;
   }
 
   String _statusName(DiaryStatus status) => switch (status) {

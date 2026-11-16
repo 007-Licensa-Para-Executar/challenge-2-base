@@ -40,6 +40,7 @@ class FakeDiaryRepository extends DiaryRepository {
     final cleaned = text.trim();
     if (cleaned.isEmpty) throw const DiaryFailure('empty_text');
     if (cleaned.length > 20000) throw const DiaryFailure('text_too_long');
+    // shortcut: `mood` fica de fora do registro até existir contrato de backend.
     await _save(
       DiaryEntry(
         id: 'local-${_sequence++}',
@@ -47,7 +48,6 @@ class FakeDiaryRepository extends DiaryRepository {
         kind: DiaryKind.written,
         status: DiaryStatus.ready,
         text: cleaned,
-        manualMood: mood,
       ),
     );
   }
@@ -101,7 +101,6 @@ class FakeDiaryRepository extends DiaryRepository {
         createdAt: DateTime.utc(2026, 11, 12, 18, 10),
         kind: DiaryKind.written,
         status: DiaryStatus.ready,
-        manualMood: 'Calma',
         text:
             'Relato fictício. O fim da tarde foi silencioso e não houve pressa para decidir nada.',
       ),

@@ -11,10 +11,16 @@ import '../services/diary_repository.dart';
 import '../theme/diary_theme.dart';
 
 class DiaryShell extends StatefulWidget {
-  const DiaryShell({super.key, required this.repository, required this.capture});
+  const DiaryShell({
+    super.key,
+    required this.repository,
+    required this.capture,
+    this.transcribe,
+  });
 
   final DiaryRepository repository;
   final AudioCapture capture;
+  final Future<String> Function(AudioDraft draft)? transcribe;
 
   @override
   State<DiaryShell> createState() => _DiaryShellState();
@@ -56,13 +62,18 @@ class _DiaryShellState extends State<DiaryShell> {
         onOpen: _open,
       ),
       WritePage(key: _writeKey, repository: widget.repository),
-      AudioPage(key: _audioKey, repository: widget.repository, capture: widget.capture),
+      AudioPage(
+        key: _audioKey,
+        repository: widget.repository,
+        capture: widget.capture,
+        transcribe: widget.transcribe,
+      ),
       HistoryPage(repository: widget.repository, onOpen: _open),
     ];
     final body = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
+        constraints: const BoxConstraints(maxWidth: 720),
         child: IndexedStack(index: _index, children: pages),
       ),
     );
@@ -86,6 +97,8 @@ class _DiaryShellState extends State<DiaryShell> {
       body: body,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
+        backgroundColor: cardWhite,
+        indicatorColor: mist,
         onDestinationSelected: (index) {
           _select(index);
         },
@@ -109,22 +122,47 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      (Icons.home_outlined, 'Início'),
-      (Icons.edit_outlined, 'Escrever'),
-      (Icons.mic_none, 'Áudio'),
-      (Icons.history, 'Histórico'),
+      (Icons.home_outlined, 'Início', Icons.home),
+      (Icons.edit_outlined, 'Escrever', Icons.edit),
+      (Icons.mic_none, 'Áudio', Icons.mic),
+      (Icons.history, 'Histórico', Icons.history),
     ];
     return NavigationRail(
+      extended: true,
+      minExtendedWidth: 232,
+      groupAlignment: -0.9,
       backgroundColor: cardWhite,
       selectedIndex: index,
+      indicatorColor: mist,
       onDestinationSelected: (index) {
         onSelect(index);
       },
-      labelType: NavigationRailLabelType.all,
-      selectedIconTheme: const IconThemeData(color: sage),
+      leading: const Padding(
+        padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+        child: SizedBox(
+          width: 196,
+          child: Row(
+            children: [
+              Icon(Icons.spa_outlined, color: sage),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Meu Diário',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: graphite, fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       destinations: [
         for (final item in items)
-          NavigationRailDestination(icon: Icon(item.$1), label: Text(item.$2)),
+          NavigationRailDestination(
+            icon: Icon(item.$1),
+            selectedIcon: Icon(item.$3),
+            label: Text(item.$2),
+          ),
       ],
     );
   }

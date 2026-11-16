@@ -27,22 +27,30 @@ class DetailPage extends StatelessWidget {
             children: [
               Text('$date · $time', style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(entry.kindLabel, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(width: 12),
                   StatusChip(status: entry.status),
                 ],
               ),
-              if (entry.manualMood.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text('Humor informado: ${entry.manualMood}'),
-              ],
               if (entry.text.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                Text('Texto original', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(entry.text),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Texto original', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        Text(entry.text),
+                      ],
+                    ),
+                  ),
+                ),
               ],
               if (entry.kind == DiaryKind.audio) ...[
                 const SizedBox(height: 20),
@@ -61,10 +69,20 @@ class DetailPage extends StatelessWidget {
                 ],
               ],
               if (entry.transcript.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text('Transcrição bruta', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(entry.transcript),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Transcrição bruta', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        Text(entry.transcript),
+                      ],
+                    ),
+                  ),
+                ),
               ],
               if (entry.errorCode.isNotEmpty) ...[
                 const SizedBox(height: 20),

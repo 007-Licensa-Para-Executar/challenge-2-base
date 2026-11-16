@@ -16,14 +16,23 @@ void main() {
   testWidgets('salva o relato uma vez e avisa se a tela for deixada', (tester) async {
     final repository = FakeDiaryRepository(seed: [], delay: const Duration(seconds: 1));
     await _pump(tester, repository, const Size(390, 844));
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Meu Diário'), findsNothing);
+    expect(find.text('Como você está se sentindo hoje?'), findsOneWidget);
     await tester.tap(find.text('Escrever'));
     await tester.pumpAndSettle();
+    
     await tester.enterText(find.byType(TextField), 'Relato fictício único.');
+
     await tester.pump();
+
     final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Salvar relato'));
     expect(button.onPressed, isNotNull);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Salvar relato'));
+    
     await tester.pump();
+
     expect(repository.saving, isTrue);
     await tester.tap(find.text('Salvando…'));
     await tester.pump(const Duration(seconds: 1));
@@ -65,22 +74,31 @@ void main() {
     await _pump(tester, FakeDiaryRepository(seed: []), const Size(1280, 800));
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('Meu Diário'), findsOneWidget);
+    expect(find.text('Como você está se sentindo hoje?'), findsOneWidget);
     expect(find.textContaining('Nenhum registro ainda'), findsOneWidget);
 
     await _pump(tester, _BrokenRepository(), const Size(1440, 900));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.text('Meu Diário'), findsOneWidget);
     expect(find.textContaining('Não foi possível carregar'), findsOneWidget);
   });
 
   testWidgets('rejeita áudio inválido e envia um wav', (tester) async {
     final repository = FakeDiaryRepository(seed: []);
     final capture = ScriptedCapture();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(768, 1024);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(DiaryApp(repository: repository, capture: capture));
     await tester.pumpAndSettle();
-    await tester.binding.setSurfaceSize(const Size(768, 1024));
-    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.text('Meu Diário'), findsOneWidget);
     await tester.tap(find.text('Áudio'));
     await tester.pumpAndSettle();
     expect(find.text('Gravar pelo microfone'), findsNothing);
+    expect(find.text('Ver transcrições'), findsNothing);
 
     ScriptedCapture.next = AudioDraft(name: 'nota.txt', bytes: Uint8List.fromList([1, 2, 3]));
     await tester.tap(find.text('Selecionar WAV, MP3 ou M4A'));
@@ -99,6 +117,103 @@ void main() {
     expect(repository.entries.single.kind, DiaryKind.audio);
   });
 
+  testWidgets('a prévia transcreve sem enviar o áudio', (tester) async {
+    final repository = FakeDiaryRepository(seed: []);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(768, 1024);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(DiaryApp(
+      repository: repository,
+      capture: const ScriptedCapture(),
+      transcribe: (draft) async => 'fala ouvida na prévia',
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Áudio'));
+    await tester.pumpAndSettle();
+    ScriptedCapture.next = AudioDraft(name: 'fala.wav', bytes: Uint8List.fromList(const [1, 2, 3, 4]));
+    await tester.tap(find.text('Selecionar WAV, MP3 ou M4A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transcrever antes de enviar'));
+    await tester.pumpAndSettle();
+    expect(find.text('fala ouvida na prévia'), findsOneWidget);
+    expect(find.textContaining('ainda não enviada'), findsOneWidget);
+    expect(repository.entries, isEmpty);
+  });
+
+  testWidgets('o botão revela só a transcrição que o registro já tem', (tester) async {
+    await _pump(tester, FakeDiaryRepository(), const Size(1280, 900));
+    await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Áudio')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('o dia começou devagar'), findsNothing);
+    await tester.scrollUntilVisible(find.text('Ver transcrições'), 400);
+    await tester.tap(find.text('Ver transcrições'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('o dia começou devagar'), findsOneWidget);
+    expect(find.text('nota-ficticia.wav'), findsNothing);
+    await tester.tap(find.text('Ocultar transcrições'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('o dia começou devagar'), findsNothing);
+  });
+
+  testWidgets('o check-in é local e os cards abrem as telas', (tester) async {
+    final repository = FakeDiaryRepository();
+    final before = repository.entries.map((entry) => entry.id).toList();
+    await _pump(tester, repository, const Size(390, 844));
+    final semantics = tester.ensureSemantics();
+
+    expect(
+      tester.getSemantics(find.widgetWithText(ChoiceChip, 'Bem')),
+      isSemantics(isButton: true, isFocusable: true, hasTapAction: true, label: 'Bem'),
+    );
+    await tester.tap(find.text('Bem'));
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Bem')).selected, isTrue);
+    await tester.tap(find.text('Triste'));
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Bem')).selected, isFalse);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Triste')).selected, isTrue);
+    await tester.tap(find.text('Triste'));
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Triste')).selected, isFalse);
+    expect(repository.entries.map((entry) => entry.id), before);
+    expect(repository.entries.every((entry) => entry.manualMood.isEmpty), isTrue);
+    expect(find.textContaining('Humor informado'), findsNothing);
+
+    await tester.scrollUntilVisible(find.text('Escrever relato'), 400);
+    await tester.tap(find.text('Escrever relato'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, 'Salvar relato'), findsOneWidget);
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Gravar ou enviar áudio'), 400);
+    await tester.tap(find.text('Gravar ou enviar áudio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Selecionar WAV, MP3 ou M4A'), findsOneWidget);
+    expect(find.text('Gravar pelo microfone'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('cabe em 390, 768, 1280 e 1440', (tester) async {
+    for (final width in [390.0, 768.0, 1280.0, 1440.0]) {
+      await _pump(tester, FakeDiaryRepository(), Size(width, 900));
+      expect(find.text('Como você está se sentindo hoje?'), findsOneWidget);
+      expect(find.text('Bem'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      if (width < 768) {
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.text('Meu Diário'), findsNothing);
+      } else {
+        expect(find.byType(NavigationRail), findsOneWidget);
+        expect(find.text('Meu Diário'), findsOneWidget);
+      }
+      await tester.tap(find.text('Histórico'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('novembro'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   test('o cliente HTTP ainda não está ligado e não recebe paciente do navegador', () {
     expect(HttpDiaryRepository.textoPath, '/api/texto');
     expect(HttpDiaryRepository.historicoPath, '/api/historico');
@@ -110,10 +225,15 @@ void main() {
 }
 
 Future<void> _pump(WidgetTester tester, DiaryRepository repository, Size size) async {
-  await tester.binding.setSurfaceSize(size);
-  addTearDown(() => tester.binding.setSurfaceSize(null));
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
   await tester.pumpWidget(
-    DiaryApp(repository: repository, capture: const ScriptedCapture()),
+    KeyedSubtree(
+      key: UniqueKey(),
+      child: DiaryApp(repository: repository, capture: const ScriptedCapture()),
+    ),
   );
   await tester.pumpAndSettle();
 }

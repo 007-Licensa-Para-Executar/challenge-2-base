@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'models/diary_entry.dart';
 import 'services/audio_source.dart';
 import 'services/audio_source_factory.dart';
 import 'services/diary_repository.dart';
@@ -12,14 +13,21 @@ void main() {
   runApp(DiaryApp(
     repository: FakeDiaryRepository(),
     capture: createAudioCapture(),
+    transcribe: transcribeDraft,
   ));
 }
 
 class DiaryApp extends StatelessWidget {
-  const DiaryApp({super.key, required this.repository, required this.capture});
+  const DiaryApp({
+    super.key,
+    required this.repository,
+    required this.capture,
+    this.transcribe,
+  });
 
   final DiaryRepository repository;
   final AudioCapture capture;
+  final Future<String> Function(AudioDraft draft)? transcribe;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +40,11 @@ class DiaryApp extends StatelessWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: ListenableBuilder(
         listenable: repository,
-        builder: (context, _) => DiaryShell(repository: repository, capture: capture),
+        builder: (context, _) => DiaryShell(
+          repository: repository,
+          capture: capture,
+          transcribe: transcribe,
+        ),
       ),
     );
   }

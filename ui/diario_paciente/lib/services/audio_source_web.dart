@@ -17,6 +17,7 @@ class WebAudioCapture implements AudioCapture {
   web.MediaStream? _stream;
   final List<web.Blob> _chunks = [];
   bool _recording = false;
+  web.HTMLAudioElement? _player;
 
   @override
   bool get canRecord => true;
@@ -93,12 +94,14 @@ class WebAudioCapture implements AudioCapture {
 
   @override
   Future<void> play(Uint8List bytes, String name) async {
+    _player?.pause();
     final blob = web.Blob(
       [bytes.toJS].toJS,
       web.BlobPropertyBag(type: _mime(name)),
     );
     final url = web.URL.createObjectURL(blob);
     final audio = web.HTMLAudioElement()..src = url;
+    _player = audio;
     await audio.play().toDart;
   }
 
@@ -149,4 +152,18 @@ class WebAudioCapture implements AudioCapture {
       _ => 'audio/webm',
     };
   }
+}
+
+Future<String> previewTranscript(AudioDraft draft) async {
+  final headers = web.Headers();
+  headers.set('Content-Type', 'application/octet-stream');
+  final response = await web.window
+      .fetch(
+        'http://127.0.0.1:8765/transcrever?ext=${audioExtension(draft.name)}'.toJS,
+        web.RequestInit(method: 'POST', headers: headers, body: draft.bytes.toJS),
+      )
+      .toDart;
+  final text = (await response.text().toDart).toDart;
+  if (response.status != 200) throw StateError(text);
+  return text.trim();
 }

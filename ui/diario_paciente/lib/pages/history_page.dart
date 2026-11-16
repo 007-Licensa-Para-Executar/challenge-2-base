@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
 import '../services/diary_repository.dart';
+import '../theme/diary_theme.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/quiet_notice.dart';
 
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key, required this.repository, required this.onOpen});
+  const HistoryPage({
+    super.key,
+    required this.repository,
+    required this.onOpen,
+  });
 
   final DiaryRepository repository;
   final ValueChanged<DiaryEntry> onOpen;
@@ -21,24 +26,36 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
     final visible = widget.repository.entries.where((entry) {
       if (_kind != null && entry.kind != _kind) return false;
       if (_status != null && entry.status != _status) return false;
       return true;
-    }).toList();
+    }).toList()..sort(compareEntriesNewestFirst);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      padding: const EdgeInsets.fromLTRB(
+        DiarySpace.s24,
+        DiarySpace.s32,
+        DiarySpace.s24,
+        DiarySpace.s24,
+      ),
       children: [
-        Text('Histórico', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        const Text(
-          'Relatos escritos e áudios ficam separados. A transcrição exibida é fictícia e não substitui o arquivo.',
+        Text('Seus registros', style: theme.headlineMedium),
+        const SizedBox(height: DiarySpace.s8),
+        Text(
+          'Do mais recente ao mais antigo. São exemplos desta demonstração.',
+          style: theme.bodyMedium,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: DiarySpace.s16),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: DiarySpace.s8,
+          runSpacing: DiarySpace.s8,
           children: [
+            FilterChip(
+              label: const Text('Todos'),
+              selected: _kind == null,
+              onSelected: (_) => setState(() => _kind = null),
+            ),
             FilterChip(
               label: const Text('Escritos'),
               selected: _kind == DiaryKind.written,
@@ -63,7 +80,7 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: DiarySpace.s16),
         if (widget.repository.loading)
           const Center(child: CircularProgressIndicator())
         else if (widget.repository.failure != null)
@@ -72,7 +89,9 @@ class _HistoryPageState extends State<HistoryPage> {
             text: 'Não foi possível carregar o histórico.',
           )
         else if (widget.repository.entries.isEmpty)
-          const QuietNotice(text: 'Nenhum registro ainda. Você pode começar por um relato.')
+          const QuietNotice(
+            text: 'Nenhum registro ainda. Você pode começar por um relato.',
+          )
         else if (visible.isEmpty)
           const QuietNotice(text: 'Nenhum registro com esse filtro.')
         else
@@ -85,26 +104,30 @@ class _HistoryPageState extends State<HistoryPage> {
     final widgets = <Widget>[];
     String? lastDay;
     for (final entry in visible) {
-      final day = MaterialLocalizations.of(context).formatFullDate(entry.createdAt.toLocal());
+      final day = MaterialLocalizations.of(context)
+          .formatFullDate(entry.createdAt.toLocal());
       if (day != lastDay) {
         widgets.add(
           Padding(
-            padding: EdgeInsets.only(top: lastDay == null ? 4 : 12, bottom: 8),
+            padding: EdgeInsets.only(
+              top: lastDay == null ? DiarySpace.s4 : DiarySpace.s12,
+              bottom: DiarySpace.s8,
+            ),
             child: Text(day, style: Theme.of(context).textTheme.titleMedium),
           ),
         );
         lastDay = day;
       }
       widgets.add(EntryCard(entry: entry, onOpen: () => widget.onOpen(entry)));
-      widgets.add(const SizedBox(height: 12));
+      widgets.add(const SizedBox(height: DiarySpace.s12));
     }
     return widgets;
   }
 
   String _statusName(DiaryStatus status) => switch (status) {
-        DiaryStatus.queued => 'Aguardando',
-        DiaryStatus.processing => 'Processando',
-        DiaryStatus.ready => 'Concluído',
-        DiaryStatus.failed => 'Erro',
-      };
+    DiaryStatus.queued => 'Aguardando',
+    DiaryStatus.processing => 'Processando',
+    DiaryStatus.ready => 'Concluído',
+    DiaryStatus.failed => 'Erro',
+  };
 }

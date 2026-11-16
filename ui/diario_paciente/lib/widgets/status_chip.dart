@@ -3,34 +3,54 @@ import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../theme/diary_theme.dart';
 
-class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.status});
+class DiaryStatusChip extends StatelessWidget {
+  const DiaryStatusChip({super.key, required this.status});
 
   final DiaryStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (status) {
-      DiaryStatus.queued => 'Aguardando',
-      DiaryStatus.processing => 'Processando',
-      DiaryStatus.ready => 'Concluído',
-      DiaryStatus.failed => 'Erro',
-    };
-    final color = switch (status) {
-      DiaryStatus.failed => Theme.of(context).colorScheme.error,
-      DiaryStatus.processing => sage,
-      _ => graphite,
+    final (label, color, icon, background) = switch (status) {
+      DiaryStatus.queued => ('Aguardando', graphite, Icons.schedule, mist),
+      DiaryStatus.processing => (
+        'Processando',
+        deepSage,
+        Icons.autorenew,
+        mist,
+      ),
+      DiaryStatus.ready => ('Concluído', deepSage, Icons.check, mist),
+      DiaryStatus.failed => (
+        'Erro',
+        Theme.of(context).colorScheme.error,
+        Icons.error_outline,
+        errorMist,
+      ),
     };
     return Semantics(
       label: 'Status $label',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DiarySpace.s12,
+          vertical: DiarySpace.s4,
+        ),
         decoration: BoxDecoration(
-          color: status == DiaryStatus.failed ? const Color(0xFFF6E8E6) : mist,
+          color: background,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(label, style: TextStyle(color: color, fontSize: 13)),
+        child: Wrap(
+          spacing: DiarySpace.s4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: color),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: 14, height: 1.3),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+typedef StatusChip = DiaryStatusChip;

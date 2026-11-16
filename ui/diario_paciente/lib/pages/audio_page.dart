@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/audio_source.dart';
 import '../services/diary_repository.dart';
+import '../theme/diary_theme.dart';
+import '../widgets/diary_components.dart';
+import '../widgets/status_chip.dart';
 
 class AudioPage extends StatefulWidget {
   const AudioPage({
@@ -25,6 +28,8 @@ class AudioPage extends StatefulWidget {
 class AudioPageState extends State<AudioPage> {
   AudioDraft? _draft;
   String _message = '';
+  bool _messageIsError = false;
+  bool _accepted = false;
   Duration _elapsed = Duration.zero;
   StreamSubscription<Duration>? _ticks;
   bool _recording = false;
@@ -46,10 +51,18 @@ class AudioPageState extends State<AudioPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Descartar este áudio?'),
-        content: const Text('A gravação ou o arquivo ainda não foram enviados.'),
+        content: const Text(
+          'A gravação ou o arquivo ainda não foram enviados.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ficar')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sair')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Ficar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sair'),
+          ),
         ],
       ),
     );
@@ -66,6 +79,8 @@ class AudioPageState extends State<AudioPage> {
     setState(() {
       _draft = draft;
       _message = '';
+      _messageIsError = false;
+      _accepted = false;
       _preview = '';
     });
   }
@@ -73,12 +88,18 @@ class AudioPageState extends State<AudioPage> {
   Future<void> _listen() async {
     final draft = _draft;
     if (draft == null) return;
-    setState(() => _message = 'Reproduzindo ${draft.name}.');
+    setState(() {
+      _message = 'Reproduzindo ${draft.name}.';
+      _messageIsError = false;
+    });
     try {
       await widget.capture.play(draft.bytes, draft.name);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _message = 'Não foi possível reproduzir este áudio.');
+      setState(() {
+        _message = 'Não foi possível reproduzir este áudio.';
+        _messageIsError = true;
+      });
     }
   }
 
@@ -90,6 +111,7 @@ class AudioPageState extends State<AudioPage> {
       _transcribing = true;
       _preview = '';
       _message = '';
+      _messageIsError = false;
     });
     try {
       final text = await transcribe(draft);
@@ -103,8 +125,9 @@ class AudioPageState extends State<AudioPage> {
       final detail = error is StateError ? error.message.trim() : '';
       setState(() {
         _transcribing = false;
+        _messageIsError = true;
         _message = detail.isEmpty
-            ? 'O transcritor local em 127.0.0.1:8765 não respondeu. O áudio não foi enviado.'
+            ? 'O transcritor local na porta 8765 não respondeu. O áudio não foi enviado.'
             : '$detail O áudio não foi enviado.';
       });
     }
@@ -124,7 +147,10 @@ class AudioPageState extends State<AudioPage> {
     final start = await widget.capture.startRecording();
     if (!mounted) return;
     if (start.permissionDenied) {
-      setState(() => _message = 'O navegador não autorizou o microfone.');
+      setState(() {
+        _message = 'O navegador não autorizou o microfone.';
+        _messageIsError = true;
+      });
       return;
     }
     if (!start.started) return;
@@ -135,6 +161,8 @@ class AudioPageState extends State<AudioPage> {
       _recording = true;
       _elapsed = Duration.zero;
       _message = '';
+      _messageIsError = false;
+      _accepted = false;
       _draft = null;
       _preview = '';
     });
@@ -148,115 +176,184 @@ class AudioPageState extends State<AudioPage> {
       if (!mounted) return;
       setState(() {
         _draft = null;
-        _message = 'Áudio aceito nesta demonstração. O estado inicial é aguardando.';
+        _preview = '';
+        _accepted = true;
+        _messageIsError = false;
+        _message = 'Áudio aceito nesta demonstração. Ele fica aguardando.';
       });
     } on DiaryFailure catch (error) {
       if (!mounted) return;
-      setState(() => _message = _audioMessage(error.code));
+      setState(() {
+        _accepted = false;
+        _messageIsError = true;
+        _message = _audioMessage(error.code);
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
     final draft = _draft;
     final transcribed = widget.repository.entries
-        .where((entry) => entry.kind == DiaryKind.audio && entry.transcript.isNotEmpty)
+        .where(
+          (entry) =>
+              entry.kind == DiaryKind.audio && entry.transcript.isNotEmpty,
+        )
         .toList();
+    final select = draft == null
+        ? FilledButton.icon(
+            onPressed: busy ? null : _pick,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Selecionar áudio'),
+          )
+        : OutlinedButton.icon(
+            onPressed: busy ? null : _pick,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Selecionar áudio'),
+          );
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      padding: const EdgeInsets.fromLTRB(
+        DiarySpace.s24,
+        DiarySpace.s32,
+        DiarySpace.s24,
+        DiarySpace.s24,
+      ),
       children: [
-        Text('Áudio', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        const Text(
-          'O arquivo original permanece. Depois do envio ele pode ficar aguardando, em processamento, concluído ou com erro. Nesta demonstração o Whisper não é executado. A transcrição que aparece no histórico é fictícia e não substitui o áudio.',
+        Text('Conte com sua voz', style: theme.headlineMedium),
+        const SizedBox(height: DiarySpace.s8),
+        Text(
+          'Você pode enviar um áudio no seu ritmo.',
+          style: theme.bodyMedium,
         ),
-        const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton.icon(
-                  onPressed: busy ? null : _pick,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Selecionar WAV, MP3 ou M4A'),
+        const SizedBox(height: DiarySpace.s8),
+        Text(
+          'O arquivo original permanece. A transcrição, quando existe, não o substitui.',
+          style: theme.bodyMedium,
+        ),
+        const SizedBox(height: DiarySpace.s24),
+        DiaryCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('WAV, MP3 ou M4A', style: theme.titleMedium),
+              const SizedBox(height: DiarySpace.s4),
+              Text(
+                'Escolha um arquivo neste aparelho.',
+                style: theme.bodyMedium,
+              ),
+              const SizedBox(height: DiarySpace.s16),
+              select,
+              if (widget.capture.canRecord) ...[
+                const SizedBox(height: DiarySpace.s12),
+                OutlinedButton.icon(
+                  onPressed: widget.repository.saving ? null : _toggleRecord,
+                  icon: Icon(_recording ? Icons.stop : Icons.mic_none),
+                  label: Text(
+                    _recording
+                        ? 'Parar ${_clock(_elapsed)}'
+                        : 'Gravar pelo microfone',
+                  ),
                 ),
-                if (widget.capture.canRecord) ...[
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: widget.repository.saving ? null : _toggleRecord,
-                    icon: Icon(_recording ? Icons.stop : Icons.mic_none),
-                    label: Text(_recording ? 'Parar ${_clock(_elapsed)}' : 'Gravar pelo microfone'),
-                  ),
-                ],
-                if (_recording)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text('Gravando. O cronômetro acompanha o tempo real.'),
-                  ),
-                if (draft != null) ...[
-                  const SizedBox(height: 20),
-                  Text(draft.name, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(_details(draft)),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _listen,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Ouvir antes de enviar'),
-                  ),
-                  if (widget.transcribe != null) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _transcribing ? null : _transcribe,
-                      icon: const Icon(Icons.notes_outlined),
-                      label: Text(_transcribing ? 'Transcrevendo…' : 'Transcrever antes de enviar'),
-                    ),
-                  ],
-                  if (_preview.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text('Prévia deste áudio, ainda não enviada.', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Text(_preview),
-                  ],
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: widget.repository.saving ? null : _send,
-                    child: Text(widget.repository.saving ? 'Enviando…' : 'Enviar áudio'),
-                  ),
-                ],
               ],
-            ),
+              if (_recording) ...[
+                const SizedBox(height: DiarySpace.s12),
+                Text(
+                  'Gravando. O cronômetro acompanha o tempo real.',
+                  style: theme.bodyMedium,
+                ),
+              ],
+              if (draft != null) ...[
+                const SizedBox(height: DiarySpace.s16),
+                Text(draft.name, style: theme.titleMedium),
+                const SizedBox(height: DiarySpace.s4),
+                Text(_details(draft), style: theme.bodyMedium),
+                const SizedBox(height: DiarySpace.s12),
+                OutlinedButton.icon(
+                  onPressed: _listen,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Ouvir antes de enviar'),
+                ),
+                if (widget.transcribe != null) ...[
+                  const SizedBox(height: DiarySpace.s12),
+                  OutlinedButton.icon(
+                    onPressed: _transcribing ? null : _transcribe,
+                    icon: const Icon(Icons.notes_outlined),
+                    label: Text(
+                      _transcribing
+                          ? 'Transcrevendo…'
+                          : 'Transcrever antes de enviar',
+                    ),
+                  ),
+                ],
+                if (_preview.isNotEmpty) ...[
+                  const SizedBox(height: DiarySpace.s16),
+                  Text(
+                    'Prévia deste áudio, ainda não enviada.',
+                    style: theme.titleMedium,
+                  ),
+                  const SizedBox(height: DiarySpace.s8),
+                  Text(_preview, style: theme.bodyLarge?.copyWith(height: 1.5)),
+                ],
+                const SizedBox(height: DiarySpace.s12),
+                FilledButton(
+                  onPressed: widget.repository.saving ? null : _send,
+                  child: Text(
+                    widget.repository.saving ? 'Enviando…' : 'Enviar áudio',
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         if (_message.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(_message),
+          const SizedBox(height: DiarySpace.s16),
+          if (_accepted) ...[
+            const DiaryStatusChip(status: DiaryStatus.queued),
+            const SizedBox(height: DiarySpace.s8),
+          ],
+          Text(
+            _message,
+            style: _messageIsError
+                ? theme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  )
+                : theme.bodyLarge,
+          ),
         ],
         if (transcribed.isNotEmpty) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: DiarySpace.s24),
           OutlinedButton.icon(
-            onPressed: () => setState(() => _transcriptsOpen = !_transcriptsOpen),
-            icon: Icon(_transcriptsOpen ? Icons.expand_less : Icons.notes_outlined),
-            label: Text(_transcriptsOpen ? 'Ocultar transcrições' : 'Ver transcrições'),
+            onPressed: () =>
+                setState(() => _transcriptsOpen = !_transcriptsOpen),
+            icon: Icon(
+              _transcriptsOpen ? Icons.expand_less : Icons.notes_outlined,
+            ),
+            label: Text(
+              _transcriptsOpen ? 'Ocultar transcrições' : 'Ver transcrições',
+            ),
           ),
           if (_transcriptsOpen)
             for (final entry in transcribed) ...[
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.fileName, style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      Text(entry.transcript),
-                      const SizedBox(height: 8),
-                      const Text('Texto fictício já presente no registro. Enviar um áudio nesta tela não cria transcrição.'),
-                    ],
-                  ),
+              const SizedBox(height: DiarySpace.s12),
+              DiaryCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.fileName, style: theme.titleMedium),
+                    const SizedBox(height: DiarySpace.s8),
+                    DiaryStatusChip(status: entry.status),
+                    const SizedBox(height: DiarySpace.s8),
+                    Text(
+                      entry.transcript,
+                      style: theme.bodyLarge?.copyWith(height: 1.5),
+                    ),
+                    const SizedBox(height: DiarySpace.s8),
+                    Text(
+                      'Texto de exemplo já presente no registro. Enviar um áudio nesta tela não cria transcrição.',
+                      style: theme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -267,9 +364,13 @@ class AudioPageState extends State<AudioPage> {
 
   String _details(AudioDraft draft) {
     final dot = draft.name.lastIndexOf('.');
-    final type = dot < 0 ? 'Arquivo' : draft.name.substring(dot + 1).toUpperCase();
+    final type = dot < 0
+        ? 'Arquivo'
+        : draft.name.substring(dot + 1).toUpperCase();
     final size = (draft.sizeBytes / 1024).toStringAsFixed(0);
-    final duration = draft.duration == null ? '' : ' · ${_clock(draft.duration!)}';
+    final duration = draft.duration == null
+        ? ''
+        : ' · ${_clock(draft.duration!)}';
     return '$type · $size KB$duration';
   }
 
@@ -283,7 +384,7 @@ class AudioPageState extends State<AudioPage> {
     return switch (code) {
       'empty_audio' => 'O arquivo está vazio.',
       'audio_too_large' => 'O arquivo passa de 25 MB.',
-      _ => 'Use um arquivo WAV, MP3 ou M4A.',
+      _ => 'Esse arquivo não serve. Use WAV, MP3 ou M4A.',
     };
   }
 }

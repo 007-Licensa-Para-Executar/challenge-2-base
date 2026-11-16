@@ -37,6 +37,7 @@ __pycache__/
 # Build, empacotamento e cobertura gerados.
 build/
 dist/
+compartilha/pacote/
 wheels/
 *.egg-info/
 *.egg

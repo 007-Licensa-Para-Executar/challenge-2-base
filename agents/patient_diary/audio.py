@@ -4,9 +4,16 @@ from __future__ import annotations
 
 import json
 import math
-import resource
+import os
+import shutil
 import subprocess
+import wave
 from pathlib import Path
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 from .contracts import InvalidEntryError
 
@@ -28,6 +35,8 @@ _SUFFIXES = {
 
 
 def _limit_child() -> None:
+    if resource is None:
+        return
     cpu = _PROBE_TIMEOUT
     resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
     resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_BYTES, MAX_BYTES))
@@ -42,9 +51,31 @@ def probe_audio(path: Path) -> tuple[str, float]:
     if path.stat().st_size > MAX_BYTES:
         raise InvalidEntryError("audio_too_large")
     try:
+        with wave.open(str(path), "rb") as w:
+            channels = w.getnchannels()
+            rate = w.getframerate()
+            frames = w.getnframes()
+            if channels > 0 and rate > 0:
+                duration = frames / float(rate)
+                if not math.isfinite(duration) or duration <= 0:
+                    raise InvalidEntryError("invalid_audio")
+                if duration > MAX_SECONDS:
+                    raise InvalidEntryError("audio_too_long")
+                return ".wav", round(duration, 3)
+    except wave.Error:
+        header = path.read_bytes()[:12]
+        if header.startswith(b"RIFF"):
+            raise InvalidEntryError("invalid_audio") from None
+    except (EOFError, OSError):
+        pass
+    except InvalidEntryError:
+        raise
+    ffprobe_cmd = shutil.which("ffprobe") or os.environ.get("FFPROBE_BIN") or FFPROBE
+    preexec = _limit_child if (resource is not None and os.name != "nt") else None
+    try:
         completed = subprocess.run(
             [
-                FFPROBE,
+                ffprobe_cmd,
                 "-v",
                 "error",
                 "-show_entries",
@@ -59,11 +90,20 @@ def probe_audio(path: Path) -> tuple[str, float]:
             timeout=_PROBE_TIMEOUT,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
-            preexec_fn=_limit_child,
+            preexec_fn=preexec,
         )
     except subprocess.TimeoutExpired:
         raise InvalidEntryError("invalid_audio") from None
     except FileNotFoundError:
+        header = path.read_bytes()[:16]
+        if not (
+            header.startswith(b"OggS")
+            or header.startswith(b"\x1aE\xdf\xa3")
+            or header.startswith(b"ID3")
+            or header[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
+            or b"ftyp" in header
+        ):
+            raise InvalidEntryError("invalid_audio") from None
         raise InvalidEntryError("audio_probe_unavailable") from None
     except OSError:
         raise InvalidEntryError("invalid_audio") from None

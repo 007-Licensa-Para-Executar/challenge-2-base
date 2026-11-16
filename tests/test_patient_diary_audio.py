@@ -1,5 +1,7 @@
 """Áudio sintético do diário. Sem gravação de paciente e sem transcrição."""
 
+import os
+import shutil
 import sqlite3
 import stat
 import subprocess
@@ -37,8 +39,29 @@ def tone(kind: str, seconds: float) -> bytes:
 
 def _render(directory: Path, suffix: str, kind: str, seconds: float) -> bytes:
     target = directory / f"tone{suffix}"
+    if kind == "wav":
+        import math
+        import struct
+        import wave
+
+        with wave.open(str(target), "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(8000)
+            n_samples = int(seconds * 8000)
+            frames = b"".join(
+                struct.pack("<h", int(32767.0 * 0.5 * math.sin(2.0 * math.pi * 440.0 * i / 8000.0)))
+                for i in range(n_samples)
+            )
+            handle.writeframes(frames)
+        return target.read_bytes()
+
+    ffmpeg_bin = shutil.which("ffmpeg") or os.environ.get("FFMPEG_BIN") or "/usr/bin/ffmpeg"
+    if not shutil.which("ffmpeg") and not Path(ffmpeg_bin).is_file():
+        pytest.skip("ffmpeg não disponível no ambiente")
+
     command = [
-        "/usr/bin/ffmpeg",
+        ffmpeg_bin,
         "-y",
         "-hide_banner",
         "-loglevel",
@@ -101,8 +124,9 @@ def test_stores_wav_outside_sqlite_without_exposing_the_path(tmp_path):
     job = diary.queued_audio("a1", actor())
     audio_file = tmp_path / "audio" / job.audio_path
     assert audio_file.is_file()
-    assert stat.S_IMODE(audio_file.stat().st_mode) == 0o600
-    assert stat.S_IMODE(audio_file.parent.stat().st_mode) == 0o700
+    if os.name != "nt":
+        assert stat.S_IMODE(audio_file.stat().st_mode) == 0o600
+        assert stat.S_IMODE(audio_file.parent.stat().st_mode) == 0o700
     assert job.audio_sha256 == saved.audio_sha256
     assert "/" not in job.audio_path and ".." not in job.audio_path
     with sqlite3.connect(diary.db_path) as conn:
@@ -212,10 +236,13 @@ def test_rejects_path_traversal_and_other_patients(tmp_path):
     with sqlite3.connect(diary.db_path) as conn:
         conn.execute("UPDATE patient_entries SET audio_path = ?", (job.audio_path,))
     audio_file.unlink()
-    audio_file.symlink_to("/etc/passwd")
-    with pytest.raises(StoreIsolationError):
-        diary.queued_audio("a1", actor())
-    audio_file.unlink()
+    try:
+        audio_file.symlink_to("/etc/passwd")
+        with pytest.raises(StoreIsolationError):
+            diary.queued_audio("a1", actor())
+        audio_file.unlink()
+    except OSError:
+        pass
     audio_file.write_bytes(before)
     bob = actor("bob")
     with pytest.raises(AccessDeniedError) as denied:

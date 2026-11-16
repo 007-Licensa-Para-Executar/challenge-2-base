@@ -59,8 +59,11 @@ def test_stores_text_preserves_accents_and_normalizes_timezone(tmp_path):
     assert raw == ("2026-11-05T12:00:00.000000+00:00", text)
     assert tables == {"patient_entries", "care_links", "transcripts"}
     assert version == 4
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    import os
+
+    if os.name != "nt":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
 
 
 def test_rejects_empty_long_and_non_text_without_echoing_the_text():

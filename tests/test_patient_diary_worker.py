@@ -1,7 +1,6 @@
 """Fila de transcrição com áudio e texto sintéticos."""
 
 import sqlite3
-import subprocess
 import sys
 import tempfile
 import threading
@@ -31,31 +30,22 @@ def actor(user_id="alice", role="patient"):
 
 
 def tone(seconds: float) -> bytes:
+    import math
+    import struct
+    import wave
+
     with tempfile.TemporaryDirectory() as directory:
         target = Path(directory) / "tone.wav"
-        subprocess.run(
-            [
-                "/usr/bin/ffmpeg",
-                "-y",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-f",
-                "lavfi",
-                "-i",
-                f"sine=frequency=440:duration={seconds}",
-                "-ar",
-                "8000",
-                "-ac",
-                "1",
-                "-c:a",
-                "pcm_s16le",
-                str(target),
-            ],
-            check=True,
-            shell=False,
-            timeout=30,
-        )
+        with wave.open(str(target), "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(8000)
+            n_samples = int(seconds * 8000)
+            frames = b"".join(
+                struct.pack("<h", int(32767.0 * 0.5 * math.sin(2.0 * math.pi * 440.0 * i / 8000.0)))
+                for i in range(n_samples)
+            )
+            handle.writeframes(frames)
         return target.read_bytes()
 
 

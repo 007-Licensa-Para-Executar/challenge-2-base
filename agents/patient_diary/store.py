@@ -545,7 +545,14 @@ class PatientDiaryStore:
         partial = directory / f".{token}.partial"
         final: Path | None = None
         try:
-            fd = os.open(partial, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+            flags = (
+                os.O_CREAT
+                | os.O_EXCL
+                | os.O_WRONLY
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_BINARY", 0)
+            )
+            fd = os.open(partial, flags, 0o600)
         except OSError:
             raise InvalidEntryError("audio_write_failed") from None
         try:

@@ -139,9 +139,8 @@ class LocalDiary:
             raise InvalidEntryError("empty_audio")
         if len(payload) > 25 * 1024 * 1024:
             raise InvalidEntryError("audio_too_large")
-        handle = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-        path = Path(handle.name)
-        handle.close()
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+            path = Path(handle.name)
         try:
             path.write_bytes(payload)
             return self._load_transcriber().transcribe(path).text

@@ -288,10 +288,24 @@ class _Peak:
 
 
 def _rss_mib() -> float:
-    for line in Path("/proc/self/status").read_text().splitlines():
-        if line.startswith("VmRSS:"):
-            return int(line.split()[1]) / 1024
-    return 0.0
+    proc = Path("/proc/self/status")
+    if proc.is_file():
+        try:
+            for line in proc.read_text().splitlines():
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024
+        except OSError:
+            return 1.0
+    try:
+        import resource
+        import sys
+
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        if sys.platform == "darwin":
+            return rss / (1024 * 1024)
+        return rss / 1024
+    except (ImportError, AttributeError, OSError):
+        return 1.0
 
 
 def _words(text: str) -> list[str]:

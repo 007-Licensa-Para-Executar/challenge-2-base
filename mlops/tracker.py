@@ -7,6 +7,7 @@ import logging
 import os
 import types
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Self
 
 import mlflow
@@ -31,8 +32,16 @@ class MLFlowTracker:
         self.experiment_name = experiment_name
         self.db_uri = tracking_uri or os.environ.get("MLFLOW_TRACKING_URI") or db_uri
         self.tracking_uri = self.db_uri
+        self.artifact_location = sqlite_artifact_uri(self.tracking_uri)
+
         mlflow.set_tracking_uri(self.tracking_uri)
         try:
+            client = MlflowClient(tracking_uri=self.tracking_uri)
+            if client.get_experiment_by_name(self.experiment_name) is None:
+                client.create_experiment(
+                    self.experiment_name,
+                    artifact_location=self.artifact_location,
+                )
             mlflow.set_experiment(self.experiment_name)
         except ModuleNotFoundError:
             os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"

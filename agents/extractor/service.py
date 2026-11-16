@@ -12,22 +12,17 @@ from typing import Any
 
 import httpx
 
-from models.torch_mlp import THEME_CLASSES
-
 from .config import Settings
 from .contracts import (
     Agent1LLMExtraction,
     Agent1Output,
     EvidenceSpan,
-    MacroTema,
     SubTemaItem,
 )
 from .prompt import AGENT1_SYSTEM_PROMPT, build_user_prompt
 from .sentiment import analyze_polarity, validate_polarity
 from .wheel import (
     LongitudinalComparison,
-    MacrotopicNode,
-    SubtopicNode,
     SubtopicWheelTracker,
     SunburstWheelData,
 )
@@ -123,7 +118,7 @@ class Agent1Service:
             sentimento_str = str(data.get("sentimento_predominante", "nao_identificado"))
             val_metrics = validate_polarity(sentimento_str, pol)
             data["validation"] = val_metrics
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError) as exc:
             logger.debug("Validação de polaridade omitida: %s", exc)
 
         output = Agent1Output.model_validate(data)

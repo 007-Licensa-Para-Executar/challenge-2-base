@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, ClassVar
 
-from .contracts import Agent1Output, EvidenceSpan, MacroTema
+from .contracts import Agent1Output, EvidenceSpan
 
 
 def polarity_to_hex(polarity: float) -> str:
@@ -133,7 +133,7 @@ class LongitudinalComparison:
 class SubtopicWheelTracker:
     """Gerenciador dinâmico de agregação e rotação de subtemas para a Roda de Bem-Estar."""
 
-    DEFAULT_MACROTHEMES: list[tuple[str, str]] = [
+    DEFAULT_MACROTHEMES: ClassVar[list[tuple[str, str]]] = [
         ("familia", "Família"),
         ("trabalho", "Trabalho"),
         ("relacionamentos", "Relacionamentos"),
@@ -189,10 +189,8 @@ class SubtopicWheelTracker:
                 stat["peso_total"] += max(1.0, float(len(sub.evidencias)))
                 stat["polaridades"].append(entry.score_polaridade)
                 stat["evidencias"].extend(sub.evidencias)
-                if created_at < stat["primeira_mencao"]:
-                    stat["primeira_mencao"] = created_at
-                if created_at > stat["ultima_mencao"]:
-                    stat["ultima_mencao"] = created_at
+                stat["primeira_mencao"] = min(stat["primeira_mencao"], created_at)
+                stat["ultima_mencao"] = max(stat["ultima_mencao"], created_at)
 
         # 2. Ordena todos os subtemas pelo peso/frequência decrescente e seleciona no MÁXIMO 24 no total
         all_sub_list = list(sub_stats.values())

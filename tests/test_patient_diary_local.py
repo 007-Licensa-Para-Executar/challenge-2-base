@@ -96,14 +96,14 @@ def test_preview_transcribes_without_creating_an_entry(tmp_path):
 
 
 def test_local_page_has_no_remote_address_or_neural_call():
-    source = Path("agents/patient_diary/local_app.py").read_text()
+    source = Path("agents/patient_diary/local_app.py").read_text(encoding="utf-8")
     assert "0.0.0.0" not in source
     assert "ClinicalTheme" not in source
     assert "huggingface.co" not in source
     assert "HF_HUB_OFFLINE" in source
     FutureThemeInput(entry_id="a1", source="transcript", text="texto fictício")
     FutureThemeOutput(status="unavailable")
-    ignored = Path(".gitignore").read_text()
+    ignored = Path(".gitignore").read_text(encoding="utf-8")
     assert "/data/*" in ignored
     assert "*.sqlite3" in ignored
 

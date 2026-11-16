@@ -38,10 +38,22 @@ def _limit_child() -> None:
     if resource is None:
         return
     cpu = _PROBE_TIMEOUT
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_BYTES, MAX_BYTES))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
-    resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    try:
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
+    except (ValueError, OSError):
+        pass
+    try:
+        resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_BYTES, MAX_BYTES))
+    except (ValueError, OSError):
+        pass
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+    except (ValueError, OSError):
+        pass
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    except (ValueError, OSError):
+        pass
 
 
 def probe_audio(path: Path) -> tuple[str, float]:

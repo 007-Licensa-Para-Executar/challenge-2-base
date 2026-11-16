@@ -61,6 +61,7 @@ def request_intents(request: str) -> set[str]:
     ):
         return set()
     patterns = {
+        "rag": r"\brag\b|diarios? de pacientes?|buscar.{0,20}diarios?",
         "ajuda": r"ajuda|comandos|atalhos|como usar",
         "status": r"status|estado|disponib|situacao",
         "extrair": r"extrair|extracao|analis.{0,20}relato|classific.{0,20}texto",

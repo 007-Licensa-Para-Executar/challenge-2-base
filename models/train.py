@@ -221,7 +221,7 @@ def train_theme_classifier(
         "seed": random_state,
         "classes": THEME_CLASSES,
         "split_policy": "class-aware source/template groups; approximate 70/15/15",
-        "reference_status": "real/synthetic patient diaries; validated on independent test split",
+        "reference_status": "experimental reference labels; held-out split is not independent annotation or clinical validation",
         "grouping_limit": "known templates and exact duplicates; external paraphrases need groups",
         "threshold": threshold,
         "numpy_lr": numpy_lr,

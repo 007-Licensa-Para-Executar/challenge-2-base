@@ -17,6 +17,8 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 2. Guias de Implementação dos Agentes
+* [**`agente-1-flow.md`**](file:///docs/agente-1-flow.md): **Fluxo de Processamento do Agente 1 (Roda Sunburst e Subtemas)**.
+  - *O que faz:* Diagrama de fluxo de ponta a ponta, integração com a Rede Neural MLP, motor da Roda de Bem-Estar (máx 24 subtemas), dinâmica de rotação e comparativo longitudinal semanal/mensal para psicólogos.
 * [**`agente1.md`**](file:///docs/agente1.md): **Agente 1 (Decompositor Temático e Evidências Literais)**.
   - *O que faz:* Recebe o tema da Rede Neural, decompõe em subtemas (`Irmão`, `Pai`), mapeia citações literais exatas com índices de caractere e carimbos de áudio.
   - *Código:* `agents/extractor/service.py` e contratos Pydantic.

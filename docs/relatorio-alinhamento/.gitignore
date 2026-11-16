@@ -1,0 +1,9 @@
+# Somente intermediários de compilação; fontes e PDF final são intencionais.
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+__pycache__/

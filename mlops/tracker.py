@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import types
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
@@ -260,6 +259,6 @@ class MLOpsTracker:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: types.TracebackType | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.end_run(status="FAILED" if exc_type else "FINISHED")

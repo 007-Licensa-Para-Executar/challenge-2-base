@@ -97,9 +97,7 @@ def probe_audio(path: Path) -> tuple[str, float]:
     except FileNotFoundError:
         header = path.read_bytes()[:16]
         if not (
-            header.startswith(b"OggS")
-            or header.startswith(b"\x1aE\xdf\xa3")
-            or header.startswith(b"ID3")
+            header.startswith((b"OggS", b"\x1aE\xdf\xa3", b"ID3"))
             or header[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
             or b"ftyp" in header
         ):

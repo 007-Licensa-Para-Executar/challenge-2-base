@@ -24,6 +24,7 @@ import html
 import os
 import secrets
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -130,6 +131,23 @@ class LocalDiary:
     def transcribe_next(self) -> str | None:
         return TranscriptionWorker(self.store, self._load_transcriber(), "worker-local").run_once()
 
+    def preview_audio(self, payload: bytes, suffix: str) -> str:
+        """Transcreve o arquivo sem criar registro."""
+        if suffix not in {".wav", ".mp3", ".m4a", ".webm"}:
+            raise InvalidEntryError("invalid_audio")
+        if not payload:
+            raise InvalidEntryError("empty_audio")
+        if len(payload) > 25 * 1024 * 1024:
+            raise InvalidEntryError("audio_too_large")
+        handle = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        path = Path(handle.name)
+        handle.close()
+        try:
+            path.write_bytes(payload)
+            return self._load_transcriber().transcribe(path).text
+        finally:
+            path.unlink(missing_ok=True)
+
     def history(self) -> list[dict[str, str]]:
         rows = []
         actor = _actor()
@@ -160,9 +178,13 @@ class LocalDiary:
 
 
 def serve(diary: LocalDiary, port: int = 8765) -> ThreadingHTTPServer:
-    """Escuta só na interface local. Outro endereço é recusado."""
+    """Escuta em 127.0.0.1, salvo se DIARY_BIND estiver definido para o container."""
     handler = _handler(diary)
-    return ThreadingHTTPServer((_HOST, port), handler)
+    return ThreadingHTTPServer((_bind_host(), port), handler)
+
+
+def _bind_host() -> str:
+    return os.environ.get("DIARY_BIND") or _HOST
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -173,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     diary = LocalDiary(args.root, model_path=args.model)
     server = serve(diary, args.port)
-    print(f"http://{_HOST}:{args.port}", file=sys.stderr)
+    print(f"http://{_bind_host()}:{args.port}", file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -187,6 +209,15 @@ def _actor() -> Actor:
 
 def _handler(diary: LocalDiary):
     class Handler(BaseHTTPRequestHandler):
+        def do_OPTIONS(self) -> None:
+            if urlparse(self.path).path != "/transcrever":
+                self._send(404, "não encontrado")
+                return
+            self.send_response(204)
+            self._allow_local_browser()
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
             if parsed.path != "/":
@@ -212,10 +243,20 @@ def _handler(diary: LocalDiary):
                 elif parsed.path == "/worker":
                     result = diary.transcribe_next()
                     self._redirect("aviso", "transcrito" if result else "fila_vazia")
+                elif parsed.path == "/transcrever":
+                    suffix = _one(parse_qs(parsed.query).get("ext"))
+                    if suffix and not suffix.startswith("."):
+                        suffix = f".{suffix}"
+                    text = diary.preview_audio(body, suffix.lower())
+                    self._send(200, text, cors=True)
                 else:
                     self._send(404, "não encontrado")
             except PatientDiaryError as exc:
-                self._redirect("erro", exc.code if exc.code in _NOTICES else "invalid_audio")
+                code = exc.code if exc.code in _NOTICES else "invalid_audio"
+                if urlparse(self.path).path == "/transcrever":
+                    self._send(400, _NOTICES[code], cors=True)
+                else:
+                    self._redirect("erro", code)
 
         def log_message(self, fmt: str, *args) -> None:
             code = args[1] if len(args) > 1 else ""
@@ -238,12 +279,24 @@ def _handler(diary: LocalDiary):
             self.end_headers()
             self.wfile.write(body)
 
-        def _send(self, status: int, content: str, html_page: bool = False) -> None:
+        def _allow_local_browser(self) -> None:
+            origin = self.headers.get("Origin", "")
+            host = urlparse(origin).hostname
+            if origin.startswith("http://") and host in {"127.0.0.1", "localhost"}:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Allow-Private-Network", "true")
+
+        def _send(self, status: int, content: str, html_page: bool = False, cors: bool = False) -> None:
             data = content.encode("utf-8")
             kind = "text/html; charset=utf-8" if html_page else "text/plain; charset=utf-8"
             self.send_response(status)
             self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(data)))
+            if cors:
+                self._allow_local_browser()
             self.end_headers()
             self.wfile.write(data)
 

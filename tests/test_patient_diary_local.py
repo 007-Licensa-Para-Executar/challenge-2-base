@@ -84,6 +84,17 @@ def test_offline_small_model_transcribes_without_replacing_the_written_text(tmp_
     assert rows[1]["transcript"]
 
 
+def test_preview_transcribes_without_creating_an_entry(tmp_path):
+    diary = LocalDiary(tmp_path, transcriber=FakeTranscriber("Prévia local da gravação."))
+    page = _client(diary)
+    text = page("/transcrever?ext=webm", b"gravacao", "application/octet-stream")
+    assert text == "Prévia local da gravação."
+    assert diary.history() == []
+    refused = page("/transcrever?ext=txt", b"gravacao", "application/octet-stream")
+    assert "WAV, MP3 ou M4A" in refused
+    assert diary.history() == []
+
+
 def test_local_page_has_no_remote_address_or_neural_call():
     source = Path("agents/patient_diary/local_app.py").read_text()
     assert "0.0.0.0" not in source

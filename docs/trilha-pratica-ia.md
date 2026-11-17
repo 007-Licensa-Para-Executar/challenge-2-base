@@ -43,6 +43,12 @@ prompts ou estratégias de recuperação.
 [Documentação oficial de subagentes](https://learn.chatgpt.com/docs/agent-configuration/subagents) ·
 [Seleção de modelos](https://learn.chatgpt.com/docs/model-selection)
 
+Teste primeiro o pedido de `mapa_codigo` com o repositório aberto. Se o
+cliente não oferecer seleção de perfis pelo nome, copie o conteúdo de
+`developer_instructions` do TOML no pedido de delegação e indique o modelo e
+o esforço desejados. Na CLI local v0.167.0-alpha.3.2, o teste confirmou a
+presença do arquivo. A seleção do perfil pelo nome ficou sem confirmação.
+
 Na prática:
 
 1. Escreva sua hipótese e o resultado esperado com ajuda de `tutor_ia`.

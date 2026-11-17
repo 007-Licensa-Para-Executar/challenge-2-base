@@ -1,5 +1,8 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+Para estudar e experimentar com a rede, os prompts e o RAG do projeto, siga a
+[trilha prática de IA e subagentes do Codex](docs/trilha-pratica-ia.md).
+
 ## Demonstração de pesquisa: rede + RAG no shell
 
 Na pasta do repositório, no macOS/Linux ou no **CMD do Windows**:

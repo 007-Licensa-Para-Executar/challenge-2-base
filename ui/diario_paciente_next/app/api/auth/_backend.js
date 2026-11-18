@@ -52,9 +52,27 @@ function getDatabase() {
       sub_emotion_symbol TEXT NOT NULL,
       confidence REAL NOT NULL,
       is_risk_emotion INTEGER NOT NULL DEFAULT 0,
+      input_type TEXT NOT NULL DEFAULT 'text',
+      audio_name TEXT,
+      audio_duration TEXT,
+      audio_data TEXT,
       created_at INTEGER NOT NULL
     );
   `);
+
+  // Migrações graduais seguras caso a tabela já existisse
+  try {
+    database.exec("ALTER TABLE diary_entries ADD COLUMN input_type TEXT NOT NULL DEFAULT 'text'");
+  } catch {}
+  try {
+    database.exec("ALTER TABLE diary_entries ADD COLUMN audio_name TEXT");
+  } catch {}
+  try {
+    database.exec("ALTER TABLE diary_entries ADD COLUMN audio_duration TEXT");
+  } catch {}
+  try {
+    database.exec("ALTER TABLE diary_entries ADD COLUMN audio_data TEXT");
+  } catch {}
 
   return database;
 }
@@ -132,8 +150,16 @@ export function obterPacienteLogado(request) {
   return paciente ? { ...paciente } : null;
 }
 
-// Salva um relato do diário associado ao paciente e à emoção detectada pelo modelo
-export function salvarDiario({ patientId, text, emotion }) {
+// Salva um relato do diário associado ao paciente e à emoção detectada pelo modelo (com suporte a áudio)
+export function salvarDiario({
+  patientId,
+  text,
+  emotion,
+  inputType = "text",
+  audioName = null,
+  audioDuration = null,
+  audioData = null,
+}) {
   const db = getDatabase();
   const id = randomUUID();
   const agora = Date.now();
@@ -142,8 +168,8 @@ export function salvarDiario({ patientId, text, emotion }) {
     `INSERT INTO diary_entries (
       id, patient_id, text, primary_emotion, character, color_hex,
       color_secondary_hex, sub_emotion_name, sub_emotion_symbol,
-      confidence, is_risk_emotion, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      confidence, is_risk_emotion, input_type, audio_name, audio_duration, audio_data, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     patientId,
@@ -156,6 +182,10 @@ export function salvarDiario({ patientId, text, emotion }) {
     emotion.active_sub_emotion?.simbolo || emotion.sub_emotion_symbol || "⚖️",
     Number(emotion.confidence || 1.0),
     emotion.is_risk_emotion ? 1 : 0,
+    inputType || "text",
+    audioName || null,
+    audioDuration || null,
+    audioData || null,
     agora
   );
 

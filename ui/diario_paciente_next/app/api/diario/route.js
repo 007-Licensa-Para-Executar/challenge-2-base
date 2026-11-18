@@ -32,7 +32,14 @@ export async function POST(request) {
   }
 
   try {
-    const { text, emotion: clientEmotion } = await request.json();
+    const {
+      text,
+      emotion: clientEmotion,
+      inputType = "text",
+      audioName = null,
+      audioDuration = null,
+      audioData = null,
+    } = await request.json();
     const cleanText = (text || "").trim();
 
     if (!cleanText) {
@@ -52,6 +59,10 @@ export async function POST(request) {
       patientId: paciente.id,
       text: cleanText,
       emotion: finalEmotion,
+      inputType,
+      audioName,
+      audioDuration,
+      audioData,
     });
 
     return NextResponse.json({
@@ -61,6 +72,10 @@ export async function POST(request) {
         patient_id: paciente.id,
         text: cleanText,
         ...finalEmotion,
+        input_type: inputType,
+        audio_name: audioName,
+        audio_duration: audioDuration,
+        audio_data: audioData,
         created_at,
       },
     });

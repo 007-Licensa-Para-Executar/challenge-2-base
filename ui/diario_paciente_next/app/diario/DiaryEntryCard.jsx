@@ -75,6 +75,43 @@ export default function DiaryEntryCard({ entry }) {
           {entry.text}
         </p>
 
+        {/* Reprodutor de áudio anexado ao relato */}
+        {(entry.audio_data || entry.input_type === "audio") && (
+          <div
+            style={{
+              marginTop: "12px",
+              padding: "10px 14px",
+              borderRadius: "12px",
+              background: "#F2F5F3",
+              border: "1px solid rgba(132, 145, 136, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: "12px",
+                color: "var(--cor-texto-suave)",
+                fontWeight: "600",
+              }}
+            >
+              <span>🎙️ Áudio do Relato {entry.audio_name ? `• ${entry.audio_name}` : ""}</span>
+              {entry.audio_duration && <span>{entry.audio_duration}</span>}
+            </div>
+            {entry.audio_data && (
+              <audio
+                controls
+                src={entry.audio_data}
+                style={{ width: "100%", height: "36px" }}
+              />
+            )}
+          </div>
+        )}
+
         {Boolean(entry.is_risk_emotion) && (
           <div
             style={{

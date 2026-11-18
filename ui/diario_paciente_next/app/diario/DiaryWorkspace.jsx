@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AudioRecorder from "./AudioRecorder";
 import DiaryEntryCard from "./DiaryEntryCard";
 import EmotionBadge from "./EmotionBadge";
 import MoodSelector from "./MoodSelector";
@@ -14,6 +15,10 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
   const [analisando, setAnalisando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState(null);
+
+  // Modo de entrada: "texto" (digitação), "voz" (microfone/ditado), "arquivo" (upload de áudio)
+  const [inputMode, setInputMode] = useState("texto");
+  const [audioAttachment, setAudioAttachment] = useState(null);
 
   // Emoção selecionada manualmente ou inferida pela rede neural
   const [emocaoAtual, setEmocaoAtual] = useState(null);
@@ -68,6 +73,10 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
         body: JSON.stringify({
           text: cleanText,
           emotion: emocaoAtual,
+          inputType: audioAttachment?.inputType || (inputMode === "voz" || inputMode === "arquivo" ? "audio" : "text"),
+          audioName: audioAttachment?.audioName || null,
+          audioDuration: audioAttachment?.audioDuration || null,
+          audioData: audioAttachment?.audioData || null,
         }),
       });
 
@@ -81,6 +90,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
       setRelatos((prev) => [data.entry, ...prev]);
       setTexto("");
       setEmocaoAtual(null);
+      setAudioAttachment(null);
       setAviso({ tipo: "sucesso", texto: "Relato registrado com sucesso no seu diário." });
     } catch {
       setAviso({ tipo: "erro", texto: "Não foi possível conectar ao servidor. Tente novamente." });
@@ -91,6 +101,22 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
 
   function handleSelectMood(moodData) {
     setEmocaoAtual({ ...moodData, manual: true });
+  }
+
+  function handleTranscriptReady(newText) {
+    setTexto((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed) return newText;
+      return `${trimmed} ${newText}`;
+    });
+  }
+
+  function handleAudioCaptured(attachment) {
+    setAudioAttachment(attachment);
+  }
+
+  function handleClearAudio() {
+    setAudioAttachment(null);
   }
 
   const relatosFiltrados = relatos.filter((r) => {
@@ -140,14 +166,33 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
         {/* Painel 2: Redação do relato */}
         <section className="diary-card-section">
           <form onSubmit={handleSalvar} className="diary-editor-form">
-            <label htmlFor="diario-texto" className="editor-label">
-              Escreva seu relato
-            </label>
+            <div className="editor-header-row">
+              <label htmlFor="diario-texto" className="editor-label">
+                Seu Relato
+              </label>
+              <span className="editor-subtitle">
+                Escreva, grave com sua voz ou envie um arquivo de áudio
+              </span>
+            </div>
+
+            {/* Módulo de Entrada de Áudio e Ditado */}
+            <AudioRecorder
+              inputMode={inputMode}
+              onChangeMode={setInputMode}
+              onTranscriptReady={handleTranscriptReady}
+              onAudioCaptured={handleAudioCaptured}
+              onClearAudio={handleClearAudio}
+            />
+
             <textarea
               id="diario-texto"
               className="diary-textarea"
-              rows={6}
-              placeholder="Desabafe, conte como foi seu dia, suas sensações ou pensamentos..."
+              rows={5}
+              placeholder={
+                inputMode === "voz"
+                  ? "Sua fala transcrita aparecerá aqui em tempo real. Você pode editar ou acrescentar o que desejar..."
+                  : "Desabafe, conte como foi seu dia, suas sensações ou pensamentos..."
+              }
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               maxLength={20000}

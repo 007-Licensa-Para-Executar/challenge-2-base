@@ -8,6 +8,16 @@ Abre somente em 127.0.0.1:8765. O paciente é sempre ``paciente-ficticio``.
 Um campo de identidade vindo do navegador é ignorado. Ainda não há
 autenticação adequada para relatos reais.
 
+JSON, além da página: ``POST /api/texto`` com ``{"text": "..."}`` responde
+``id``, ``created_at``, ``kind=written`` e ``status=ready``. ``POST /api/audio``
+recebe o campo ``audio`` e responde sempre JSON. ``GET /api/historico`` devolve
+no máximo 100 registros, do mais antigo ao mais novo, com desempate pelo id.
+A interface reordena para mostrar o mais recente primeiro.
+
+``POST /worker`` e ``POST /transcrever`` não atendem o navegador. Não são
+autenticação: só respondem a um processo preso em loopback, sem cabeçalho
+de browser.
+
 O banco fica em data/patient_diary_local/, separado dos bancos já existentes.
 A transcrição usa o Faster-Whisper small local e não envia áudio para fora.
 
@@ -21,10 +31,13 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
+import re
 import secrets
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -42,6 +55,11 @@ DEFAULT_ROOT = Path("data/patient_diary_local")
 DEFAULT_MODEL = Path("data/models/faster-whisper-small")
 _HOST = "127.0.0.1"
 _MAX_BODY = 26 * 1024 * 1024
+# 20 mil caracteres em UTF-8, mais o envelope JSON. Acima disso o corpo é recusado.
+_TEXT_BODY = 96 * 1024
+# Os mais recentes. A resposta continua do mais antigo ao mais novo; a paginação fica para depois.
+_HISTORY_LIMIT = 100
+_LOOPBACK_ORIGIN = re.compile(r"http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?\Z")
 _STATUS = {
     "queued": "aguardando",
     "processing": "processando",
@@ -128,6 +146,9 @@ class LocalDiary:
         )
         return entry_id
 
+    def add_audio_part(self, content_type: str, body: bytes) -> str:
+        return self.add_audio(_audio_part(content_type, body))
+
     def transcribe_next(self) -> str | None:
         return TranscriptionWorker(self.store, self._load_transcriber(), "worker-local").run_once()
 
@@ -146,6 +167,34 @@ class LocalDiary:
             return self._load_transcriber().transcribe(path).text
         finally:
             path.unlink(missing_ok=True)
+
+    def api_history(self) -> tuple[list[dict[str, object]], bool]:
+        """Histórico JSON do paciente fixo.
+
+        A ordem é a do banco: created_at crescente e, na mesma data, entry_id
+        crescente. No máximo os 100 mais recentes. Sem caminho, hash ou reserva.
+        """
+        actor = _actor()
+        rows = self.store.list_entries(LOCAL_USER, actor)
+        truncated = len(rows) > _HISTORY_LIMIT
+        if truncated:
+            rows = rows[-_HISTORY_LIMIT:]
+        documents: list[dict[str, object]] = []
+        for entry in rows:
+            item: dict[str, object] = {
+                "id": entry.entry_id,
+                "created_at": entry.created_at.isoformat(),
+                "kind": "written" if entry.input_type == "text" else "audio",
+                "status": entry.processing_status,
+                "text": entry.original_text or "",
+                "transcript": "",
+            }
+            if entry.input_type == "audio":
+                item["duration_seconds"] = entry.duration_sec
+                if entry.processing_status == "ready":
+                    item["transcript"] = self.store.read_transcript(entry.entry_id, actor).text
+            documents.append(item)
+        return documents, truncated
 
     def history(self) -> list[dict[str, str]]:
         rows = []
@@ -206,21 +255,59 @@ def _actor() -> Actor:
     return Actor(user_id=LOCAL_USER, role="patient")
 
 
+def _loopback_origin(origin: str) -> bool:
+    """Origem explícita de loopback. Não aceita curinga, https nem outro host."""
+    if not _LOOPBACK_ORIGIN.fullmatch(origin):
+        return False
+    parsed = urlparse(origin)
+    if parsed.username or parsed.password or parsed.hostname not in {"127.0.0.1", "localhost"}:
+        return False
+    return parsed.port is None or 1 <= parsed.port <= 65535
+
+
 def _handler(diary: LocalDiary):
     class Handler(BaseHTTPRequestHandler):
         def do_OPTIONS(self) -> None:
-            if urlparse(self.path).path != "/transcrever":
+            path = urlparse(self.path).path
+            if not self._host_ok():
+                self._json(421, {"error": "invalid_host"})
+                return
+            if path in {"/api/texto", "/api/historico", "/api/audio"}:
+                if not _loopback_origin(self.headers.get("Origin", "")):
+                    self._json(403, {"error": "forbidden"})
+                    return
+                self._empty(204, cors=True)
+                return
+            if path != "/transcrever":
                 self._send(404, "não encontrado")
                 return
-            self.send_response(204)
-            self._allow_local_browser()
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            if not self._loopback_operator():
+                self._json(403, {"error": "operator_only"})
+                return
+            self._empty(204, cors=True)
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            if not self._host_ok():
+                self._json(421, {"error": "invalid_host"})
+                return
+            if parsed.path == "/api/historico":
+                if not self._browser_allowed():
+                    self._json(403, {"error": "forbidden"})
+                    return
+                entries, truncated = diary.api_history()
+                self._json(
+                    200,
+                    {
+                        "entries": entries,
+                        "order": "oldest_first",
+                        "limit": _HISTORY_LIMIT,
+                        "truncated": truncated,
+                    },
+                )
+                return
             if parsed.path != "/":
-                self._send(404, "não encontrado")
+                self._json(404, {"error": "not_found"})
                 return
             query = parse_qs(parsed.query)
             notice = _NOTICES.get(_one(query.get("aviso")), "")
@@ -229,6 +316,21 @@ def _handler(diary: LocalDiary):
 
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
+            if not self._host_ok():
+                self._json(421, {"error": "invalid_host"})
+                return
+            if not self._browser_allowed():
+                self._json(403, {"error": "forbidden"})
+                return
+            if parsed.path in {"/worker", "/transcrever"} and not self._loopback_operator():
+                self._json(403, {"error": "operator_only"})
+                return
+            if parsed.path == "/api/texto":
+                self._post_text()
+                return
+            if parsed.path == "/api/audio":
+                self._post_api_audio()
+                return
             try:
                 body = self._body()
                 if parsed.path == "/texto":
@@ -236,9 +338,11 @@ def _handler(diary: LocalDiary):
                     diary.add_text(fields.get("texto", [""])[0])
                     self._redirect("aviso", "texto_gravado")
                 elif parsed.path == "/audio":
-                    payload = _audio_part(self.headers.get("Content-Type", ""), body)
-                    diary.add_audio(payload)
-                    self._redirect("aviso", "audio_gravado")
+                    entry_id = diary.add_audio_part(self.headers.get("Content-Type", ""), body)
+                    if self._wants_json():
+                        self._queue_saved_audio(entry_id)
+                    else:
+                        self._redirect("aviso", "audio_gravado")
                 elif parsed.path == "/worker":
                     result = diary.transcribe_next()
                     self._redirect("aviso", "transcrito" if result else "fila_vazia")
@@ -249,17 +353,127 @@ def _handler(diary: LocalDiary):
                     text = diary.preview_audio(body, suffix.lower())
                     self._send(200, text, cors=True)
                 else:
-                    self._send(404, "não encontrado")
+                    self._json(404, {"error": "not_found"})
             except PatientDiaryError as exc:
                 code = exc.code if exc.code in _NOTICES else "invalid_audio"
-                if urlparse(self.path).path == "/transcrever":
+                path = urlparse(self.path).path
+                if path == "/transcrever":
                     self._send(400, _NOTICES[code], cors=True)
+                elif path == "/audio" and self._wants_json():
+                    self._json(400, {"error": code})
                 else:
                     self._redirect("erro", code)
 
         def log_message(self, fmt: str, *args) -> None:
             code = args[1] if len(args) > 1 else ""
             sys.stderr.write(f"{code}\n")
+
+        def _post_api_audio(self) -> None:
+            kind = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if kind != "multipart/form-data":
+                self._json(415, {"error": "unsupported_type"})
+                return
+            try:
+                entry_id = diary.add_audio_part(self.headers.get("Content-Type", ""), self._body())
+            except PatientDiaryError as exc:
+                code = exc.code if exc.code in _NOTICES else "invalid_audio"
+                self._json(400, {"error": code})
+                return
+            self._queue_saved_audio(entry_id)
+
+        def _loopback_operator(self) -> bool:
+            """Não autentica. O navegador não dispara worker nem prévia."""
+            if _bind_host() not in {"127.0.0.1", "localhost"}:
+                return False
+            browser = ("Origin", "Sec-Fetch-Site", "Sec-Fetch-Mode")
+            return not any(self.headers.get(name) for name in browser)
+
+        def _post_text(self) -> None:
+            kind = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if kind != "application/json":
+                self._json(415, {"error": "unsupported_type"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._json(400, {"error": "invalid_json"})
+                return
+            if length < 0 or length > _TEXT_BODY:
+                self._json(413, {"error": "payload_too_large"})
+                return
+            raw = self.rfile.read(length)
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self._json(400, {"error": "invalid_json"})
+                return
+            if type(payload) is not dict or type(payload.get("text")) is not str:
+                self._json(400, {"error": "invalid_text"})
+                return
+            text = payload["text"].strip()
+            if not text:
+                self._json(400, {"error": "empty_text"})
+                return
+            if len(text) > 20_000:
+                self._json(400, {"error": "text_too_long"})
+                return
+            try:
+                entry_id = diary.add_text(text)
+                entry = diary.store.get(entry_id, _actor())
+            except PatientDiaryError as exc:
+                code = exc.code if exc.code in {"empty_text", "text_too_long"} else "invalid_text"
+                self._json(400, {"error": code})
+                return
+            self._json(
+                201,
+                {
+                    "id": entry.entry_id,
+                    "created_at": entry.created_at.isoformat(),
+                    "kind": "written",
+                    "status": entry.processing_status,
+                },
+            )
+
+        def _queue_saved_audio(self, entry_id: str) -> None:
+            """A resposta sai na fila. O worker local roda depois, fora do pedido."""
+            entry = diary.store.get(entry_id, _actor())
+            self._json(
+                201,
+                {
+                    "id": entry.entry_id,
+                    "created_at": entry.created_at.isoformat(),
+                    "kind": "audio",
+                    "status": "queued",
+                    "duration_seconds": entry.duration_sec,
+                },
+            )
+
+            def run() -> None:
+                try:
+                    while diary.transcribe_next():
+                        pass
+                except Exception:  # noqa: BLE001 — a mensagem pode citar o áudio
+                    return
+
+            threading.Thread(target=run, name="diary-worker", daemon=True).start()
+
+        def _wants_json(self) -> bool:
+            return "application/json" in self.headers.get("Accept", "").lower()
+
+        def _host_ok(self) -> bool:
+            host = self.headers.get("Host", "")
+            if host.count(":") != 1:
+                return False
+            name, port = host.split(":", 1)
+            return name in {"127.0.0.1", "localhost"} and port == str(self.server.server_address[1])
+
+        def _browser_allowed(self) -> bool:
+            """CORS não autentica. Bloqueia site externo e Host já foi checado."""
+            origin = self.headers.get("Origin", "")
+            if origin and not _loopback_origin(origin):
+                return False
+            site = self.headers.get("Sec-Fetch-Site", "")
+            return not (site == "cross-site" and not origin)
 
         def _body(self) -> bytes:
             try:
@@ -269,6 +483,32 @@ def _handler(diary: LocalDiary):
             if length < 0 or length > _MAX_BODY:
                 raise InvalidEntryError("audio_too_large")
             return self.rfile.read(length)
+
+        def _empty(self, status: int, cors: bool) -> None:
+            self.send_response(status)
+            if cors:
+                self._allow_local_browser()
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def _json(self, status: int, payload: dict[str, object]) -> None:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            origin = self.headers.get("Origin", "")
+            if _loopback_origin(origin):
+                self._cors(origin)
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _cors(self, origin: str) -> None:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
 
         def _redirect(self, key: str, code: str) -> None:
             body = b""
@@ -280,13 +520,8 @@ def _handler(diary: LocalDiary):
 
         def _allow_local_browser(self) -> None:
             origin = self.headers.get("Origin", "")
-            host = urlparse(origin).hostname
-            if origin.startswith("http://") and host in {"127.0.0.1", "localhost"}:
-                self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Vary", "Origin")
-                self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
-                self.send_header("Access-Control-Allow-Private-Network", "true")
+            if _loopback_origin(origin):
+                self._cors(origin)
 
         def _send(self, status: int, content: str, html_page: bool = False, cors: bool = False) -> None:
             data = content.encode("utf-8")
@@ -356,9 +591,7 @@ article {{ border-top: 1px solid #ccc; padding: 0.5rem 0; }}
 <input type="file" name="audio" accept=".wav,.mp3,.m4a,audio/*" required>
 <p><button type="submit">Enviar áudio</button></p>
 </form>
-<form method="post" action="/worker">
-<button type="submit">Transcrever o próximo áudio</button>
-</form>
+<p>O envio por esta página só entra na fila. A transcrição parte na rota JSON, não daqui.</p>
 <h2>Histórico</h2>
 {items}
 </body>

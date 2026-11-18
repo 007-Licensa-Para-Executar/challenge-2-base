@@ -5,7 +5,11 @@ enum DiaryKind { written, audio }
 enum DiaryStatus { queued, processing, ready, failed }
 
 class AudioDraft {
-  const AudioDraft({required this.name, required this.bytes, this.duration});
+  const AudioDraft({
+    required this.name,
+    required this.bytes,
+    this.duration,
+  });
 
   final String name;
   final Uint8List bytes;
@@ -42,11 +46,11 @@ class DiaryEntry {
   final AudioDraft? audio;
 
   String get statusLabel => switch (status) {
-    DiaryStatus.queued => 'Aguardando',
-    DiaryStatus.processing => 'Processando',
-    DiaryStatus.ready => 'Concluído',
-    DiaryStatus.failed => 'Erro',
-  };
+        DiaryStatus.queued => 'Aguardando',
+        DiaryStatus.processing => 'Processando',
+        DiaryStatus.ready => 'Concluído',
+        DiaryStatus.failed => 'Erro',
+      };
 
   String get kindLabel => kind == DiaryKind.written ? 'Escrito' : 'Áudio';
 
@@ -56,11 +60,4 @@ class DiaryEntry {
     if (fileName.isNotEmpty) return fileName;
     return 'Registro sem texto';
   }
-}
-
-/// Mais novo primeiro. A mesma data desempata pelo id, sempre no mesmo sentido.
-int compareEntriesNewestFirst(DiaryEntry a, DiaryEntry b) {
-  final byTime = b.createdAt.compareTo(a.createdAt);
-  if (byTime != 0) return byTime;
-  return a.id.compareTo(b.id);
 }

@@ -9,7 +9,6 @@ import '../pages/write_page.dart';
 import '../services/audio_source.dart';
 import '../services/diary_repository.dart';
 import '../theme/diary_theme.dart';
-import 'diary_components.dart';
 
 class DiaryShell extends StatefulWidget {
   const DiaryShell({
@@ -60,9 +59,6 @@ class _DiaryShellState extends State<DiaryShell> {
         onAudio: () {
           _select(2);
         },
-        onHistory: () {
-          _select(3);
-        },
         onOpen: _open,
       ),
       WritePage(key: _writeKey, repository: widget.repository),
@@ -106,13 +102,11 @@ class _DiaryShellState extends State<DiaryShell> {
         onDestinationSelected: (index) {
           _select(index);
         },
-        destinations: [
-          for (final item in diaryDestinations)
-            NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon),
-              label: item.label,
-            ),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Início'),
+          NavigationDestination(icon: Icon(Icons.edit_outlined), label: 'Escrever'),
+          NavigationDestination(icon: Icon(Icons.mic_none), label: 'Áudio'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'Histórico'),
         ],
       ),
     );
@@ -127,6 +121,12 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const items = [
+      (Icons.home_outlined, 'Início', Icons.home),
+      (Icons.edit_outlined, 'Escrever', Icons.edit),
+      (Icons.mic_none, 'Áudio', Icons.mic),
+      (Icons.history, 'Histórico', Icons.history),
+    ];
     return NavigationRail(
       extended: true,
       minExtendedWidth: 232,
@@ -138,13 +138,13 @@ class _Sidebar extends StatelessWidget {
         onSelect(index);
       },
       leading: const Padding(
-        padding: EdgeInsets.fromLTRB(DiarySpace.s16, DiarySpace.s24, DiarySpace.s16, DiarySpace.s12),
+        padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
         child: SizedBox(
           width: 196,
           child: Row(
             children: [
               Icon(Icons.spa_outlined, color: sage),
-              SizedBox(width: DiarySpace.s8),
+              SizedBox(width: 10),
               Flexible(
                 child: Text(
                   'Meu Diário',
@@ -157,11 +157,11 @@ class _Sidebar extends StatelessWidget {
         ),
       ),
       destinations: [
-        for (final item in diaryDestinations)
+        for (final item in items)
           NavigationRailDestination(
-            icon: Icon(item.icon),
-            selectedIcon: Icon(item.selectedIcon),
-            label: Text(item.label),
+            icon: Icon(item.$1),
+            selectedIcon: Icon(item.$3),
+            label: Text(item.$2),
           ),
       ],
     );

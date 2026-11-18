@@ -44,7 +44,7 @@ def classify_record(
             model_version = _model_version(weights, vectorizer)
         elif model_path is not None and vectorizer_path is not None:
             model_version = _model_version(Path(model_path), Path(vectorizer_path))
-        result = predictor.predict_text(record.original_text)
+        result = predictor.predict_text(record.analysis_text)
         from models.torch_mlp import THEME_CLASSES
 
         if result.primary_theme not in THEME_CLASSES or (

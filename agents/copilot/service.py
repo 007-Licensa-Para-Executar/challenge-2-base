@@ -131,7 +131,8 @@ class CopilotService:
             and ev.patient_id == query.patient_id
             and ev.recorded_at == record.recorded_at
             and ev.source_title == record.source_title
-            and ev.end_char <= len(record.original_text)
-            and ev.quote == record.original_text[ev.start_char : ev.end_char]
-            and ev.chunk_id == f"{ev.record_id}:{ev.start_char}:{ev.end_char}"
+            and ev.representation_id == record.representation_id
+            and ev.end_char <= len(record.analysis_text)
+            and ev.quote == record.analysis_text[ev.start_char : ev.end_char]
+            and ev.chunk_id == f"{record.evidence_key}:{ev.start_char}:{ev.end_char}"
         )

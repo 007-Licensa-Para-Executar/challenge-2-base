@@ -1,5 +1,8 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+Para demonstrar a API HTTP interna antes da classificação e da consulta, siga o
+[guia do modo protegido](docs/api-local-pseudonimizacao.md).
+
 ## Demonstração de pesquisa: rede + RAG no shell
 
 Na pasta do repositório, no macOS/Linux ou no **CMD do Windows**:

@@ -228,9 +228,7 @@ class EmotionPipeline:
         self.net_: EmotionNeuralNetwork | None = None
         self.thresholds_: np.ndarray = np.full(len(self.labels), 0.5)
 
-    def _extract_and_select(
-        self, texts_train: list[str], Y_train: np.ndarray
-    ) -> Any:
+    def _extract_and_select(self, texts_train: list[str], Y_train: np.ndarray) -> Any:
         logger.info("Extraindo features TF-IDF (palavras + caracteres)...")
         Xw = self.vec_word.fit_transform(texts_train)
         Xc = self.vec_char.fit_transform(texts_train)
@@ -240,10 +238,7 @@ class EmotionPipeline:
         # Seleção estatística Chi-quadrado
         logger.info("Calculando Chi-quadrado para as top %d features...", self.n_features)
         chi_scores = np.max(
-            [
-                np.nan_to_num(chi2(X_combined, Y_train[:, j])[0])
-                for j in range(Y_train.shape[1])
-            ],
+            [np.nan_to_num(chi2(X_combined, Y_train[:, j])[0]) for j in range(Y_train.shape[1])],
             axis=0,
         )
         self.selected_indices_ = np.argsort(-chi_scores)[: self.n_features]
@@ -288,14 +283,21 @@ class EmotionPipeline:
         )
         self.net_.definir_pesos(Y_train)
 
-        logger.info("Iniciando treino da rede neural: %s | %d épocas | lr=%.2f", dimension, epochs, lr)
+        logger.info(
+            "Iniciando treino da rede neural: %s | %d épocas | lr=%.2f", dimension, epochs, lr
+        )
         best_auc = -1.0
         best_params = None
         best_epoch = 0
 
         for ep in range(1, epochs + 1):
             self.net_.fit_batches(
-                X_train, Y_train, epocas=1, taxa_aprendizado=lr, batch_size=batch_size, verbose=False
+                X_train,
+                Y_train,
+                epocas=1,
+                taxa_aprendizado=lr,
+                batch_size=batch_size,
+                verbose=False,
             )
             Pv = self.net_.predict_proba_batches(X_val)
             auc_val = float(roc_auc_score(Y_val, Pv, average="macro"))
@@ -303,7 +305,11 @@ class EmotionPipeline:
             loss_val = self.net_._loss(Pv.T, Y_val.T)
             logger.info(
                 "Época %2d/%2d - Loss Treino: %.4f - Loss Val: %.4f - ROC-AUC Val: %.4f",
-                ep, epochs, loss_train, loss_val, auc_val,
+                ep,
+                epochs,
+                loss_train,
+                loss_val,
+                auc_val,
             )
             if auc_val > best_auc:
                 best_auc = auc_val
@@ -331,7 +337,9 @@ class EmotionPipeline:
         probs = self.predict_proba(texts)
         active_per_sample: list[list[str]] = []
         for p in probs:
-            active = [self.labels[j] for j in range(len(self.labels)) if p[j] >= self.thresholds_[j]]
+            active = [
+                self.labels[j] for j in range(len(self.labels)) if p[j] >= self.thresholds_[j]
+            ]
             active_per_sample.append(active)
         return active_per_sample
 
@@ -360,17 +368,27 @@ class EmotionPipeline:
                 break
 
         prob_dict = {label: float(round(P[j], 4)) for j, label in enumerate(self.labels)}
-        thresh_dict = {label: float(round(self.thresholds_[j], 4)) for j, label in enumerate(self.labels)}
+        thresh_dict = {
+            label: float(round(self.thresholds_[j], 4)) for j, label in enumerate(self.labels)
+        }
         active_emotions = [self.labels[j] for j, val in enumerate(P) if val >= self.thresholds_[j]]
 
+        from models.emotion_taxonomy import get_divertidamente_emotion
+
+        profile = get_divertidamente_emotion(primary)
         return {
             "primary_emotion": primary,
+            "divertidamente_id": profile.id,
+            "character": profile.personagem,
+            "color_hex": profile.cor_hex,
+            "color_name": profile.cor_nome,
+            "color_secondary_hex": profile.cor_secundaria_hex,
             "confidence": float(round(P[top_idx], 4)),
             "relative_score": float(round(rel_scores[top_idx], 4)),
             "detected_emotions": active_emotions,
             "probabilities": prob_dict,
             "thresholds": thresh_dict,
-            "is_risk_emotion": primary in {"medo", "tristeza", "raiva"},
+            "is_risk_emotion": profile.is_risk_emotion,
         }
 
     def save(self, filepath: Path | str) -> None:

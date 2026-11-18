@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AudioRecorder from "./AudioRecorder";
 import DiaryEntryCard from "./DiaryEntryCard";
 import EmotionBadge from "./EmotionBadge";
 import MoodSelector from "./MoodSelector";
+import VoiceMicButton from "./VoiceMicButton";
 import { EMOTIONS_DIVERTIDAMENTE, getEmotionProfile } from "../lib/emotionTaxonomy";
 
 export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
@@ -16,8 +16,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState(null);
 
-  // Modo de entrada: "texto" (digitação), "voz" (microfone/ditado), "arquivo" (upload de áudio)
-  const [inputMode, setInputMode] = useState("texto");
+  // Áudio gravado via microfone (opcional, anexado ao relato)
   const [audioAttachment, setAudioAttachment] = useState(null);
 
   // Emoção selecionada manualmente ou inferida pela rede neural
@@ -73,7 +72,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
         body: JSON.stringify({
           text: cleanText,
           emotion: emocaoAtual,
-          inputType: audioAttachment?.inputType || (inputMode === "voz" || inputMode === "arquivo" ? "audio" : "text"),
+          inputType: audioAttachment ? "audio" : "text",
           audioName: audioAttachment?.audioName || null,
           audioDuration: audioAttachment?.audioDuration || null,
           audioData: audioAttachment?.audioData || null,
@@ -101,22 +100,6 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
 
   function handleSelectMood(moodData) {
     setEmocaoAtual({ ...moodData, manual: true });
-  }
-
-  function handleTranscriptReady(newText) {
-    setTexto((prev) => {
-      const trimmed = prev.trim();
-      if (!trimmed) return newText;
-      return `${trimmed} ${newText}`;
-    });
-  }
-
-  function handleAudioCaptured(attachment) {
-    setAudioAttachment(attachment);
-  }
-
-  function handleClearAudio() {
-    setAudioAttachment(null);
   }
 
   const relatosFiltrados = relatos.filter((r) => {
@@ -163,40 +146,37 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
           />
         </section>
 
-        {/* Painel 2: Redação do relato */}
+        {/* Painel 2: Redação do relato com microfone integrado */}
         <section className="diary-card-section">
           <form onSubmit={handleSalvar} className="diary-editor-form">
             <div className="editor-header-row">
               <label htmlFor="diario-texto" className="editor-label">
-                Seu Relato
+                Escreva seu relato
               </label>
               <span className="editor-subtitle">
-                Escreva, grave com sua voz ou envie um arquivo de áudio
+                Digite ou clique no microfone para ditar com sua voz
               </span>
             </div>
 
-            {/* Módulo de Entrada de Áudio e Ditado */}
-            <AudioRecorder
-              inputMode={inputMode}
-              onChangeMode={setInputMode}
-              onTranscriptReady={handleTranscriptReady}
-              onAudioCaptured={handleAudioCaptured}
-              onClearAudio={handleClearAudio}
-            />
-
-            <textarea
-              id="diario-texto"
-              className="diary-textarea"
-              rows={5}
-              placeholder={
-                inputMode === "voz"
-                  ? "Sua fala transcrita aparecerá aqui em tempo real. Você pode editar ou acrescentar o que desejar..."
-                  : "Desabafe, conte como foi seu dia, suas sensações ou pensamentos..."
-              }
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              maxLength={20000}
-            />
+            {/* Caixa de texto com botão de microfone ao lado/integrado */}
+            <div className="textarea-with-mic-wrapper">
+              <textarea
+                id="diario-texto"
+                className="diary-textarea"
+                rows={6}
+                placeholder="Desabafe, conte como foi seu dia, suas sensações ou pensamentos... (ou clique no microfone para falar)"
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                maxLength={20000}
+              />
+              <VoiceMicButton
+                onTranscript={setTexto}
+                onAudioReady={setAudioAttachment}
+                currentText={texto}
+                audioAttachment={audioAttachment}
+                onDiscardAudio={() => setAudioAttachment(null)}
+              />
+            </div>
 
             <div className="editor-meta-row">
               <span className="char-count">{texto.length} / 20.000 caracteres</span>

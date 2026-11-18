@@ -129,7 +129,7 @@ export function obterPacienteLogado(request) {
     )
     .get(tokenHash, Date.now());
 
-  return paciente || null;
+  return paciente ? { ...paciente } : null;
 }
 
 // Salva um relato do diário associado ao paciente e à emoção detectada pelo modelo
@@ -162,13 +162,15 @@ export function salvarDiario({ patientId, text, emotion }) {
   return { id, created_at: agora };
 }
 
-// Retorna o histórico de relatos do paciente ordenados do mais recente para o mais antigo
+// Retorna o histórico de relatos do paciente ordenados do mais recente para o mais antigo como plain objects
 export function listarDiarios(patientId) {
   const db = getDatabase();
-  return db
+  const rows = db
     .prepare(
       `SELECT * FROM diary_entries WHERE patient_id = ? ORDER BY created_at DESC`
     )
     .all(patientId);
+
+  return rows.map((r) => ({ ...r }));
 }
 

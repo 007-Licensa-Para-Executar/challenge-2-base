@@ -223,3 +223,32 @@ def test_emotion_diary_predictor_batch():
     assert len(results) == 2
     assert results[0].primary_emotion == "alegria"
     assert results[1].primary_emotion == "tristeza"
+
+
+def test_emotion_clinical_guardrails_edge_cases():
+    """Valida os casos de borda clínicos, hostilidade e ansiedade de prova."""
+    predictor = EmotionDiaryPredictor()
+
+    # Caso 1: Prova e dia péssimo (Ansiedade de avaliação)
+    res_prova = predictor.predict("Hoje vou ter prova, que dia pessimo")
+    assert res_prova.primary_emotion == "medo"
+    assert res_prova.character == "Medo"
+    assert res_prova.active_sub_emotion is not None
+    assert res_prova.active_sub_emotion.id == "ansiedade"
+    assert res_prova.active_sub_emotion.simbolo == "🌀"
+
+    # Caso 2: Hostilidade / Impulso destrutivo (Fúria)
+    res_furia = predictor.predict("quero explodir o cachorro do jonas")
+    assert res_furia.primary_emotion == "raiva"
+    assert res_furia.character == "Raiva"
+    assert res_furia.active_sub_emotion is not None
+    assert res_furia.active_sub_emotion.id == "furia"
+    assert res_furia.active_sub_emotion.simbolo == "💥"
+
+    # Caso 3: Desânimo profundo por dia péssimo
+    res_desanimo = predictor.predict("Que dia péssimo, me sinto muito desanimado e sem forças")
+    assert res_desanimo.primary_emotion == "tristeza"
+    assert res_desanimo.character == "Tristeza"
+    assert res_desanimo.active_sub_emotion is not None
+    assert res_desanimo.active_sub_emotion.id == "desanimo"
+    assert res_desanimo.active_sub_emotion.simbolo == "🌧️"

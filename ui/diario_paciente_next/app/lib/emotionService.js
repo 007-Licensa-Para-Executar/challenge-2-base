@@ -99,23 +99,32 @@ export async function analisarRelatoComRedeNeural(texto) {
 }
 
 function fallbackAnaliseHeuristica(texto) {
-  const lower = texto.toLowerCase();
+  const lower = (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   let selected = "neutro";
+  let subIndex = 0;
 
-  if (/(medo|pânico|panico|ansiedad|apavorad|assustad|terror|aflit)/.test(lower)) {
-    selected = "medo";
-  } else if (/(triste|choro|chorei|luto|desânimo|desanimo|lágrima|vazio|deprim)/.test(lower)) {
-    selected = "tristeza";
-  } else if (/(raiva|ódio|odio|fúria|furia|irritad|revolta|indignad|absurdo)/.test(lower)) {
+  if (/(explod|quebrar|matar|esganar|arrebentar|destruir|raiva|odio|furia|irritad|revolta|indignad|absurdo)/.test(lower)) {
     selected = "raiva";
-  } else if (/(nojo|repulsa|náusea|nausea|estragad|podre|aversão|aversao|enjoo)/.test(lower)) {
+    subIndex = /(explod|matar|destruir|arrebentar)/.test(lower) ? 2 : 0; // Fúria ou Irritação
+  } else if (/(prova|exame|teste|concurso|prazo|ansiedad|panico|apavorad|assustad|terror|aflit|medo)/.test(lower)) {
+    selected = "medo";
+    subIndex = 0; // Ansiedade
+  } else if (/(pessim|horrivel|ruim|triste|choro|chorei|luto|desanimo|lagrima|vazio|deprim)/.test(lower)) {
+    selected = "tristeza";
+    subIndex = /(pessim|horrivel|desanimo)/.test(lower) ? 0 : 1; // Desânimo ou Luto
+  } else if (/(nojo|repulsa|nausea|estragad|podre|aversao|enjoo)/.test(lower)) {
     selected = "nojinho";
-  } else if (/(feliz|alegr|grat|ótimo|otimo|maravilh|esperanç|alívio|alivio)/.test(lower)) {
+    subIndex = 0;
+  } else if (/(feliz|alegr|grat|otimo|maravilh|esperanc|alivio)/.test(lower)) {
     selected = "alegria";
+    subIndex = /(otimo|maravilh|feliz)/.test(lower) ? 2 : 0; // Entusiasmo ou Gratidão
   }
 
   const profile = getEmotionProfile(selected);
-  const sub = profile.subSentimentos[0];
+  const sub = profile.subSentimentos[subIndex] || profile.subSentimentos[0];
 
   return {
     primary_emotion: profile.id,

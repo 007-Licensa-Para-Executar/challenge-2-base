@@ -25,6 +25,21 @@ logger = logging.getLogger(__name__)
 EKMAN_LABELS = ["medo", "tristeza", "raiva", "nojo", "surpresa", "alegria", "neutro"]
 CLINICAL_PRIORITY = ["medo", "tristeza", "raiva", "nojo", "surpresa", "alegria", "neutro"]
 
+PORTUGUESE_STOPWORDS = [
+    "a", "ao", "aos", "aquela", "aquelas", "aquele", "aqueles", "aquilo", "as", "ate", "até",
+    "com", "como", "da", "das", "de", "dela", "delas", "dele", "deles", "depois", "do",
+    "dos", "e", "ela", "elas", "ele", "eles", "em", "entre", "era", "eram", "eramos", "éramos",
+    "essa", "essas", "esse", "esses", "esta", "estas", "este", "estes", "estou", "esta", "está",
+    "estamos", "estao", "estão", "eu", "foi", "fomos", "foram", "isso", "isto", "ja", "já", "lhe",
+    "lhes", "me", "mesmo", "meu", "meus", "minha", "minhas", "na", "nas",
+    "no", "nos", "nossa", "nossas", "nosso", "nossos", "num", "numa", "o", "os", "ou",
+    "para", "pela", "pelas", "pelo", "pelos", "por", "qual", "quando", "que", "quem",
+    "se", "seja", "sejam", "sem", "ser", "sera", "será", "serao", "serão", "seu", "seus", "so", "só", "sua",
+    "suas", "tambem", "também", "te", "tem", "temos", "tenha", "tenham", "teu", "teus", "tu",
+    "tua", "tuas", "um", "uma", "umas", "uns", "voce", "você", "voces", "vocês", "vos", "vou", "vai",
+    "vamos", "vao", "vão", "ter",
+]
+
 
 class EmotionNeuralNetwork:
     """Perceptron Multicamadas (MLP) puro em NumPy com entropia cruzada binária ponderada."""
@@ -219,10 +234,20 @@ class EmotionPipeline:
         self.random_state = random_state
 
         self.vec_word = TfidfVectorizer(
-            ngram_range=(1, 2), min_df=2, max_features=50000, sublinear_tf=True
+            strip_accents="unicode",
+            ngram_range=(1, 2),
+            min_df=2,
+            max_features=50000,
+            sublinear_tf=True,
+            stop_words=PORTUGUESE_STOPWORDS,
         )
         self.vec_char = TfidfVectorizer(
-            analyzer="char_wb", ngram_range=(2, 5), min_df=3, max_features=50000, sublinear_tf=True
+            strip_accents="unicode",
+            analyzer="char_wb",
+            ngram_range=(2, 5),
+            min_df=3,
+            max_features=50000,
+            sublinear_tf=True,
         )
         self.selected_indices_: np.ndarray | None = None
         self.net_: EmotionNeuralNetwork | None = None

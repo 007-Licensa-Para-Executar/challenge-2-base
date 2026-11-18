@@ -16,6 +16,12 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
+from unicodedata import normalize
+
+
+def strip_accents_text(text: str) -> str:
+    """Remove acentos e converte para minúsculas para matching resiliente."""
+    return normalize("NFKD", text).encode("ASCII", "ignore").decode("ASCII").lower()
 
 
 @dataclass(frozen=True)
@@ -199,6 +205,21 @@ TRISTEZA_DEF = EmotionDivertidamente(
                 "pesado",
                 "cinza",
                 "sem vontade",
+                "péssimo",
+                "pessimo",
+                "péssima",
+                "pessima",
+                "horrível",
+                "horrivel",
+                "ruim",
+                "dia péssimo",
+                "dia pessimo",
+                "dia ruim",
+                "que dia péssimo",
+                "que dia pessimo",
+                "tudo dando errado",
+                "não aguento mais",
+                "desanimador",
             ),
         ),
         SubEmotion(
@@ -287,6 +308,20 @@ MEDO_DEF = EmotionDivertidamente(
                 "insônia",
                 "inquieto",
                 "tensão",
+                "prova",
+                "provas",
+                "exame",
+                "exames",
+                "teste",
+                "testes",
+                "entrevista",
+                "prazo",
+                "concurso",
+                "cobrança",
+                "estresse",
+                "estressante",
+                "ter prova",
+                "vou ter prova",
             ),
         ),
         SubEmotion(
@@ -417,6 +452,16 @@ RAIVA_DEF = EmotionDivertidamente(
                 "explodi",
                 "ira",
                 "incontrolável",
+                "explodir",
+                "explodindo",
+                "quebrar",
+                "matar",
+                "destruir",
+                "arrebentar",
+                "esganar",
+                "estrangular",
+                "vontade de matar",
+                "quero explodir",
             ),
         ),
     ),
@@ -715,22 +760,30 @@ def resolve_sub_emotion(emotion_id: str, text: str | None) -> SubEmotion:
     if not clean_text:
         return sub_list[0]
 
-    # Tokenização simples de palavras para matching exato
-    words = set(re.findall(r"[a-záàâãéêíóôõúüç]+", clean_text))
+    norm_text = strip_accents_text(clean_text)
+    # Tokenização com e sem acentos
+    words_orig = set(re.findall(r"[a-záàâãéêíóôõúüç]+", clean_text))
+    words_norm = set(re.findall(r"[a-z0-9]+", norm_text))
 
     best_sub: SubEmotion = sub_list[0]
     best_score = -1
 
     for sub in sub_list:
         score = 0
+        # Boost de correspondência nominal direta (ex: paciente cita "pânico", "luto", "fúria", "ansiedade")
+        sub_name_norm = strip_accents_text(sub.nome)
+        if sub.id in words_norm or sub_name_norm in words_norm:
+            score += 3
+
         for kw in sub.keywords:
-            kw_clean = kw.lower()
+            kw_clean = kw.lower().strip()
+            kw_norm = strip_accents_text(kw_clean)
             if " " in kw_clean:
                 # Frase/expressão composta
-                if kw_clean in clean_text:
-                    score += 3
+                if kw_clean in clean_text or kw_norm in norm_text:
+                    score += 4
             else:
-                if kw_clean in words:
+                if kw_clean in words_orig or kw_norm in words_norm:
                     score += 2
 
         if score > best_score and score > 0:

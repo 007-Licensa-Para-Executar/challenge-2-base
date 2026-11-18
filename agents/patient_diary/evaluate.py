@@ -36,8 +36,36 @@ from .transcribe import FasterWhisperTranscriber, SpeechTranscriber
 from .worker import TranscriptionWorker
 
 CLINICAL_LIMIT = "WER e CER não medem segurança clínica. O texto gravado não é corrigido."
+# Configuração medida e rejeitada. O transcritor de produção não envia este prompt.
+CURRENT_PROMPT = "Transcrição em português do Brasil."
 NEGATIONS = ("não", "nao", "nem", "nunca", "jamais", "nenhum", "nenhuma", "tampouco", "sem")
 _ACTOR = Actor(user_id="voz-ficticia", role="patient")
+
+
+@dataclass(frozen=True)
+class FictionLine:
+    """Frase fictícia. O áudio nasce na hora, com o eSpeak, e não entra no Git."""
+
+    label: str
+    text: str
+    names: tuple[str, ...]
+    pauses: bool
+
+
+FICTIONAL_LINES = (
+    FictionLine("curta", "Não.", (), False),
+    FictionLine("negacao", "A paciente fictícia Marina não sente dor.", ("Marina",), False),
+    FictionLine("nome", "O relato fictício é de João Lima.", ("João Lima",), False),
+    FictionLine("emocao", "Marina disse que está triste e calma.", ("Marina",), False),
+    FictionLine(
+        "longa",
+        "A paciente fictícia Helena não tomou o remédio e não relatou falta de ar. "
+        "Ela descreveu cansaço leve.",
+        ("Helena",),
+        False,
+    ),
+    FictionLine("pausas", "Marina. Não. Está cansada.", ("Marina",), True),
+)
 
 
 @dataclass(frozen=True)
@@ -395,6 +423,96 @@ def _reference_text(args) -> str:
     if args.reference_file is not None:
         return args.reference_file.read_text(encoding="utf-8")
     return args.reference or ""
+
+
+def synthesize_line(line: FictionLine) -> bytes:
+    """Gera WAV fictício. As pausas são silêncio de meio segundo, não pontuação só."""
+    if not line.pauses:
+        return _speak(line.text)
+    parts = [part.strip() for part in line.text.split(".") if part.strip()]
+    return _with_gaps([_speak(f"{part}.") for part in parts], 500)
+
+
+def hear(model, path: Path, *, prompt: str | None, condition: bool, beam: int) -> str:
+    """Devolve o texto cru. Não corrige palavra nem grava por cima da referência."""
+    options: dict[str, object] = {
+        "language": "pt",
+        "beam_size": beam,
+        "condition_on_previous_text": condition,
+    }
+    if prompt is not None:
+        options["initial_prompt"] = prompt
+    segments, _info = model.transcribe(str(path), **options)
+    pieces = [item.text.strip() for item in segments if getattr(item, "text", "").strip()]
+    return " ".join(pieces)
+
+
+def _speak(text: str) -> bytes:
+    import ctypes
+    import wave
+    from io import BytesIO
+
+    lib = ctypes.CDLL("libespeak-ng.so.1")
+    samples: list[int] = []
+    callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_short), ctypes.c_int, ctypes.c_void_p)
+
+    def collect(wav, count, _events):
+        if count > 0 and wav:
+            samples.extend(int(wav[index]) for index in range(count))
+        return 0
+
+    holder = callback(collect)
+    lib.espeak_Initialize.restype = ctypes.c_int
+    rate = lib.espeak_Initialize(1, 0, None, 0)
+    lib.espeak_SetSynthCallback(holder)
+    lib.espeak_SetVoiceByName.argtypes = [ctypes.c_char_p]
+    lib.espeak_SetVoiceByName.restype = ctypes.c_int
+    lib.espeak_SetVoiceByName(b"pt-br")
+    lib.espeak_SetParameter.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
+    lib.espeak_SetParameter(1, 120, 0)
+    raw = text.encode()
+    lib.espeak_Synth.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.c_uint,
+        ctypes.c_int,
+        ctypes.c_uint,
+        ctypes.c_uint,
+        ctypes.POINTER(ctypes.c_uint),
+        ctypes.c_void_p,
+    ]
+    uid = ctypes.c_uint(0)
+    lib.espeak_Synth(raw, len(raw) + 1, 0, 0, 0, 1, ctypes.byref(uid), None)
+    lib.espeak_Synchronize()
+    buffer = BytesIO()
+    with wave.open(buffer, "w") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(b"".join(int(sample).to_bytes(2, "little", signed=True) for sample in samples))
+    return buffer.getvalue()
+
+
+def _with_gaps(clips: list[bytes], gap_ms: int) -> bytes:
+    import wave
+    from io import BytesIO
+
+    frames: list[bytes] = []
+    rate = width = channels = 0
+    for clip in clips:
+        with wave.open(BytesIO(clip), "rb") as handle:
+            rate = handle.getframerate()
+            width = handle.getsampwidth()
+            channels = handle.getnchannels()
+            frames.append(handle.readframes(handle.getnframes()))
+    gap = b"\x00" * width * channels * int(rate * gap_ms / 1000)
+    buffer = BytesIO()
+    with wave.open(buffer, "w") as handle:
+        handle.setnchannels(channels)
+        handle.setsampwidth(width)
+        handle.setframerate(rate)
+        handle.writeframes(gap.join(frames))
+    return buffer.getvalue()
 
 
 def _parser() -> argparse.ArgumentParser:

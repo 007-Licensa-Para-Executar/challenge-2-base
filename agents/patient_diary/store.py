@@ -22,18 +22,20 @@ from .contracts import (
     PatientEntry,
     QueuedAudio,
     Segment,
+    ThemeSource,
     Transcript,
     TranscriptResult,
+    TranscriptRevision,
     parse_actor,
     parse_entry,
 )
 
 _ID = re.compile(ID_PATTERN)
 _AUDIO_NAME = re.compile(r"^[0-9a-f]{32}\.(wav|webm|m4a|mp3|ogg)$")
-# shortcut: version 4 adds a claim token; human correction of transcripts is a later migration
-SCHEMA_VERSION = 4
+# shortcut: version 5 adds transcript_revisions; a public review route waits for real auth
+SCHEMA_VERSION = 5
 _FORBIDDEN = frozenset({"diary_records", "literature_documents"})
-_ALLOWED = frozenset({"patient_entries", "care_links", "transcripts"})
+_ALLOWED = frozenset({"patient_entries", "care_links", "transcripts", "transcript_revisions"})
 _COLUMNS = (
     "entry_id, patient_id, author_user_id, created_at, input_type, "
     "original_text, processing_status, consent_id, audio_sha256, duration_sec, error_code"
@@ -412,6 +414,110 @@ class PatientDiaryStore:
         except (TypeError, ValueError, PatientDiaryError):
             raise StoreIsolationError("corrupt_entry") from None
 
+    def add_revision(
+        self, entry_id: str, revised_text: str, actor: Actor, **untrusted: object
+    ) -> TranscriptRevision:
+        """Grava uma correção. O revisor é o ator, nunca um id vindo do cliente."""
+        if untrusted:
+            raise InvalidEntryError("untrusted_actor")
+        actor = parse_actor(actor)
+        text = _revised_text(revised_text)
+        entry = self.get(entry_id, actor)
+        if actor.role != "clinician":
+            raise AccessDeniedError()
+        if entry.input_type != "audio":
+            raise InvalidEntryError("invalid_entry")
+        self.read_transcript(entry_id, actor)
+        now = datetime.now(UTC)
+        revision_id = secrets.token_hex(8)
+        with closing(self._connect_write()) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                current = conn.execute(
+                    "SELECT text FROM transcripts WHERE entry_id = ?",
+                    (entry_id,),
+                ).fetchone()
+                if current is None:
+                    raise EntryNotFoundError()
+                number = conn.execute(
+                    "SELECT COALESCE(MAX(revision_number), 0) FROM transcript_revisions "
+                    "WHERE entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+                conn.execute(
+                    "INSERT INTO transcript_revisions ("
+                    "revision_id, entry_id, revised_text, reviewer_user_id, created_at, "
+                    "revision_number) VALUES (?, ?, ?, ?, ?, ?)",
+                    (revision_id, entry_id, text, actor.user_id, _timestamp(now), number + 1),
+                )
+                unchanged = conn.execute(
+                    "SELECT text FROM transcripts WHERE entry_id = ?",
+                    (entry_id,),
+                ).fetchone()
+                if unchanged != current:
+                    raise StoreIsolationError("write_failed")
+                conn.execute("COMMIT")
+                row = conn.execute(
+                    "SELECT revision_id, entry_id, revised_text, reviewer_user_id, created_at, "
+                    "revision_number FROM transcript_revisions WHERE revision_id = ?",
+                    (revision_id,),
+                ).fetchone()
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        return _revision(row)
+
+    def list_revisions(self, entry_id: str, actor: Actor) -> list[TranscriptRevision]:
+        self.get(entry_id, actor)
+        with closing(self._connect_ro()) as conn:
+            if not _has_named(conn, "transcript_revisions"):
+                return []
+            rows = conn.execute(
+                "SELECT revision_id, entry_id, revised_text, reviewer_user_id, created_at, "
+                "revision_number FROM transcript_revisions WHERE entry_id = ? "
+                "ORDER BY revision_number",
+                (entry_id,),
+            ).fetchall()
+        return [_revision(row) for row in rows]
+
+    def latest_revision(self, entry_id: str, actor: Actor) -> TranscriptRevision | None:
+        rows = self.list_revisions(entry_id, actor)
+        return rows[-1] if rows else None
+
+    def theme_source(self, entry_id: str, actor: Actor) -> ThemeSource:
+        """Texto confirmado para a rede. Áudio sem revisão não leva a transcrição automática."""
+        entry = self.get(entry_id, actor)
+        latest = self.latest_revision(entry_id, actor) if entry.input_type == "audio" else None
+        if entry.input_type == "text":
+            return ThemeSource(
+                entry_id=entry.entry_id,
+                patient_id=entry.patient_id,
+                text=entry.original_text,
+                input_type="text",
+                text_source="written",
+                review_status="not_required",
+                created_at=entry.created_at,
+            )
+        if latest is None:
+            return ThemeSource(
+                entry_id=entry.entry_id,
+                patient_id=entry.patient_id,
+                text=None,
+                input_type="audio",
+                text_source="none",
+                review_status="unreviewed",
+                created_at=entry.created_at,
+            )
+        return ThemeSource(
+            entry_id=entry.entry_id,
+            patient_id=entry.patient_id,
+            text=latest.revised_text,
+            input_type="audio",
+            text_source="reviewed_transcript",
+            review_status="reviewed",
+            created_at=entry.created_at,
+        )
+
     def get(self, entry_id: str, actor: Actor) -> PatientEntry:
         actor = parse_actor(actor)
         self._identifier(entry_id)
@@ -630,7 +736,7 @@ class PatientDiaryStore:
     def _reject_foreign(self, names: set[str], version: int) -> None:
         if names & _FORBIDDEN or not names <= _ALLOWED:
             raise StoreIsolationError("foreign_database")
-        if names and version not in (1, 2, 3, SCHEMA_VERSION):
+        if names and version not in (1, 2, 3, 4, SCHEMA_VERSION):
             raise StoreIsolationError("unknown_schema")
 
     def _migrate_if_needed(self) -> None:
@@ -666,6 +772,7 @@ class PatientDiaryStore:
                 _entry_indexes(conn)
             conn.execute(_CARE_LINKS)
             conn.execute(_TRANSCRIPTS)
+            conn.execute(_REVISIONS)
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         os.chmod(self.db_path, 0o600)
 
@@ -758,6 +865,15 @@ _CARE_LINKS = (
     "clinician_user_id TEXT NOT NULL, patient_id TEXT NOT NULL, "
     "PRIMARY KEY (clinician_user_id, patient_id))"
 )
+_REVISIONS = (
+    "CREATE TABLE IF NOT EXISTS transcript_revisions ("
+    "revision_id TEXT PRIMARY KEY, entry_id TEXT NOT NULL, "
+    "revised_text TEXT NOT NULL CHECK(length(trim(revised_text)) >= 1 "
+    "AND length(revised_text) <= 20000), "
+    "reviewer_user_id TEXT NOT NULL, created_at TEXT NOT NULL, "
+    "revision_number INTEGER NOT NULL CHECK(revision_number >= 1), "
+    "UNIQUE (entry_id, revision_number))"
+)
 _TRANSCRIPTS = (
     "CREATE TABLE IF NOT EXISTS transcripts ("
     "transcript_id TEXT PRIMARY KEY, entry_id TEXT NOT NULL UNIQUE, "
@@ -820,6 +936,41 @@ def _migrate_legacy(conn: sqlite3.Connection, *, audio_columns: bool) -> None:
     conn.execute("DROP TABLE patient_entries")
     conn.execute("ALTER TABLE patient_entries_v3 RENAME TO patient_entries")
     _entry_indexes(conn)
+
+
+def _revised_text(value: object) -> str:
+    if type(value) is not str:
+        raise InvalidEntryError("invalid_text")
+    text = value.strip()
+    if not text:
+        raise InvalidEntryError("empty_text")
+    if len(text) > 20_000:
+        raise InvalidEntryError("text_too_long")
+    return text
+
+
+def _has_named(conn: sqlite3.Connection, name: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (name,),
+        ).fetchone()
+        is not None
+    )
+
+
+def _revision(row: tuple) -> TranscriptRevision:
+    try:
+        return TranscriptRevision(
+            revision_id=row[0],
+            entry_id=row[1],
+            revised_text=row[2],
+            reviewer_user_id=row[3],
+            created_at=datetime.fromisoformat(row[4]),
+            revision_number=row[5],
+        )
+    except PatientDiaryError:
+        raise StoreIsolationError("corrupt_entry") from None
 
 
 def _entry(row: tuple) -> PatientEntry:

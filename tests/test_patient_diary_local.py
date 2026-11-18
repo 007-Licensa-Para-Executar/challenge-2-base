@@ -40,6 +40,7 @@ def test_page_ignores_browser_identity_and_rejects_invalid_audio(tmp_path):
     page("/texto", body, "application/x-www-form-urlencoded")
     history = page("/")
     assert PHRASE in history
+    assert 'action="/worker"' not in history
     assert "alice" not in history
     assert LOCAL_USER in history
     refused = page(

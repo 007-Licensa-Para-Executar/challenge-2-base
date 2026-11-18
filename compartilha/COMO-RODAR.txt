@@ -1,0 +1,11 @@
+Diário local fictício. Cada pessoa roda na própria máquina.
+Não publique estas portas na internet: não há login.
+
+1. Instale o Docker.
+2. Nesta pasta:
+     docker compose up --build
+3. Abra http://127.0.0.1:8090
+4. Para parar: docker compose down
+
+A transcrição usa o modelo que já vem na pasta model/.
+O container não baixa pesos.

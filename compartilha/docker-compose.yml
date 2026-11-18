@@ -1,0 +1,11 @@
+services:
+  diario:
+    build: .
+    ports:
+      - "127.0.0.1:8090:8080"
+      - "127.0.0.1:8765:8765"
+    environment:
+      DIARY_BIND: "0.0.0.0"
+      HF_HUB_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TRANSFORMERS_OFFLINE: "1"

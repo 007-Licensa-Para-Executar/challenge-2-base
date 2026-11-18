@@ -1,0 +1,576 @@
+/*
+  Paleta: #315C50 transmite confiança (7,56:1 no branco); #668D7F destaca foco (3,70:1);
+  #D9A15B aquece os detalhes; #F7F7F2 e #FFFFFF dão leveza. Texto #26332F e auxiliar
+  #5E6C64 passam AA em superfícies claras; #849188 identifica campos (3,29:1 no branco).
+*/
+:root {
+  --cor-primaria: #315c50;
+  --cor-secundaria: #668d7f;
+  --cor-destaque: #d9a15b;
+  --cor-fundo: #f7f7f2;
+  --cor-superficie: #ffffff;
+  --cor-texto: #26332f;
+  --cor-texto-suave: #5e6c64;
+  --cor-borda: #849188;
+  --cor-erro: #8c3a32;
+  --cor-fundo-erro: #f6e8e6;
+  --cor-sucesso: #315c50;
+  --sombra-cartao: 0 20px 60px rgba(38, 51, 47, 0.08);
+}
+
+/* Base tipográfica e foco visível para teclado e leitores de tela. */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-padding-block: 24px;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--cor-secundaria);
+  outline-offset: 3px;
+}
+
+/* Composição principal para desktop: painel de marca e cartão de formulário. */
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 1fr);
+  gap: clamp(18px, 2.3vw, 34px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+
+.story-panel {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: calc(100vh - 40px);
+  min-height: calc(100dvh - 40px);
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(30px, 5vw, 76px);
+  border-radius: 30px;
+  background: linear-gradient(145deg, #315c50 0%, #274a40 100%);
+  color: #ffffff;
+}
+
+.story-orb {
+  position: absolute;
+  z-index: -1;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.story-orb-one {
+  top: 19%;
+  right: -180px;
+  width: 430px;
+  height: 430px;
+  background: radial-gradient(circle at 36% 38%, rgba(217, 161, 91, 0.18), transparent 62%);
+}
+
+.story-orb-two {
+  right: 8%;
+  bottom: 16%;
+  width: 140px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Marca e ilustração vetorial pequena, sem baixar imagens ou ícones externos. */
+.brand {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: fit-content;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.brand-mark svg {
+  width: 29px;
+  stroke: #ffffff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.story-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  margin-block: auto;
+  padding-block: 56px;
+}
+
+.story-kicker,
+.form-eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.story-kicker {
+  color: #e2c995;
+}
+
+.story-copy h2 {
+  max-width: 480px;
+  margin: 0;
+  font-size: clamp(38px, 4.4vw, 62px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.06;
+}
+
+.story-copy > p:last-child {
+  max-width: 430px;
+  margin: 22px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.story-note {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.note-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.note-mark svg {
+  width: 22px;
+  stroke: #f0d59c;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.story-note p {
+  margin: 0;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 550;
+}
+
+/* Cartão de formulário, campos e botões. */
+.form-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(8px, 3vw, 48px);
+}
+
+.auth-card {
+  width: min(100%, 470px);
+  padding: clamp(28px, 4.2vw, 50px);
+  border: 1px solid rgba(220, 229, 223, 0.85);
+  border-radius: 26px;
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra-cartao);
+}
+
+.form-eyebrow {
+  margin-bottom: 10px;
+  color: var(--cor-primaria);
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.16;
+}
+
+.form-description {
+  margin: 12px 0 28px;
+  color: var(--cor-texto-suave);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.form-field label {
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  scroll-margin-block: 24px;
+  padding: 12px 15px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  font-size: 16px;
+  line-height: 1.4;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-field input::placeholder {
+  color: #68776f;
+  opacity: 1;
+}
+
+.form-field input:focus {
+  border-color: var(--cor-primaria);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(49, 92, 80, 0.14);
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 96px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  min-width: 78px;
+  min-height: 44px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.password-toggle:hover,
+.text-link:hover,
+.auth-footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.form-options {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -6px;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+}
+
+.text-link {
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.form-feedback {
+  margin: -2px 0 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.form-feedback.erro {
+  background: var(--cor-fundo-erro);
+  color: var(--cor-erro);
+}
+
+.form-feedback.sucesso {
+  background: #e7f0eb;
+  color: var(--cor-sucesso);
+}
+
+.form-feedback.ajuda {
+  background: #f1f3ef;
+  color: var(--cor-texto);
+}
+
+.submit-button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 2px;
+  padding: 12px 18px;
+  border: 1px solid var(--cor-primaria);
+  border-radius: 12px;
+  background: var(--cor-primaria);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 650;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #274a40;
+  transform: translateY(-1px);
+}
+
+.submit-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.form-hint {
+  margin: -8px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  text-align: center;
+}
+
+.auth-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0ed;
+  color: var(--cor-texto-suave);
+  font-size: 14px;
+  text-align: center;
+}
+
+.auth-footer p {
+  margin: 0;
+}
+
+.auth-footer a {
+  display: inline-block;
+  min-height: 44px;
+  padding: 10px 2px;
+  color: var(--cor-primaria);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.privacy-note {
+  width: min(100%, 470px);
+  margin: 18px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Tablets mantêm os dois painéis, com menos espaço lateral. */
+@media (max-width: 1000px) and (min-width: 761px) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr);
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .story-panel {
+    min-height: calc(100dvh - 28px);
+    padding: 32px;
+  }
+
+  .form-side {
+    padding: 16px;
+  }
+}
+
+/* iPhone e Android: fluxo em coluna, safe areas e rolagem natural ao abrir o teclado. */
+@media (max-width: 760px) {
+  .auth-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 0;
+  }
+
+  .story-panel {
+    min-height: 0;
+    padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) 24px
+      max(22px, env(safe-area-inset-left));
+    border-radius: 0 0 24px 24px;
+  }
+
+  .brand {
+    min-height: 44px;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+  }
+
+  .story-copy {
+    max-width: 560px;
+    margin: 22px 0 0;
+    padding: 0;
+  }
+
+  .story-kicker {
+    margin-bottom: 6px;
+    font-size: 10px;
+  }
+
+  .story-copy h2 {
+    max-width: 480px;
+    font-size: clamp(25px, 7vw, 34px);
+    letter-spacing: -0.04em;
+  }
+
+  .story-copy > p:last-child {
+    max-width: 480px;
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .story-note {
+    display: none;
+  }
+
+  .story-orb-one {
+    top: -110px;
+    right: -150px;
+    width: 280px;
+    height: 280px;
+  }
+
+  .story-orb-two {
+    display: none;
+  }
+
+  .form-side {
+    justify-content: flex-start;
+    padding: 24px max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+      max(20px, env(safe-area-inset-left));
+  }
+
+  .auth-card {
+    width: min(100%, 520px);
+    padding: 24px 22px;
+    border-radius: 20px;
+    box-shadow: none;
+  }
+
+  .auth-card h1 {
+    font-size: 29px;
+  }
+
+  .form-description {
+    margin-bottom: 22px;
+  }
+
+  .auth-form {
+    gap: 16px;
+  }
+
+  .privacy-note {
+    margin-top: 14px;
+  }
+}
+
+/* Em telas baixas com teclado aberto, o cabeçalho libera espaço para os campos. */
+@media (max-width: 760px) and (max-height: 680px) {
+  .story-copy > p:last-child {
+    display: none;
+  }
+
+  .story-copy {
+    margin-top: 16px;
+  }
+
+  .form-side {
+    padding-top: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

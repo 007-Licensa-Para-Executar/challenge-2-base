@@ -1,0 +1,22 @@
+{"case_id": "person-accented", "text": "Conversei com Érica Ventoluz sobre a oficina.", "expected": [{"start": 14, "end": 28, "kind": "PERSON"}]}
+{"case_id": "person-repeated", "text": "Téo Solivaz chegou cedo. Téo Solivaz trouxe o material. Mais tarde, Téo voltou para buscar o caderno.", "expected": [{"start": 0, "end": 11, "kind": "PERSON"}, {"start": 25, "end": 36, "kind": "PERSON"}, {"start": 68, "end": 71, "kind": "PERSON"}]}
+{"case_id": "person-apostrophe-hyphen", "text": "O recado foi deixado para Nélia D'Ávila-Ventoluz.", "expected": [{"start": 26, "end": 48, "kind": "PERSON"}]}
+{"case_id": "person-decomposed-unicode", "text": "📝 Nota de André Solivaz.", "expected": [{"start": 10, "end": 24, "kind": "PERSON"}]}
+{"case_id": "org-full-name", "text": "A oficina foi organizada pelo Instituto Horizonte de Âmbar.", "expected": [{"start": 30, "end": 58, "kind": "ORG"}]}
+{"case_id": "org-abbreviation", "text": "A Cooperativa Vale de Névoa (CVN) marcou uma reunião. A CVN enviou a pauta.", "expected": [{"start": 2, "end": 27, "kind": "ORG"}, {"start": 29, "end": 32, "kind": "ORG"}, {"start": 56, "end": 59, "kind": "ORG"}]}
+{"case_id": "location-two-cities", "text": "O ônibus saiu de São Luís rumo a Belo Horizonte.", "expected": [{"start": 17, "end": 25, "kind": "LOCATION"}, {"start": 33, "end": 47, "kind": "LOCATION"}]}
+{"case_id": "location-no-accents", "text": "A próxima oficina será em Porto Alegre.", "expected": [{"start": 26, "end": 38, "kind": "LOCATION"}]}
+{"case_id": "cpf-formatted", "text": "CPF de exemplo: 123.456.789-00.", "expected": [{"start": 16, "end": 30, "kind": "CPF"}]}
+{"case_id": "cpf-compact", "text": "O CPF fictício é 98765432199.", "expected": [{"start": 17, "end": 28, "kind": "CPF"}]}
+{"case_id": "phone-international", "text": "Telefone fictício: +55 (10) 90000-0001.", "expected": [{"start": 19, "end": 38, "kind": "PHONE"}]}
+{"case_id": "phone-local", "text": "O telefone de exemplo é (10) 2000-0002.", "expected": [{"start": 24, "end": 38, "kind": "PHONE"}]}
+{"case_id": "email-plus-tag", "text": "E-mail de teste: amostra+triagem@formulario.invalid.", "expected": [{"start": 17, "end": 51, "kind": "EMAIL"}]}
+{"case_id": "email-upper-and-punctuation", "text": "Use <AVISO.TESTE@CAIXA.INVALID>, por favor.", "expected": [{"start": 5, "end": 30, "kind": "EMAIL"}]}
+{"case_id": "structured-repeated-adjacent", "text": "Contatos fictícios: contato@caixa.invalid; contato@caixa.invalid / (10) 90000-0003.", "expected": [{"start": 20, "end": 41, "kind": "EMAIL"}, {"start": 43, "end": 64, "kind": "EMAIL"}, {"start": 67, "end": 82, "kind": "PHONE"}]}
+{"case_id": "mixed-multiline", "text": "Aline Ventoluz escreveu em Belém.\nRetorno de teste: revisao@caixa.invalid", "expected": [{"start": 0, "end": 14, "kind": "PERSON"}, {"start": 27, "end": 32, "kind": "LOCATION"}, {"start": 52, "end": 73, "kind": "EMAIL"}]}
+{"case_id": "mixed-entity-kinds", "text": "Ivo Solivaz ligou de Recife para o Instituto Lago de Âmbar, no telefone de teste (10) 90000-0004.", "expected": [{"start": 0, "end": 11, "kind": "PERSON"}, {"start": 21, "end": 27, "kind": "LOCATION"}, {"start": 35, "end": 58, "kind": "ORG"}, {"start": 81, "end": 96, "kind": "PHONE"}]}
+{"case_id": "negative-empty", "text": "", "expected": []}
+{"case_id": "negative-diary", "text": "Hoje acordei cansada e fiz uma pausa depois do almoço.", "expected": []}
+{"case_id": "negative-numbers", "text": "Na anotação de 12/03/2024, a medição das 09:30 foi 114,5.", "expected": []}
+{"case_id": "negative-lookalikes", "text": "Referência: lote 123.456.78-00; ramal 4123; usuário @exemplo.", "expected": []}
+{"case_id": "negative-generic-roles", "text": "A médica conversou com a recepcionista perto da entrada do prédio.", "expected": []}

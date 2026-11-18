@@ -107,6 +107,7 @@ class Shell(RagMenu):
         self.write_raw = write
         self.runner = runner
         self.synthetic = False
+        self.privacy_mode = False
         self.running = True
         self.last_progress = 0.0
 
@@ -311,6 +312,9 @@ class Shell(RagMenu):
 
     def execute(self, proposal, *, natural=False):
         tool = proposal.ferramenta
+        if self.privacy_mode and tool in {"extrair", "historico"}:
+            self.say("Para trabalhar na base tratada, use /rag.")
+            return
         if tool == "esclarecer":
             self.say("Pedido ambíguo ou não permitido. Escolha uma ação por vez; use /ajuda.")
             return
@@ -369,6 +373,9 @@ class Shell(RagMenu):
             self.synthetic = self.confirm("Confirma usar exclusivamente dados sintéticos nesta sessão?")
             if not self.synthetic:
                 return
+        if self.privacy_mode:
+            self.say("No modo protegido, use comandos com barra. Abra /rag para consultar.")
+            return
         result = self.process("app.router", [self.router_model, str(self.router_timeout)],
                               text=text, timeout=self.router_timeout)
         if result.code:
@@ -407,12 +414,15 @@ class Shell(RagMenu):
 
 def main():
     parser = argparse.ArgumentParser(description="Shell local para desenvolvimento com dados sintéticos")
-    parser.parse_args()
+    parser.add_argument("--privacy", action="store_true", help="Usar RAG com API de pseudonimização")
+    args = parser.parse_args()
     if not sys.stdin.isatty():
         print("Abra um terminal interativo e execute: uv run bem-estar", file=sys.stderr)
         return 2
     try:
-        return Shell().run()
+        shell = Shell()
+        shell.privacy_mode = args.privacy
+        return shell.run()
     except ValueError:
         print("Configuração inválida. Consulte .env.example.", file=sys.stderr)
         return 2

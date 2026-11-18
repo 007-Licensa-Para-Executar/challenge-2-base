@@ -28,7 +28,7 @@ class OllamaGenerator:
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("Timeout deve ser positivo e finito")
         self.model = model
-        self.client = ollama.Client(host=host, timeout=timeout)
+        self.client = ollama.Client(host=host, timeout=timeout, trust_env=False, follow_redirects=False)
 
     def generate(self, query: Query, evidence: list[Evidence]) -> DraftAnswer:
         """Valida escopo e referências. Isso não comprova suporte semântico da paráfrase."""

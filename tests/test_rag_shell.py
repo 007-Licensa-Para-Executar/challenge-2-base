@@ -111,3 +111,20 @@ def test_rag_requires_synthetic_confirmation(tmp_path):
     instance, _, calls = shell(tmp_path, ['n'])
     instance.handle('/rag')
     assert not calls
+
+
+def test_protected_shell_keeps_question_out_of_router_and_process_arguments(tmp_path):
+    question = "O que Úrsula de Exemplo relatou?"
+    instance, _, calls = shell(
+        tmp_path, ["perguntar", "patient_ana", "", "", question, "extractive"]
+    )
+    instance.synthetic = True
+    instance.privacy_mode = True
+    instance.handle(question)
+    assert not calls
+    instance.handle("/rag")
+    args, kwargs = calls[0]
+    assert args[0] == "agents.copilot"
+    assert "--privacy" in args[1] and "--question-stdin" in args[1]
+    assert question not in args[1]
+    assert kwargs["text"] == question

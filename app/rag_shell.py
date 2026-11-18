@@ -15,6 +15,9 @@ class RagMenu:
         if action == "voltar":
             return
         db = getattr(self, "rag_db", ROOT / "data" / "copilot_demo.sqlite3")
+        protected = self.privacy_mode
+        if protected:
+            db = getattr(self, "rag_db", ROOT / "data" / "privacy" / "analytics.sqlite3")
         artifacts = ROOT / "dist" / "rag-demo"
         if action == "treinar":
             if not self.propose(proposal, {
@@ -60,6 +63,8 @@ class RagMenu:
                 db = ROOT / "data" / (
                     "copilot-demo-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f") + ".sqlite3"
                 )
+                if protected:
+                    db = ROOT / "data" / "privacy" / db.name
                 args = ["seed", "--synthetic", "--db", str(db), *classification]
                 details = {"acao": action, "banco_novo": str(db), "classificar": classify,
                            "conteudo": "20 diários fictícios: patient_ana e patient_bruno"}
@@ -72,9 +77,12 @@ class RagMenu:
                 args = ["ingest", "--synthetic", "--patient-id", record.patient_id,
                         "--at", record.recorded_at.isoformat(), "--db", str(db), *classification]
                 details = {"acao": action, "banco": str(db), "classificar": classify,
-                           "paciente": patient, "data": at, "texto_literal": text}
+                           "paciente": patient, "data": at,
+                           "texto_literal": f"{len(text)} caracteres" if protected else text}
             if not self.propose(proposal, details):
                 return
+            if protected:
+                args.append("--privacy")
             result = self.process("agents.copilot", args, text=text)
             # Mesmo quando a classificação falha, o CLI pode conservar o original.
             if db.is_file():
@@ -86,7 +94,13 @@ class RagMenu:
         end = self.ask("Até (ISO com fuso; Enter = sem limite): ") or None
         question = self.ask("Pergunta (texto literal): ") if action == "perguntar" else "listar"
         query = Query(patient_id=patient, question=question, start_at=start, end_at=end)
-        args = ["ask", question] if action == "perguntar" else ["list"]
+        args = ["list"]
+        input_text = None
+        if action == "perguntar":
+            args = ["ask", "--question-stdin"] if protected else ["ask", question]
+            input_text = question if protected else None
+        if protected:
+            args.append("--privacy")
         args += ["--patient-id", query.patient_id, "--db", str(db)]
         if start:
             args += ["--from", start]
@@ -103,7 +117,8 @@ class RagMenu:
             "pergunta": question, "banco": str(db),
         }):
             return
-        self.rag_result(self.process("agents.copilot", args))
+        self.rag_result(self.process("agents.copilot", args, text=input_text) if protected
+                        else self.process("agents.copilot", args))
 
     def rag_result(self, result):
         if result.stderr:

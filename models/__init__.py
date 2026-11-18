@@ -1,8 +1,10 @@
-"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas."""
+"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas e emoções."""
 
 from typing import TYPE_CHECKING
 
 from models.embedder import ClinicalTextEmbedder
+from models.emotion_net import EKMAN_LABELS, EmotionNeuralNetwork, EmotionPipeline
+from models.emotion_predictor import EmotionDiaryPredictor, EmotionDiaryResult
 from models.numpy_mlp import NumpyClinicalMLP
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
@@ -30,11 +32,16 @@ def __getattr__(name: str):
 
 __all__ = [
     "THEME_CLASSES",
+    "EKMAN_LABELS",
     "ClinicalTextEmbedder",
     "ClinicalThemeMLP",
     "ClinicalThemePredictor",
     "DiaryTopicBreakdown",
     "DiaryTopicSegment",
+    "EmotionDiaryPredictor",
+    "EmotionDiaryResult",
+    "EmotionNeuralNetwork",
+    "EmotionPipeline",
     "NumpyClinicalMLP",
     "TopicDistribution",
 ]

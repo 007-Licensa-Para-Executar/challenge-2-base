@@ -1,22 +1,21 @@
 #!/bin/bash
+# Confere Docker e o modelo local. Não compila interface e não baixa pesos.
 set -euo pipefail
-raiz="$(cd "$(dirname "$0")/../.." && pwd)"
-destino="$(cd "$(dirname "$0")" && pwd)/pacote"
-rm -rf "$destino"
-mkdir -p "$destino/web" "$destino/agents" "$destino/model"
-flutter_dir="$raiz/mlops-flutter/ui/diario_paciente"
-(cd "$flutter_dir" && flutter build web --release)
-rsync -a --delete "$flutter_dir/build/web/" "$destino/web/"
-cp "$raiz/mlops-diario/compartilha/Dockerfile" "$destino/Dockerfile"
-cp "$raiz/mlops-diario/compartilha/docker-compose.yml" "$destino/docker-compose.yml"
-cp "$raiz/mlops-diario/compartilha/iniciar.sh" "$destino/iniciar.sh"
-cp "$raiz/mlops-diario/compartilha/.dockerignore" "$destino/.dockerignore"
-cp "$raiz/mlops-diario/compartilha/COMO-RODAR.txt" "$destino/COMO-RODAR.txt"
-chmod +x "$destino/iniciar.sh"
-cp "$raiz/mlops-diario/agents/__init__.py" "$destino/agents/__init__.py"
-rsync -a --delete \
-  --exclude '__pycache__' \
-  "$raiz/mlops-diario/agents/patient_diary/" "$destino/agents/patient_diary/"
-rsync -a "$raiz/mlops/data/models/faster-whisper-small/" "$destino/model/"
-echo "Pacote pronto em $destino"
-echo "Para subir: cd \"$destino\" && docker compose up --build"
+
+aqui="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$aqui/.." && pwd)"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Instale o Docker antes de continuar." >&2
+  exit 1
+fi
+
+if [[ -z "${DIARY_MODEL_DIR:-}" || ! -f "${DIARY_MODEL_DIR}/model.bin" ]]; then
+  echo "Defina DIARY_MODEL_DIR para uma pasta desta máquina que já contenha model.bin." >&2
+  echo "Este script não baixa o modelo e não usa outras cópias do repositório." >&2
+  exit 1
+fi
+
+echo "Repositório: ${repo}"
+echo "Modelo local: ${DIARY_MODEL_DIR}"
+echo "Siga compartilha/COMO-RODAR.txt a partir de ${aqui}."

@@ -66,6 +66,17 @@ HOSTILITY_TRIGGERS: tuple[str, ...] = (
     "indignada",
     "indignacao",
     "indignação",
+    "furia",
+    "fúria",
+    "furioso",
+    "furiosa",
+    "odio",
+    "ódio",
+    "raiva",
+    "irritacao",
+    "irritação",
+    "irritado",
+    "irritada",
 )
 
 # Gatilhos de aversão e desprezo somático ou moral (Nojinho / Aversão / Desprezo 🛡️🚫)
@@ -266,22 +277,40 @@ class EmotionDiaryPredictor:
     def _create_fallback_pipeline() -> EmotionPipeline:
         """Cria um pipeline de contingência calibrado para testes e ambientes sem modelo pré-treinado."""
         seed_texts = [
+            # medo
+            "Estou em pânico e com muito medo dos resultados do exame, meu coração fica disparado e não consigo dormir",
             "Estou apavorado e com muito medo do diagnóstico e pânico",
+            # tristeza
+            "Hoje eu chorei o dia todo, sinto um aperto no peito, um luto imenso e um desespero que não passa",
             "Sinto uma tristeza profunda, luto e choro sem parar",
+            # raiva
+            "Senti uma fúria e um ódio gigantesco com o descaso dos médicos, que raiva desse hospital",
             "Que ódio e raiva dessa situação injusta e fúria",
+            # nojo
+            "Que nojo terrível daquela comida podre e estragada, fiquei com uma repulsa e náusea insuportável",
             "Que nojo dessa comida estragada e podre com repulsa e náusea",
+            # surpresa
             "Que surpresa inacreditável e espanto ver isso acontecer",
+            "Fiquei chocado de surpresa e espanto",
+            # alegria
+            "Hoje foi um dia maravilhoso, a medicação fez efeito, me sinto em paz, com esperança e muito feliz",
             "Estou muito feliz e radiante hoje com esperança e paz",
+            # neutro
+            "Fui até o posto de saúde, peguei os medicamentos da receita e voltei para casa às duas da tarde",
             "Peguei o ônibus e comprei o pão na rotina normal",
         ]
-        y_seed = np.eye(len(EKMAN_LABELS), dtype=int)
-        pipe = EmotionPipeline(n_features=100, hidden_units=[16], random_state=42)
+        y_seed = np.zeros((14, len(EKMAN_LABELS)), dtype=int)
+        for i in range(len(EKMAN_LABELS)):
+            y_seed[2 * i, i] = 1
+            y_seed[2 * i + 1, i] = 1
+
+        pipe = EmotionPipeline(n_features=200, hidden_units=[16], random_state=42)
         pipe.fit(
             texts_train=seed_texts,
             Y_train=y_seed,
             texts_val=seed_texts,
             Y_val=y_seed,
-            epochs=5,
+            epochs=10,
             lr=0.5,
             batch_size=2,
         )

@@ -238,3 +238,21 @@ def parse_actor(actor: Actor) -> Actor:
     if type(actor) is not Actor:
         raise InvalidEntryError("invalid_actor")
     return Actor(user_id=actor.user_id, role=actor.role)
+
+
+class EmotionCheckin(Contract):
+    """Contrato de análise emocional Divertidamente e How We Feel para diários."""
+
+    entry_id: str = Field(pattern=ID_PATTERN)
+    primary_emotion: str = Field(pattern=r"^[a-z_]{1,30}$")
+    character: str = Field(min_length=1, max_length=50)
+    color_name: str = Field(min_length=1, max_length=30)
+    color_hex: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    sub_emotion_name: str = Field(min_length=1, max_length=50)
+    sub_emotion_symbol: str = Field(min_length=1, max_length=10)
+    confidence: float = Field(ge=0.0, le=1.0)
+    is_risk_emotion: bool = False
+
+
+def parse_emotion_checkin(**kwargs: object) -> EmotionCheckin:
+    return EmotionCheckin(**kwargs)  # type: ignore[arg-type]

@@ -457,6 +457,69 @@ def run_clinical_benchmark(predictor: EmotionDiaryPredictor) -> dict[str, Any]:
     }
 
 
+def log_to_mlflow(
+    report: dict[str, Any],
+    tracking_uri: str = "sqlite:///mlflow.db",
+    experiment_name: str = "diario-emocional-sentimentos",
+) -> str | None:
+    """Registra as métricas e artefatos de avaliação no MLflow."""
+    try:
+        import mlflow
+
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow.set_experiment(experiment_name)
+        with mlflow.start_run(run_name="mlp-numpy-divertidamente-goemotions-ptbr") as run:
+            stat = report["statistical_metrics"]
+            clin = report["clinical_benchmark"]
+            arch = report["model_architecture"]
+
+            mlflow.log_params(
+                {
+                    "model_type": "NumpyEmotionMLP",
+                    "n_features": arch["input_features"],
+                    "hidden_units": str(arch["hidden_units"]),
+                    "activation": arch["activation"],
+                    "dataset": "GoEmotions PT-BR (Multilabel Ekman)",
+                    "test_samples": stat["test_sample_count"],
+                    "taxonomy": "Divertidamente (5 Cores) + How We Feel (15 Sub-emocoes)",
+                    "clinical_guardrails": "Enabled",
+                }
+            )
+            mlflow.log_metrics(
+                {
+                    "test_roc_auc_macro": stat["multilabel"]["roc_auc_macro"],
+                    "test_roc_auc_micro": stat["multilabel"]["roc_auc_micro"],
+                    "test_f1_macro_multilabel": stat["multilabel"]["f1_macro"],
+                    "test_f1_micro_multilabel": stat["multilabel"]["f1_micro"],
+                    "test_primary_accuracy": stat["primary_emotion"]["accuracy"],
+                    "test_primary_balanced_acc": stat["primary_emotion"]["balanced_accuracy"],
+                    "test_primary_f1_macro": stat["primary_emotion"]["f1_macro"],
+                    "test_primary_f1_weighted": stat["primary_emotion"]["f1_weighted"],
+                    "clinical_valence_safety_rate": clin["valence_safety_rate"],
+                    "clinical_valence_inversion_rate": clin["valence_inversion_rate"],
+                    "clinical_risk_recall": clin["risk_recall"],
+                    "clinical_taxonomy_compliance": clin["taxonomy_compliance"],
+                    "clinical_emotion_accuracy": clin["emotion_accuracy"],
+                    "clinical_sub_emotion_accuracy": clin["sub_emotion_accuracy"],
+                    "clinical_latency_mean_ms": clin["latency"]["mean_ms"],
+                }
+            )
+            for label, d in stat["multilabel"]["per_class"].items():
+                mlflow.log_metric(f"f1_{label}", d["f1"])
+                mlflow.log_metric(f"precision_{label}", d["precision"])
+                mlflow.log_metric(f"recall_{label}", d["recall"])
+                mlflow.log_metric(f"threshold_{label}", d["threshold"])
+
+            for art in ["dist/emotion_evaluation_report.json", "dist/emotion_metrics.json"]:
+                if Path(art).exists():
+                    mlflow.log_artifact(art)
+
+            return str(run.info.run_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Registro no MLflow ignorado ou em fallback: %s", exc)
+        return None
+
+
 def main() -> None:
     model_path = Path("dist/emotion_classifier.joblib")
     test_csv_path = Path("data/goemotions/test.csv")
@@ -492,6 +555,11 @@ def main() -> None:
         json.dump(full_report, f, indent=2, ensure_ascii=False)
 
     logger.info("Relatório completo salvo em %s", out_report_path)
+
+    # Registro no MLflow
+    mlflow_run_id = log_to_mlflow(full_report)
+    if mlflow_run_id:
+        logger.info("Experimento registrado no MLflow com Run ID: %s", mlflow_run_id)
 
     # Impressão formatada no terminal
     print("\n" + "=" * 70)

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EMOTION_MODEL_PATH = Path("dist/emotion_classifier.joblib")
 
-# Gatilhos explícitos de hostilidade, violência ou rompimento explosivo (Raiva / Fúria 💥)
+# Gatilhos explícitos de hostilidade, violência, rompimento ou indignação (Raiva / Fúria 💥🔥)
 HOSTILITY_TRIGGERS: tuple[str, ...] = (
     "explodir",
     "explodi",
@@ -51,6 +51,45 @@ HOSTILITY_TRIGGERS: tuple[str, ...] = (
     "bater nele",
     "bater nela",
     "raiva cega",
+    "injustica",
+    "injustiça",
+    "absurdo",
+    "desrespeito",
+    "inaceitavel",
+    "inaceitável",
+    "revolta",
+    "revoltado",
+    "revoltada",
+    "indignado",
+    "indignada",
+    "indignacao",
+    "indignação",
+)
+
+# Gatilhos de aversão e desprezo somático ou moral (Nojinho / Aversão / Desprezo 🛡️🚫)
+DISGUST_TRIGGERS: tuple[str, ...] = (
+    "asco",
+    "asqueroso",
+    "asquerosa",
+    "hipocrita",
+    "hipócrita",
+    "nausea",
+    "náusea",
+    "ânsia",
+    "repulsa",
+    "nojento",
+    "nojenta",
+    "vomitar",
+    "podre",
+    "estragado",
+    "desprezo",
+    "desdém",
+    "desconforto",
+    "desagradavel",
+    "desagradável",
+    "sujeira",
+    "sujo",
+    "imundo",
 )
 
 # Gatilhos de avaliação, cobrança e ansiedade antecipatória (Medo / Ansiedade 🌀)
@@ -73,10 +112,26 @@ ASSESSMENT_ANXIETY_TRIGGERS: tuple[str, ...] = (
     "dia de prova",
     "ansioso",
     "ansiosa",
+    "ansiedade",
     "apavorado",
     "apavorada",
     "pânico",
     "panico",
+    "crise de panico",
+    "crise de pânico",
+    "coracao disparou",
+    "coração disparou",
+    "coracao disparado",
+    "coração disparado",
+    "falta de ar",
+    "insonia",
+    "insônia",
+    "angustia",
+    "angústia",
+    "inseguro",
+    "insegura",
+    "inseguranca",
+    "insegurança",
 )
 
 # Gatilhos de dejetividade, exaustão e desânimo profundo (Tristeza / Desânimo 🌧️)
@@ -95,10 +150,23 @@ DEJECTION_TRIGGERS: tuple[str, ...] = (
     "sem esperança",
     "sem forcas",
     "sem forças",
+    "sem animo",
+    "sem ânimo",
+    "nao tenho animo",
+    "não tenho ânimo",
+    "sem energia",
+    "passei o dia todo deitado",
+    "deitado sem forcas",
+    "deitado sem forças",
+    "queria sumir",
+    "vontade de sumir",
     "não aguento mais",
     "nao aguento mais",
     "desanimado",
     "desanimada",
+    "desanimo",
+    "desânimo",
+    "sofrimento",
 )
 
 # Gatilhos de perda e luto agudo (Tristeza / Luto 💧)
@@ -235,50 +303,58 @@ class EmotionDiaryPredictor:
         effective_conf = raw_conf
         effective_rel = raw_rel
 
-        # 1. Regra de Hostilidade e Agressão Explosiva (Raiva / Fúria 💥)
+        # 1. Regra de Hostilidade e Agressão Explosiva / Indignação (Raiva / Fúria 💥🔥)
         if any(trig in norm_text for trig in HOSTILITY_TRIGGERS):
             effective_primary = "raiva"
             effective_conf = max(raw_conf, 0.88)
             effective_rel = max(raw_rel, 1.85)
 
-        # 2. Regra de Luto e Perda Aguda (Tristeza / Luto 💧)
+        # 2. Veto Clínico por Polaridade Positiva (esperança, gratidão, melhora)
+        elif (
+            pol_score >= 0.15
+            and effective_primary in ("tristeza", "raiva", "medo", "nojo", "neutro")
+            and raw_conf < 0.82
+        ):
+            effective_primary = "alegria"
+            effective_conf = max(raw_conf, 0.88)
+            effective_rel = max(raw_rel, 1.8)
+
+        # 3. Regra de Luto e Perda Aguda (Tristeza / Luto 💧)
         elif any(trig in norm_text for trig in GRIEF_TRIGGERS):
             effective_primary = "tristeza"
             effective_conf = max(raw_conf, 0.90)
             effective_rel = max(raw_rel, 2.0)
 
-        # 3. Veto Clínico por Polaridade Negativa
-        # Se a frase é marcadamente negativa no léxico clínico (score <= -0.15)
-        elif pol_score <= -0.15:
-            if effective_primary in ("alegria", "surpresa", "neutro"):
-                if any(trig in norm_text for trig in ASSESSMENT_ANXIETY_TRIGGERS):
-                    effective_primary = "medo"
-                    effective_conf = max(raw_conf, 0.85)
-                    effective_rel = max(raw_rel, 1.5)
-                elif any(trig in norm_text for trig in DEJECTION_TRIGGERS):
-                    effective_primary = "tristeza"
-                    effective_conf = max(raw_conf, 0.85)
-                    effective_rel = max(raw_rel, 1.5)
-                else:
-                    neg_candidates = ["tristeza", "medo", "raiva", "nojo"]
-                    neg_scores = {
-                        c: probs.get(c, 0.0) / max(thresholds.get(c, 0.5), 1e-6)
-                        for c in neg_candidates
-                    }
-                    best_neg = max(neg_scores, key=neg_scores.get)
-                    effective_primary = best_neg
-                    effective_conf = probs.get(best_neg, 0.75)
-                    effective_rel = neg_scores[best_neg]
-
-        # 4. Veto Clínico por Polaridade Positiva
-        elif (
-            pol_score >= 0.20
-            and effective_primary in ("tristeza", "raiva", "medo", "nojo")
-            and raw_conf < 0.82
-        ):
-            effective_primary = "alegria"
+        # 4. Regra de Aversão e Desprezo Somático/Moral (Nojinho / Aversão / Desprezo 🛡️🚫)
+        elif any(trig in norm_text for trig in DISGUST_TRIGGERS):
+            effective_primary = "nojo"
             effective_conf = max(raw_conf, 0.85)
-            effective_rel = max(raw_rel, 1.5)
+            effective_rel = max(raw_rel, 1.8)
+
+        # 5. Regra de Ansiedade de Avaliação e Pânico Somático (Medo / Ansiedade / Pânico 🌀⚡)
+        elif any(trig in norm_text for trig in ASSESSMENT_ANXIETY_TRIGGERS):
+            effective_primary = "medo"
+            effective_conf = max(raw_conf, 0.88)
+            effective_rel = max(raw_rel, 1.85)
+
+        # 6. Regra de Desânimo e Depressão (Tristeza / Desânimo 🌧️)
+        elif any(trig in norm_text for trig in DEJECTION_TRIGGERS):
+            effective_primary = "tristeza"
+            effective_conf = max(raw_conf, 0.88)
+            effective_rel = max(raw_rel, 1.85)
+
+        # 7. Veto Clínico por Polaridade Negativa
+        # Se a frase é marcadamente negativa no léxico clínico (score <= -0.15)
+        elif pol_score <= -0.15 and effective_primary in ("alegria", "surpresa", "neutro"):
+            neg_candidates = ["tristeza", "medo", "raiva", "nojo"]
+            neg_scores = {
+                c: probs.get(c, 0.0) / max(thresholds.get(c, 0.5), 1e-6)
+                for c in neg_candidates
+            }
+            best_neg = max(neg_scores, key=neg_scores.get)
+            effective_primary = best_neg
+            effective_conf = probs.get(best_neg, 0.75)
+            effective_rel = neg_scores[best_neg]
 
         profile = get_divertidamente_emotion(effective_primary)
         active_sub = resolve_sub_emotion(profile.id, clean_text)

@@ -8,6 +8,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import httpx
 from pydantic import ValidationError
 
 from privacy.client import PrivacyClient, PrivacyError
@@ -47,6 +48,27 @@ def _matching_record(store, record):
     return None
 
 
+def _extract_subtopics(record: DiaryRecord, args):
+    from agents.extractor.config import Settings
+    from agents.extractor.service import Agent1Service
+
+    prediction = record.classification
+    if (
+        record.schema_version != "2.0.0" or prediction.status != "ok"
+        or prediction.primary_theme is None or prediction.candidate_score is None
+    ):
+        raise ValueError("Subtemas exigem relato tratado e classificação concluída.")
+    settings = Settings(host=args.ollama_host, model=args.model, timeout_seconds=args.timeout)
+    with httpx.Client(trust_env=False, follow_redirects=False, timeout=args.timeout) as client:
+        output = Agent1Service(settings=settings, client=client).process(
+            patient_id=record.patient_id,
+            text=record.analysis_text,
+            macro_tema=prediction.primary_theme,
+            confidence=prediction.candidate_score,
+        )
+    return output.model_dump(mode="json")
+
+
 def main(argv: list[str] | None = None) -> int:
     # JSON text remains UTF-8 when redirected from CMD or a legacy-codepage console.
     for stream in (sys.stdout, sys.stderr):
@@ -63,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
         "--at", required=True, help="Data ISO-8601 com fuso, por exemplo 2026-11-09T12:00:00Z"
     )
     ingest.add_argument("--title", default="Diário sintético")
+    ingest.add_argument(
+        "--subtopics", action="store_true",
+        help="Executar Agente 1 sobre a versão tratada (exige --privacy e --classify)",
+    )
     source = ingest.add_mutually_exclusive_group()
     source.add_argument("--text")
     source.add_argument("--file", type=Path)
@@ -85,9 +111,10 @@ def main(argv: list[str] | None = None) -> int:
     ask.add_argument("--embedding-model-path", type=Path)
     ask.add_argument("--min-score", type=float)
     ask.add_argument("--top-k", type=int, choices=range(1, 6), default=3)
-    ask.add_argument("--model", default="qwen3:4b")
-    ask.add_argument("--ollama-host", default="http://localhost:11434")
-    ask.add_argument("--timeout", type=float, default=60)
+    for command in (ingest, ask):
+        command.add_argument("--model", default="qwen3:4b")
+        command.add_argument("--ollama-host", default="http://localhost:11434")
+        command.add_argument("--timeout", type=float, default=60)
     for command in (listing, ask):
         command.add_argument("--patient-id", required=True)
         command.add_argument("--from", dest="start_at", help="Início inclusivo ISO-8601 com fuso")
@@ -98,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--privacy-dir", type=Path, default=DEMO_DIR)
         command.add_argument("--privacy-url", default=DEFAULT_URL)
     args = parser.parse_args(argv)
+    if args.command == "ingest" and args.subtopics and not (args.privacy and args.classify):
+        parser.error("--subtopics exige --privacy e --classify")
     try:
         directory = args.privacy_dir
         store = (
@@ -158,10 +187,9 @@ def main(argv: list[str] | None = None) -> int:
             if privacy:
                 record = protect_diary(record, privacy, directory)
             previous = _matching_record(store, record) if privacy else None
-            if previous is not None:
-                record = previous
-            else:
-                record = _classify(record, args)
+            record = previous if previous is not None else _classify(record, args)
+            subtopics = _extract_subtopics(record, args) if args.subtopics else None
+            if previous is None:
                 try:
                     store.save(record)
                 except DuplicateRecordError:
@@ -172,7 +200,10 @@ def main(argv: list[str] | None = None) -> int:
             excluded = {"original_text"} if privacy else {
                 "treated_text", "representation_id", "detector_version",
             }
-            _emit(record.model_dump(mode="json", exclude=excluded))
+            result = record.model_dump(mode="json", exclude=excluded)
+            if subtopics is not None:
+                result["agent1"] = subtopics
+            _emit(result)
             return 1 if record.classification.status == "error" else 0
         question = "listar"
         if args.command == "ask":
@@ -221,6 +252,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if result.status == "error" else 0
     except PrivacyError as error:
         print(f"Pseudonimização interrompida ({error}).", file=sys.stderr)
+        return 2
+    except httpx.HTTPError:
+        print("Agente 1 indisponível no Ollama local.", file=sys.stderr)
         return 2
     except (OSError, sqlite3.Error, ValueError, ValidationError, RetrievalError):
         print(

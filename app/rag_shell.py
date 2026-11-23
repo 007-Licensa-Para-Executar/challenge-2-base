@@ -79,6 +79,12 @@ class RagMenu:
                 details = {"acao": action, "banco": str(db), "classificar": classify,
                            "paciente": patient, "data": at,
                            "texto_literal": f"{len(text)} caracteres" if protected else text}
+                if protected and classify == "sim":
+                    subtopics = self.confirm("Executar Agente 1 para extrair subtemas?")
+                    details["extrair_subtemas"] = subtopics
+                    if subtopics:
+                        args += ["--subtopics", "--model", self.settings.model,
+                                 "--ollama-host", self.settings.host, "--timeout", "90"]
             if not self.propose(proposal, details):
                 return
             if protected:

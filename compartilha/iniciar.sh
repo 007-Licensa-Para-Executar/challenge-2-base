@@ -1,12 +1,17 @@
 #!/bin/bash
+# O Python instalado por exec trata o SIGTERM. Este script só recusa modelo ausente.
 set -euo pipefail
-bind="${DIARY_BIND:-127.0.0.1}"
-cd /app
-python -m http.server 8080 --bind "$bind" --directory /app/web &
-web=$!
-python -m agents.patient_diary.local_app --model /models/faster-whisper-small --port 8765 &
-api=$!
-wait -n "$web" "$api"
-status=$?
-kill "$web" "$api" 2>/dev/null || true
-exit "$status"
+
+root="${DIARY_ROOT:-/data}"
+model="${DIARY_MODEL_DIR:-/models/faster-whisper-small}"
+
+if [[ ! -f "$model/model.bin" ]]; then
+  echo "Modelo local ausente em ${model}/model.bin. O container não baixa pesos." >&2
+  exit 1
+fi
+
+mkdir -p "$root/audio"
+export HF_HUB_OFFLINE=1
+export HF_HUB_DISABLE_TELEMETRY=1
+export TRANSFORMERS_OFFLINE=1
+exec python /app/servir.py

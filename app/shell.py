@@ -58,7 +58,7 @@ def bindings():
         # A abertura explícita deve ser a única tarefa de completamento inicial.
         buffer.insert_text("/", fire_event=not initial)
         if initial:
-            buffer.start_completion(select_first=True)
+            buffer.start_completion()
 
     @keys.add("tab")
     def tab(event):

@@ -81,6 +81,16 @@ export default function AuthForm({ mode }) {
             ? "Cadastro enviado. Agora você já pode entrar com seus dados."
             : "Acesso realizado com sucesso."),
       });
+
+      if (!cadastro) {
+        window.setTimeout(() => {
+          window.location.href = "/diario";
+        }, 400);
+      } else {
+        window.setTimeout(() => {
+          window.location.href = "/";
+        }, 1100);
+      }
     } catch {
       setAviso({
         tipo: "erro",
@@ -99,7 +109,7 @@ export default function AuthForm({ mode }) {
   }
 
   return (
-    <form className="auth-form" onSubmit={enviarFormulario} noValidate>
+    <form className="auth-form" method="post" onSubmit={enviarFormulario} noValidate>
       {cadastro && (
         <div className="form-field">
           <label htmlFor="nome">Nome completo</label>

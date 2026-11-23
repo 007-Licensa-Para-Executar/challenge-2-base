@@ -5,6 +5,10 @@ import PatientDashboard from "./PatientDashboard";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
 import ReportUpload from "./ReportUpload";
+import PsychologistProfileEditor, {
+  getPsychologistInitials,
+  type PsychologistProfile,
+} from "./PsychologistProfileEditor";
 import type {
   PatientHistoryItem,
   PortalPatient,
@@ -16,6 +20,18 @@ import { DASHBOARD_THEMES } from "./types";
 import styles from "./patient-management.module.css";
 
 const patientUpdateKey = "meu-diario:cadastro-atualizado";
+const defaultPsychologistProfile: PsychologistProfile = {
+  name: "Dra. Marina",
+  age: null,
+  profession: "Psicóloga",
+  specialty: "",
+  insurancePlans: "",
+  resume: "",
+  professionalExperiences: "",
+  experienceYears: null,
+  photoUrl: null,
+  updatedAt: 0,
+};
 
 function formatRegistrationDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -67,6 +83,8 @@ function toPortalPatient(record: PortalPatientRecord): PortalPatient {
 // A lista vem do mesmo banco que recebe os cadastros do portal.
 export default function PatientManagement() {
   const [patients, setPatients] = useState<PortalPatient[]>([]);
+  const [psychologistProfile, setPsychologistProfile] = useState(defaultPsychologistProfile);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +92,36 @@ export default function PatientManagement() {
   const [retryCount, setRetryCount] = useState(0);
   const uploadTimers = useRef<Map<string, number>>(new Map());
   const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? null;
+  const professionalSummaryFacts = [
+    psychologistProfile.age !== null ? `${psychologistProfile.age} anos` : "",
+    psychologistProfile.specialty,
+    psychologistProfile.experienceYears !== null
+      ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(psychologistProfile.experienceYears)} anos de experiência`
+      : "",
+  ].filter(Boolean);
+  const hasProfessionalSummary = Boolean(
+    professionalSummaryFacts.length || psychologistProfile.insurancePlans || psychologistProfile.resume || psychologistProfile.professionalExperiences,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshPsychologistProfile() {
+      try {
+        const response = await fetch("/api/psicologa/perfil", { cache: "no-store" });
+        if (!response.ok) throw new Error("Não foi possível carregar o perfil profissional.");
+        const payload = await response.json();
+        if (isMounted && payload?.profile) setPsychologistProfile(payload.profile);
+      } catch (error) {
+        console.error("Falha ao carregar o perfil profissional:", error);
+      }
+    }
+
+    void refreshPsychologistProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -280,10 +328,72 @@ export default function PatientManagement() {
             <p>Acompanhe registros e relatórios em um só lugar.</p>
           </div>
           <div className={styles.professionalBadge}>
-            <span className={styles.professionalAvatar} aria-hidden="true">MM</span>
-            <span><strong>Dra. Marina</strong><small>Psicóloga</small></span>
+            <button
+              className={styles.professionalProfileButton}
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`Editar perfil de ${psychologistProfile.name}`}
+              onClick={() => setIsProfileEditorOpen(true)}
+            >
+              {psychologistProfile.photoUrl ? (
+                <img className={styles.professionalAvatar} src={psychologistProfile.photoUrl} alt="" />
+              ) : (
+                <span className={styles.professionalAvatar} aria-hidden="true">
+                  {getPsychologistInitials(psychologistProfile.name)}
+                </span>
+              )}
+              <span>
+                <strong>{psychologistProfile.name}</strong>
+                <small>{psychologistProfile.profession || "Profissional"}</small>
+              </span>
+            </button>
           </div>
         </header>
+
+        <PsychologistProfileEditor
+          open={isProfileEditorOpen}
+          profile={psychologistProfile}
+          onClose={() => setIsProfileEditorOpen(false)}
+          onSave={setPsychologistProfile}
+        />
+
+        {hasProfessionalSummary ? (
+          <section className={`${styles.card} ${styles.professionalSummary}`} aria-labelledby="professional-summary-title">
+            <div className={styles.professionalSummaryHeading}>
+              <h2 id="professional-summary-title">Perfil profissional</h2>
+              <button type="button" onClick={() => setIsProfileEditorOpen(true)}>
+                Editar perfil
+              </button>
+            </div>
+            {professionalSummaryFacts.length ? (
+              <ul className={styles.professionalSummaryFacts}>
+                {professionalSummaryFacts.map((fact) => <li key={fact}>{fact}</li>)}
+              </ul>
+            ) : null}
+            {psychologistProfile.insurancePlans || psychologistProfile.resume || psychologistProfile.professionalExperiences ? (
+              <div className={styles.professionalSummarySections}>
+                {psychologistProfile.insurancePlans ? (
+                  <div>
+                    <h3>Convênios atendidos</h3>
+                    <p>{psychologistProfile.insurancePlans}</p>
+                  </div>
+                ) : null}
+                {psychologistProfile.resume ? (
+                  <div>
+                    <h3>Currículo</h3>
+                    <p>{psychologistProfile.resume}</p>
+                  </div>
+                ) : null}
+                {psychologistProfile.professionalExperiences ? (
+                  <div>
+                    <h3>Experiências profissionais</h3>
+                    <p>{psychologistProfile.professionalExperiences}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {selectedPatient ? (
           <>

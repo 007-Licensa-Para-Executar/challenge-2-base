@@ -316,15 +316,35 @@
   background: #ffffff;
 }
 
+.professionalProfileButton {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.professionalProfileButton:focus-visible {
+  border-radius: 12px;
+  outline: 3px solid var(--cor-secundaria);
+  outline-offset: 3px;
+}
+
 .professionalAvatar {
   width: 38px;
   height: 38px;
   background: #f4eadb;
   color: #765022;
   font-size: 12px;
+  object-fit: cover;
 }
 
-.professionalBadge > span:last-child {
+.professionalProfileButton > span:last-child {
   display: grid;
   gap: 1px;
 }
@@ -875,6 +895,269 @@
   font-size: 12px;
 }
 
+.profileDialog {
+  width: min(700px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(49, 92, 80, 0.18);
+  border-radius: 22px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  box-shadow: 0 24px 80px rgba(25, 42, 34, 0.22);
+}
+
+.profileDialog::backdrop {
+  background: rgba(29, 42, 36, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.profileEditor {
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  padding: 26px;
+}
+
+.profileEditorHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.profileEditorHeading h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: -0.04em;
+}
+
+.profileEditorHeading > div > p:last-child {
+  margin: 7px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.profileCloseButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.profilePhotoField {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid rgba(49, 92, 80, 0.13);
+  border-radius: 15px;
+  background: #fbfcfa;
+}
+
+.profilePhotoPreview,
+.profilePhotoPlaceholder {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #e2ece6;
+  color: var(--cor-primaria);
+  font-size: 17px;
+  font-weight: 750;
+  object-fit: cover;
+}
+
+.profilePhotoField .profileField {
+  min-width: 0;
+}
+
+.profileFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.profileField {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.profileField b {
+  color: var(--cor-erro);
+}
+
+.profileField input,
+.profileField textarea {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cbd5ce;
+  border-radius: 11px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 13px;
+}
+
+.profileField input[type="file"] {
+  min-height: 0;
+  padding: 7px;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.profileField textarea {
+  min-height: 106px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.profileField input:focus-visible,
+.profileField textarea:focus-visible {
+  border-color: var(--cor-primaria);
+  outline: 3px solid rgba(49, 92, 80, 0.18);
+}
+
+.profileField small {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.profileFieldWide {
+  grid-column: 1 / -1;
+}
+
+.profileEditorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(49, 92, 80, 0.13);
+}
+
+.profileCancelButton,
+.profileSaveButton {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.profileCancelButton {
+  border: 1px solid #cbd5ce;
+  background: #ffffff;
+  color: var(--cor-texto);
+}
+
+.profileSaveButton {
+  border: 1px solid var(--cor-primaria);
+  background: var(--cor-primaria);
+  color: #ffffff;
+}
+
+.profileSaveButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.professionalSummary {
+  display: grid;
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+.professionalSummaryHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.professionalSummaryHeading h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.professionalSummaryHeading button {
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--cor-primaria);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.professionalSummaryFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.professionalSummaryFacts li {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eaf1ed;
+  color: var(--cor-primaria);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.professionalSummarySections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.professionalSummarySections h3 {
+  margin: 0 0 5px;
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.professionalSummarySections p {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .reportList {
   display: grid;
   gap: 9px;
@@ -1236,6 +1519,44 @@
 
   .professionalBadge small {
     font-size: 9px;
+  }
+
+  .profileEditor {
+    padding: 20px 16px 16px;
+  }
+
+  .profileEditorHeading h2 {
+    font-size: 21px;
+  }
+
+  .profileFormGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .professionalSummarySections {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profileFieldWide {
+    grid-column: auto;
+  }
+
+  .profilePhotoField {
+    align-items: flex-start;
+    gap: 11px;
+    padding: 11px;
+  }
+
+  .profilePhotoPreview,
+  .profilePhotoPlaceholder {
+    width: 56px;
+    height: 56px;
+  }
+
+  .profileEditorActions > button {
+    flex: 1;
+    padding: 0 10px;
   }
 
   .patientProfile {

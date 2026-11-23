@@ -1,5 +1,9 @@
 # MVP de RAG integrado à rede temática
 
+> **Documentação do demonstrador:** este arquivo descreve o fluxo executável atual
+> com dados sintéticos. Não é especificação clínica, nem guia de dados reais,
+> prontuário ou arquitetura vetorial persistente.
+
 Equipe 007 - Licensa para Executar. Implementação de referência para a entrega de 13/11/2026.
 
 ## O que está sendo construído

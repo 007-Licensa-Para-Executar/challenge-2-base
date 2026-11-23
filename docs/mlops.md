@@ -1,5 +1,10 @@
 # MLOps e rede neural: arquitetura e rastreamento
 
+> **Alinhamento de taxonomia:** o pipeline executável desta página mede
+> `expected.sentimento` em dados sintéticos. Os oito rótulos temáticos e os seis
+> macrotemas consolidados pertencem ao pipeline temático descrito em
+> [rede-neural.md](rede-neural.md); não são avaliados pelo mesmo modelo de sentimento.
+
 Este documento descreve o pipeline implementado para o **Challenge 2 - Bem-Estar**. Ele cobre o rastreamento reproduzível (`infra: mlops`) e a rede neural treinada pelo grupo (`feature: neural-network`).
 
 Os rótulos de `data/synthetic/` estão com `annotation_status: unreviewed`. O gate abaixo é um critério de engenharia para publicar um artefato. Ele não valida uso clínico nem qualidade da anotação.
@@ -47,6 +52,7 @@ A rede classifica o campo `expected.sentimento` dos relatos sintéticos. Ela nã
 - [`mlops/plots.py`](../mlops/plots.py): matriz de confusão.
 
 O resultado da promoção fica na tag `promoted` e na métrica `promoted`. Ele não entra como hiperparâmetro.
+A promoção é apenas um gate de engenharia sobre sentimento sintético; não autoriza uso clínico, inferência em pacientes reais ou substituição da revisão profissional.
 
 ---
 

@@ -362,6 +362,14 @@ A versão documenta decisões de produto já consolidadas e mantém separadas as
 
 [Registrar responsáveis, aprovação de requisitos e evidências produzidas para cada versão do MVP.]
 
+[Validar acompanhamento longitudinal sem diagnóstico ou tratamento automático entre sessões.]
+
+[Avaliar mudanças temporais e comorbidades sem confundir diagnósticos ou alterar condutas clínicas.]
+
+[Construir ou selecionar dados culturalmente nativos em português e auditar modelos abertos quanto a licença, proveniência e viés.]
+
+[Testar diversidade de transtornos e abordagens terapêuticas, incluindo referências a DBT e terapia humanista, sem prescrição automatizada.]
+
 ## 21. Referências e critérios de uso
 
 Data de corte desta versão: 19/11/2026. As fontes a seguir fundamentam requisitos, limites ético-profissionais e decisões de engenharia. A inclusão bibliográfica não significa adoção de ferramenta, licença para redistribuir seu conteúdo ou validação do produto.
@@ -401,5 +409,7 @@ F16. CONSELHO FEDERAL DE PSICOLOGIA. Resolução CFP nº 001/2009. Registro docu
 F17. CONSELHO FEDERAL DE PSICOLOGIA. Nota de Posicionamento sobre o Uso de Inteligência Artificial na Prática Psicológica, 2025.
 
 F18. CONSELHO REGIONAL DE PSICOLOGIA DE SÃO PAULO. Nota Orientativa sobre o Uso de Ferramentas de Inteligência Artificial na Psicologia, 2025.
+
+F19. NA, Hongbin; HUA, Yining; WANG, Zimu; SHEN, Tao; YU, Beibei; WANG, Lilin; WANG, Wei; TOROUS, John; CHEN, Ling. A Survey of Large Language Models in Psychotherapy: Current Landscape and Future Directions. Findings of ACL, 2025. https://arxiv.org/pdf/2502.11095v1 . Contribuição: destaca integração fragmentada, sintomas evolutivos e comorbidades, vieses linguísticos/culturais, concentração em transtornos comuns e necessidade de diversidade terapêutica. Os desafios são agenda futura; não comprovam eficácia deste aplicativo.
 
 Esta versão alinha requisitos e arquitetura às fontes F12 e F13. Implementação, conformidade e eficácia precisam ser demonstradas por avaliações próprias; a especificação não substitui parecer profissional ou jurídico.

@@ -1,8 +1,8 @@
-# Validação técnica do Classificador Neural de Temas — Benchmark Pré-Produção
+# Validação técnica do Classificador Neural de Temas — Benchmark Histórico
 
-> **Nota de alinhamento v2.1:** este relatório registra um benchmark anterior com oito rótulos operacionais e uma classe residual. Ele é evidência técnica histórica, não uma redefinição da taxonomia consolidada. No relatório v2.1, os resultados devem ser interpretados dentro de seis macrotemas; o mapeamento operacional ainda precisa ser fechado e validado.
+> **Nota de alinhamento v2.1:** este relatório registra um benchmark anterior com oito rótulos operacionais e uma classe residual. Ele é evidência técnica histórica, não uma redefinição da taxonomia consolidada e não constitui validação clínica. No relatório v2.1, os resultados devem ser interpretados dentro de seis macrotemas; o mapeamento operacional ainda precisa ser fechado e validado.
 
-Data: 11/11/2026. Este documento consolida a evolução do classificador neural após a integração do conjunto de relatos reais anonimizados em português (`data/real_diaries.json`), a adoção de embeddings semânticos densos contínuos via LSA (TruncatedSVD + TF-IDF sublinear e ponderação IDF) e a calibração de probabilidades pós-treinamento por Temperature Scaling (Guo et al., 2017).
+Data do benchmark registrado: 11/11/2026. Este documento consolida uma execução anterior do classificador neural com relatos em português, embeddings densos via LSA (TruncatedSVD + TF-IDF sublinear e ponderação IDF) e calibração pós-treinamento por Temperature Scaling (Guo et al., 2017). Os dados e as condições da execução devem ser conferidos no manifesto correspondente antes de reutilização.
 
 ---
 
@@ -33,7 +33,7 @@ Data: 11/11/2026. Este documento consolida a evolução do classificador neural 
 | Classe Majoritária (Baseline Ingênuo) | 0,0222 | 11,11% | N/A | N/A | N/A |
 | *MVP Sintético Anterior (360 amostras)* | *0,0452* | *9,30%* | *0,3120* | *23 / 43* | *46,51%* |
 
-> **Meta atingida:** O objetivo de Macro-F1 $\ge 0{,}75$ no teste independente foi amplamente superado, alcançando **0,8094** sob política com limiar e **0,8217** no argmax direto, com acurácia de **80,95% a 82,54%**.
+> **Resultado registrado:** em uma execução específica, o Macro-F1 alcançou **0,8094** sob política com limiar e **0,8217** no argmax direto. Isso é uma métrica do conjunto e protocolo descritos nesta página, não uma estimativa pronta para relatos reais.
 
 ---
 
@@ -61,7 +61,7 @@ Data: 11/11/2026. Este documento consolida a evolução do classificador neural 
 - **Expected Calibration Error (ECE):**
   - **Antes da calibração ($T=1{,}0$):** $11{,}03\%$
   - **Após a calibração ($T=1{,}3736$):** **$7{,}77\%$** (redução relativa de ~30% no erro de calibração).
-- **Impacto Clínico:** Os scores de probabilidade exibidos aos psicólogos refletem com muito maior fidelidade a real taxa de acerto do modelo, mitigando falsos alarmes em casos ambíguos.
+- **Interpretação:** a transformação reduziu o ECE no conjunto registrado. Isso não demonstra taxa de acerto em pacientes reais nem altera a necessidade de revisão profissional.
 
 ---
 
@@ -71,12 +71,12 @@ O treinamento gera e versiona automaticamente no diretório `dist/` e no MLflow:
 - `best_theme_mlp.pt`: Pesos ótimos da rede neural PyTorch com o parâmetro `temperature` acoplado.
 - `theme_embedder.joblib`: Objeto do `ClinicalTextEmbedder` serializado contendo o vocabulário e a matriz de projeção semântica LSA/SVD.
 - `comparison_report.json`: Relatório estruturado completo com métricas por classe, matriz de confusão e parâmetros de calibração.
-- `split_manifest.json`: Manifest com hashes SHA-256 de dados e códigos, garantindo 100% de reproducibilidade.
+- `split_manifest.json`: manifest com hashes SHA-256 de dados e referências aos parâmetros da divisão. Os hashes e configurações facilitam rastreabilidade, mas não garantem reexecução idêntica de todo o ambiente ou de modelos externos.
 
 ---
 
-## 4. Status de Prontidão Clínica e Ressalvas
+## 4. Status Técnico e Ressalvas
 
-1. **Prontidão Técnica:** O classificador atingiu maturidade técnica, estabilidade de gradientes, calibração matemática e performance discriminatória sustentada (Macro-F1 $> 0{,}80$).
-2. **Uso em Produção:** O modelo pode ser disponibilizado em ambiente de **homologação/piloto assistido (*Human-in-the-Loop*)** como ferramenta de triagem prévia para psicólogos, onde a decisão final permanece estritamente humana.
-3. **Salvaguarda Ética:** A política de abstenção ($\tau=0{,}50$) garante que trechos ambíguos ou com baixa confiança sejam direcionados para `outros_indeterminado`, exigindo revisão do profissional.
+1. **Resultado Técnico:** o benchmark registrou Macro-F1 acima de 0,80 em uma divisão específica.
+2. **Uso:** antes de homologação ou piloto, são necessários dados independentes, revisão profissional, análise por subgrupos e validação da taxonomia consolidada.
+3. **Salvaguarda Ética:** a política de abstenção direciona casos abaixo do limiar para `outros_indeterminado`, mas não garante segurança clínica ou correção da classificação.

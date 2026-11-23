@@ -1,5 +1,10 @@
 # 01 - Visão Geral, Arquitetura e Fronteiras Clínicas
 
+> **Documento panorâmico:** a arquitetura abaixo descreve o produto consolidado
+> como especificação e protótipo. Componentes visuais, vetoriais ou clínicas
+> mencionados não são considerados implementados salvo evidência no repositório
+> e no relatório v2.1.
+
 ## 1. Visão do Projeto e Proposta de Valor
 
 O **Diário Clínico Assistido & Copiloto Psicológico** é um ecossistema agentico e de inteligência artificial desenhado para atuar como ponte entre os sentimentos vivenciados pelo paciente no seu cotidiano e a prática psicoterapêutica profissional realizada em consultório.
@@ -46,8 +51,8 @@ flowchart TD
 
     subgraph DeepLearning ["2. Camada de Deep Learning (Rede Neural)"]
         SAN --> NN_FEAT["Extração de Atributos (TF-IDF / Embeddings)"]
-        NN_FEAT --> NN_MODEL["Rede Neural MLP (Classificador dos 8 Temas Padrão)"]
-        NN_MODEL --> NN_OUT["Probabilidades dos 8 Temas Clínicos"]
+        NN_FEAT --> NN_MODEL["Rede Neural MLP (Sugestão temática operacional)"]
+        NN_MODEL --> NN_OUT["Scores operacionais e classe residual"]
     end
 
     subgraph MultiAgent ["3. Ecossistema Multiagente Colaborativo"]
@@ -75,9 +80,9 @@ flowchart TD
 
 1. **Expressão Assíncrona do Paciente:** O paciente vivencia um atrito no trabalho ou uma discussão familiar às 22h. Em vez de recorrer a um bot generativo que pode gerar respostas descontextualizadas, abre o aplicativo e grava um áudio de 2 minutos ou redige um texto.
 2. **Processamento Neural Híbrido:**
-   - A **Rede Neural** (construída e treinada pelo grupo) avalia o texto e detecta que a temática preponderante é **Família** (com 91% de probabilidade).
+   - A **Rede Neural** pode sugerir uma categoria operacional a partir do texto. A pontuação não é uma probabilidade clínica calibrada.
    - O **Agente 1 (Decompositor)** analisa o conteúdo em profundidade e descobre os subtemas específicos: *"Discussão sobre finanças do pai"* e *"Relação com irmão mais novo"*. Mapeia os trechos literais exatos com carimbos de tempo e posições de caracteres.
-   - O **Agente 2 (Correlacionador Longitudinal)** verifica os últimos 30 dias e nota que o subtema *"irmão"* é reincidente às quintas-feiras e correlaciona-se com picos do sentimento *"frustração"*.
+   - O **Agente 2 (Analista Longitudinal)** pode comparar os últimos 30 dias e registrar que o subtema *"irmão"* aparece em determinados dias e coincide com registros de *"frustração"*, sem afirmar causalidade.
    - O **Agente 2 (Analista Longitudinal e Copiloto RAG)** consulta protocolos clínicos autorizados (ex: TCC para resolução de conflitos e comunicação assertiva) e gera sínteses, briefings e sugestões revisáveis ao psicólogo.
 3. **Consulta Clínica Enriquecida:**
    - Minutos antes da sessão, o psicólogo abre a tela do paciente no sistema (com interface visual limpa no estilo ImpactBench).
@@ -99,4 +104,4 @@ flowchart TD
 | **6. Ferramenta de versionamento de código** | Repositório Git com histórico atômico, branches temáticas (`feat/*`), convenção de Conventional Commits e Pull Requests documentados. |
 | **7. Solução ética e explicável** | Governança alinhada ao CFP e NIST AI RMF: privacidade local, abstenção estrita de diagnósticos/prescrições e rastreabilidade total (pop-up de evidências literais). |
 | **8. Pelo menos 1 resource de até 2 anos** | Embasado em artigos de alto impacto de 2024–2026: Li et al. (*arXiv:2512.07797*, 2025), McBain et al. (*JAMA Network Open*, 2025; *JAMA Pediatrics*, 2026), Breslau et al. (*ScienceDirect*, 2025), *PsychAdapter* (Nature/arXiv 2024/2025) e *ImpactBench* (MIT Media Lab, 2025/2026). |
-| **9. MVP funcional** | Aplicação executável de ponta a ponta: ingestão do diário, classificação neural, extração de subtemas por agentes, persistência em SQLite/Vector Store e visualização no painel interativo. |
+| **9. MVP funcional** | Aplicação demonstrável: ingestão do diário, classificação neural, extração por agentes, persistência em SQLite e recuperação BM25/E5 local. O painel interativo continua especificação. |

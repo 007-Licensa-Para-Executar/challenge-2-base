@@ -8,16 +8,17 @@ classificação clínica, recomendação terapêutica ou previsão de crise.
 
 | Papel arquitetural | Entrada e saída | Lugar no projeto |
 | --- | --- | --- |
-| Extração/classificação | Relato → metadados de categorias definidas | Único componente implementado nesta entrega |
-| Roteamento | Resultado validado + regras → próximo passo permitido | Decisões explícitas no código; não é avaliação clínica |
-| Conversação | Contexto permitido → resposta reflexiva | Futuro, ainda não implementado |
-| Sumarização | Registros por período → síntese com proveniência | Futuro, depende de autorização e revisão humana |
+| Extração/classificação | Relato → metadados de categorias, sentimento e evidências | Implementado no extrator local; resultados sujeitos a revisão |
+| Roteamento | Pedido validado + regras → próximo comando permitido | Implementado no shell local; não é avaliação clínica |
+| Recuperação e RAG | Consulta + período + registros → trechos ou síntese citada | Implementado como demonstrador sobre diários sintéticos |
+| Sumarização longitudinal | Registros por período → síntese com proveniência | Requisitos consolidados; depende de implementação clínica completa e revisão humana |
 
 Esses nomes descrevem responsabilidades, não uma taxonomia universal de agentes. Um workflow
 fixo com uma chamada ao modelo pode ser descrito mais precisamente como extrator do que como
 agente autônomo. SDK/framework ou arquivos separados não comprovam colaboração multiagente.
-A demonstração futura deverá mostrar troca de informações e integração real entre pelo menos
-dois componentes, com o enquadramento acadêmico confirmado com a orientação.
+A colaboração acadêmica é demonstrada pela troca de dados estruturados entre componentes,
+como classificação, persistência, recuperação e geração. Ela não deve ser apresentada como
+controle clínico autônomo nem como substituição da revisão profissional.
 
 ## Por que uma implementação pequena
 
@@ -27,8 +28,9 @@ facilita inspecionar o que foi enviado ao modelo, testar falhas e medir o compor
 é treinamento de modelo do zero: reutilizamos modelos abertos e bibliotecas existentes.
 
 PydanticAI seria uma evolução possível para agentes tipados; LangGraph, para fluxos com
-estados e transições mais complexos. Nenhum deles é necessário para o primeiro extrator.
-Não há evidência de que adicionar agentes por si só melhore precisão ou segurança.
+estados e transições mais complexos. Nenhum deles é necessário para o extrator atual.
+A demonstração deve priorizar contratos, rastreabilidade e integração verificável; não há
+evidência de que adicionar agentes ou frameworks por si só melhore precisão ou segurança.
 
 ## Validação híbrida não é LLM-as-a-Judge
 

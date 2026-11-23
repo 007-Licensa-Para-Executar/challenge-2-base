@@ -1,5 +1,10 @@
 # Conformidade LGPD, Governança Ética e Datasets em Português
 
+> **Nota de escopo:** este documento registra controles técnicos implementados
+> no módulo de criptografia e persistência do extrator. Não afirma conformidade
+> jurídica integral nem substitui análise de proteção de dados, segurança,
+> autorização e retenção da aplicação completa.
+
 Este documento consolida as salvaguardas de conformidade com a **Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018)**, as especificações técnicas da camada de criptografia implementada na branch `feat/security-lgpd-encryption`, e o levantamento de datasets em português recomendados para o treinamento e validação da Rede Neural.
 
 ---
@@ -27,7 +32,7 @@ Conforme o Artigo 5º, inciso II da LGPD, informações sobre saúde mental e vi
 
 ### 2.1 Especificação do Algoritmo (`security/encryption.py`)
 - **Criptografia Simétrica Autenticada:** Implementada via padrão **Fernet** (especificação criptográfica baseada em **AES-128-CBC** com preenchimento PKCS7 e autenticação de integridade **HMAC-SHA256**).
-- **Inviolabilidade:** O texto do relato nunca é armazenado em claro quando a criptografia estiver ativa; o banco SQLite armazena unicamente o *ciphertext* precedido pelo prefixo `ENC:`.
+- **Ausência de texto claro no campo protegido:** quando a criptografia estiver ativa, o campo `input_text` recebe o *ciphertext* precedido pelo prefixo `ENC:`. Outros campos, metadados ou bancos podem conter dados que precisam ser avaliados separadamente.
 - **Suporte a Rotação de Chaves (Zero-Downtime):** Suporte nativo a `MultiFernet`. Chaves múltiplas separadas por vírgula permitem descriptografar dados históricos com chaves antigas enquanto novas gravações usam a chave primária mais recente (`rotate_diary_text`).
 - **Gestão de Chaves:**
   - Prioridade 1: Variável de ambiente `DIARY_ENCRYPTION_KEY` (padrão de 12-factor app para contêineres e nuvem; suporta lista separada por vírgula).
@@ -38,8 +43,8 @@ Conforme o Artigo 5º, inciso II da LGPD, informações sobre saúde mental e vi
 Para evitar que dados civis (como CPF, nome completo ou número de prontuário) fiquem vinculados aos registros analíticos:
 - Método: [`pseudonymize_patient_id(raw_id, length=16)`](file:///c:/Users/BLU8CA/OneDrive%20-%20Bosch%20Group/Desktop/PUC/challenge-2-base/security/encryption.py)
 - Mecanismo: Assinatura criptográfica `HMAC-SHA256(chave, raw_id)` formatada em token hexadecimal prefixado (ex: `PAC-B4F1A02E3917DF12`).
-- Entropia e Resistência a Colisão: Por padrão utiliza 16 caracteres hexadecimais (64 bits de entropia), eliminando o risco do paradoxo do aniversário em bases de pacientes em escala real.
-- Propriedade: Determinístico para o mesmo ambiente (permitindo correlação longitudinal das sessões do mesmo paciente pelo psicólogo), mas irreversível por terceiros desprovidos da chave mestra.
+- Comprimento e Colisão: por padrão utiliza 16 caracteres hexadecimais (64 bits na representação). A versão reduz colisões em bases pequenas, mas não elimina o paradoxo do aniversário em bases maiores.
+- Propriedade: determinístico para a mesma chave e identificador, permitindo correlacionar registros. Não é impossível de reverter: HMAC exige proteção da chave e controles contra ataques por listas conhecidas.
 
 ---
 

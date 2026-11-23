@@ -1,24 +1,25 @@
-# 06 - Rede Neural e Deep Learning: Classificação dos 8 Temas Clínicos
+# 06 - Rede Neural e Deep Learning: Referência Técnica dos 8 Rótulos Operacionais
 
-> **Nota de alinhamento v2.1:** este documento descreve oito rótulos operacionais usados em uma implementação anterior. Na arquitetura consolidada, esses rótulos podem ser agrupados em seis macrotemas. Consulte o [relatório v2.1](relatorio-alinhamento/relatorio.md) para a taxonomia vigente e mantenha esta página como referência técnica histórica até o mapeamento final ser implementado.
+> **Nota de alinhamento v2.1:** este documento descreve oito rótulos operacionais usados por uma implementação anterior e nove saídas operacionais com a classe residual. Na arquitetura consolidada, os rótulos podem ser agrupados em seis macrotemas. Consulte o [relatório v2.1](relatorio-alinhamento/relatorio.md) para a especificação vigente. Os conceitos matemáticos desta página continuam úteis como referência técnica; partes sobre RNN/LSTM/GRU não correspondem a implementações verificadas.
 
 ## 1. Objetivo e Papel no Ecossistema
 
 O componente de **Deep Learning** atende diretamente à **Restrição 4 (Construir e testar pelo menos uma rede neural simples)** e fundamenta a primeira camada de inteligência do sistema.
 
 ### Definição do Escopo
-A rede neural tem a responsabilidade de realizar o primeiro nível de compreensão semântica dos diários dos pacientes: **classificar cada relato entre os 8 Temas Clínicos Padrão**, fornecendo as probabilidades preditivas para o **Agente 1 (Decompositor de Subtemas)**.
+A implementação atual usa rótulos operacionais granulares. Ela pode fornecer uma sugestão temática ao extrator, mas não se apresenta como diagnóstico ou interpretação clínica. O mapeamento desses rótulos para os seis macrotemas consolidados ainda não foi finalizado.
 
 Ao desacoplar a classificação macrotemática (feita pela Rede Neural dedicada) da extração de subtemas contextuais (feita pelo Agente 1 com LLM), o projeto atinge:
-1. **Velocidade e Baixa Latência:** A inferência neural roda em milissegundos localmente.
-2. **Determinismo e Calibração de Probabilidades:** A rede retorna distribuições de probabilidade reais via Softmax/Sigmoid, permitindo limiares de corte e abstenção matemática.
-3. **Cumprimento do Requisito Acadêmico:** Construção, treino, teste e métricas reais de Deep Learning independentes de LLMs de terceiros.
+1. **Execução Local:** a rede pode ser treinada e executada em ambiente local.
+2. **Pontuação e Abstenção:** a rede retorna pontuações softmax não demonstradas como probabilidades calibradas em uso real; limiares são políticas operacionais.
+3. **Evidência Acadêmica:** os artefatos devem ser registrados com divisão por grupos,
+   checkpoint, métricas por classe e limitações do conjunto sintético.
 
 ---
 
-## 2. Os 8 Temas Clínicos Padrão (Macrotemas)
+## 2. Os 8 Rótulos Operacionais Históricos
 
-Baseados na literatura clássica de psicologia clínica (Terapia Cognitivo-Comportamental de Beck, domínios de funcionamento do DSM-5-TR e eixos do MIT ImpactBench), foram definidos 8 temas estruturantes mais uma classe de salvaguarda:
+Os rótulos operacionais usados pela implementação atual ou por experimentos anteriores são:
 
 1. **`familia` (Dinâmicas Familiares):** Relações com pais, irmãos, cônjuge, convivência domiciliar, disputas ou apoio familiar.
 2. **`trabalho` (Carreira e Ambiente Laboral):** Sobrecarga de tarefas, relação com lideranças e pares, medo de demissão, síndrome de burnout.
@@ -89,9 +90,11 @@ A rede é concebida como um Perceptron Multicamadas (MLP) com regularização es
 ## 4. Pipeline de Treino, Validação e MLOps
 
 ### Preparação do Dataset Sintético
-Diários de pacientes reais envolvem sigilo médico e proteção de dados sensíveis (LGPD / HIPAA). Portanto, o treinamento e a validação são conduzidos utilizando datasets sintéticos gerados segundo a metodologia do **PsychAdapter** (Nature/arXiv 2024/2025) e simulações clínicas da **Universidade de Ulster** (2025):
-- Geração de 500 a 1.000 relatos sintéticos parametrizados por personas e traços psicológicos.
-- Divisão Estratificada: **70% Treino**, **15% Validação**, **15% Teste Holdout Cego**.
+Diários de pacientes reais exigem autorização, revisão profissional e controles específicos.
+Os experimentos podem usar datasets sintéticos versionados e agrupados por família/template.
+A divisão exata depende dos grupos disponíveis e deve ser registrada no manifesto;
+70/15/15 é uma proporção possível, não um resultado garantido ou implementado em todos
+os experimentos.
 
 ### Critérios de Parada e Métricas
 - **Early Stopping:** Monitoramento da perda de validação com paciência (*patience*) de 10 épocas para mitigar overfitting.
@@ -107,13 +110,16 @@ Diários de pacientes reais envolvem sigilo médico e proteção de dados sensí
 
 ---
 
-## 5. Viabilização Arquitetural: MLPs vs. Modelos Sequenciais (RNNs, LSTMs, GRUs)
+## 5. Comparação Arquitetural Histórica: MLPs e Modelos Sequenciais
+
+A comparação a seguir é técnica e não significa que RNN, LSTM ou GRU estejam
+implementados no repositório atual.
 
 Para processamento de relatos clínicos, o ecossistema disponibiliza tanto modelos baseados em vetores densos/esparsos quanto processadores de sequências temporais de texto (`models/torch_mlp.py`):
 
 | Arquitetura | Mecanismo Central | Ponto Forte no Projeto | Quando Utilizar |
 | :--- | :--- | :--- | :--- |
-| **MLP (`ClinicalThemeMLP`)** | Camadas densas lineares + `EmbeddingBag` / Embeddings médios | Ultrarrápido (< 5ms), determinístico, baixa latência | **Padrão do MVP:** Classificar o tema dominante do diário a partir do vocabulário e embeddings. |
+| **MLP (`ClinicalThemeMLP`)** | Camadas densas lineares + `EmbeddingBag` / embeddings médios | Implementado no projeto atual | Pode sugerir o tema operacional de um diário a partir dos dados disponíveis. |
 | **Simple RNN (`ClinicalSequentialClassifier`)** | Estado oculto recorrente: $h_t = \text{ReLU}(W x_t + U h_{t-1} + b)$ | Captura ordem temporal de palavras com poucos parâmetros | Textos curtos e didática de dependência temporal básica. |
 | **LSTM (Long Short-Term Memory)** | Células com portões de esquecimento (*forget*), entrada (*input*) e saída (*output*) | Resolve dependências de longo prazo e mitiga vanishing gradients | Relatos longos onde o contexto do início do diário altera o sentido clínico do final. |
 | **GRU (Gated Recurrent Unit)** | Portões de atualização (*update*) e reinício (*reset*) | Convergência mais rápida que LSTM com desempenho equivalente | Cenários com menor volume de dados ou restrição de memória/latência. |
@@ -139,7 +145,7 @@ Para processamento de relatos clínicos, o ecossistema disponibiliza tanto model
 
 | Função de Perda | Problema | Quando Usar no Projeto |
 | :--- | :--- | :--- |
-| **Categorical Cross-Entropy (CCE)** | Multiclasse mutuamente exclusiva (soma Softmax = 100%) | **Adotada nos 8 temas + salvaguarda.** |
+| **Categorical Cross-Entropy (CCE)** | Multiclasse mutuamente exclusiva (soma Softmax = 100%) | Usada nos experimentos operacionais com oito rótulos + salvaguarda. |
 | **Binary Cross-Entropy (BCE)** | Binária ou Multirrótulo independente (Sigmoid por classe) | Triagem binária de risco ou múltiplos temas simultâneos independentes. |
 | **MSE (Mean Squared Error)** | Regressão contínua ($\frac{1}{N}\sum (y - \hat{y})^2$) | Predição de escores contínuos (ex.: PHQ-9) penalizando desvios grandes. |
 | **MAE (Mean Absolute Error)** | Regressão robusta ($\frac{1}{N}\sum \|y - \hat{y}\|$) | Estimativas contínuas na presença de *outliers* severos. |

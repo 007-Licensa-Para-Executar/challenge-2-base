@@ -1,6 +1,6 @@
 # Guia de Desenvolvimento: Rede Neural Simples (Deep Learning MLP)
 
-**Estado atual.** A rede versionada classifica sentimento, não os macrotemas descritos abaixo. O código está em `models/neural_net.py` e `models/baseline.py`; o treino, o baseline e o MLflow estão em `mlops/` e em [`docs/mlops.md`](mlops.md). O desenho PyTorch e o baseline NumPy desta página ainda não têm arquivos no repositório.
+**Estado atual.** Existem implementações PyTorch e NumPy de um MLP temático em `models/torch_mlp.py` e `models/numpy_mlp.py`. Há também um pipeline separado de sentimento em `models/neural_net.py`, usado pelo MLOps mais antigo. Os resultados descritos nesta página não substituem os benchmarks versionados nem a taxonomia consolidada.
 
 **Alinhamento v2.1.** Os oito rótulos operacionais documentados nesta página são granularidades técnicas. Na taxonomia consolidada, eles são organizados em seis macrotemas: Autoestima e Identidade; Relacionamentos e Família; Trabalho, Estudos e Finanças; Saúde, Sono e Rotina; Perdas, Luto e Rupturas; e Outros / Indeterminado. A implementação atual precisa confirmar o mapeamento final antes de apresentá-lo como classificação consolidada.
 

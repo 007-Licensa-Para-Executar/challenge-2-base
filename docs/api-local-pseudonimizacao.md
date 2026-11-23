@@ -1,10 +1,15 @@
 # API HTTP interna de pseudonimização
 
-O modo protegido do copiloto envia o relato, o título e a pergunta à API
+O modo protegido do copiloto envia o relato, o título e a pergunta a uma API
 HTTP local da [tarefa #27](https://github.com/007-Licensa-Para-Executar/challenge-2-base/issues/27).
 O servidor retorna texto tratado. O classificador e a busca recebem essa versão,
-e o SQLite analítico guarda somente a representação tratada. As citações
-apontam para documento, representação e posições de caracteres no texto tratado.
+e o SQLite analítico guarda a representação tratada. As citações apontam para
+documento, representação e posições de caracteres no texto tratado.
+
+Esta API está implementada no repositório e coberta por testes; ela não é um
+produto clínico completo. A camada demonstra isolamento local, credenciais
+separadas, cofre Fernet e fluxo protegido, mas ainda exige avaliação profissional,
+jurídica e técnica antes de uso com dados reais.
 
 A demonstração usa dados sintéticos. Pseudonimização permite que a aplicação
 associe o UUID a um nome por meio de informação separada. O detector pode
@@ -154,13 +159,18 @@ versão do detector, crie um diretório e uma base de demonstração novos.
 
 ## Validação e resultados
 
+Os resultados desta seção são um benchmark experimental do detector sobre dados
+sintéticos anotados. Eles medem correspondência observada com entidades esperadas;
+não estimam risco residual de reidentificação, desempenho em pessoas reais nem
+adequação clínica ou jurídica.
+
 Execute o benchmark com o mesmo caminho do modelo:
 
 ```text
 uv run --no-sync python -m evaluation.privacy --model-path "CAMINHO DO MODELO"
 ```
 
-No ensaio de 18/11/2026 com Presidio 2.2.362, spaCy 3.8.18 e
+Em um ensaio registrado em 18/11/2026 com Presidio 2.2.362, spaCy 3.8.18 e
 `pt_core_news_lg` 3.8.0, houve 26 acertos exatos, 4 falsos positivos e 3
 falsos negativos em 22 casos com 29 entidades anotadas. Precisão micro
 de **86,7%** e recall de **89,7%**.

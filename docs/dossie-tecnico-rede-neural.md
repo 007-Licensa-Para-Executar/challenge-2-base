@@ -2,8 +2,8 @@
 
 > **Nota de alinhamento v2.1:** este dossiê documenta uma implementação anterior com nove classes operacionais. Os conceitos de MLP e treinamento continuam relevantes, mas a taxonomia consolidada usa seis macrotemas. Consulte o [relatório v2.1](relatorio-alinhamento/relatorio.md) antes de interpretar os rótulos como especificação atual.
 
-> **Documento Oficial de Domínio Técnico e Fundamentação Científica**  
-> **Componente:** Classificador Neural dos 8 Macrotemas Clínicos (`models/`)  
+> **Documento técnico histórico e fundamentação matemática**  
+> **Componente histórico:** Classificador neural de oito rótulos operacionais (`models/`)  
 > **Público-Alvo:** Engenheiros de ML, Pesquisadores e Banca Avaliadora de Pós-Graduação/Mestrado
 
 ---
@@ -23,13 +23,13 @@ flowchart TD
 
     subgraph DUO["2. Dualidade de Modelagem"]
         EMB --> NUMPY["NumpyClinicalMLP (NumPy Puro do Zero)"]
-        EMB --> TORCH["ClinicalThemeMLP (PyTorch de Produção)"]
+        EMB --> TORCH["ClinicalThemeMLP (implementação PyTorch)"]
     end
 
     subgraph CORE["3. Arquitetura Neural"]
         TORCH --> L1["Camada Linear (128) + RMSNorm/BatchNorm + ReLU + Dropout(0.3)"]
         L1 --> L2["Camada Linear (64) + ReLU + Dropout(0.2)"]
-        L2 --> L3["Camada de Saída (9 classes) + Logits z"]
+        L2 --> L3["Camada de Saída (9 saídas operacionais) + Logits z"]
     end
 
     subgraph CALIB["4. Calibração de Probabilidades"]
@@ -38,9 +38,9 @@ flowchart TD
     end
 
     subgraph CLIN["5. Inferência e Segurança Clínica"]
-        SOFT --> PROB["Distribuição de Probabilidades Calibradas"]
+        SOFT --> PROB["Distribuição softmax histórica"]
         PROB --> CHECK{"Confiança >= 0.50?"}
-        CHECK -->|Sim| DET["Macrotema Predito (1 a 8)"]
+        CHECK -->|Sim| DET["Rótulo operacional predito"]
         CHECK -->|Não| ABS["9ª Classe: outros_indeterminado (Abstenção)"]
         DET & ABS --> SPAN["ClinicalThemePredictor: Segmentação em Spans Literais"]
     end
@@ -50,7 +50,7 @@ flowchart TD
 
 ## 1. Fundamentos Matemáticos e Formulação Teórica
 
-A rede neural desenvolvida é um **Perceptron Multicamadas (MLP - Multi-Layer Perceptron)** com camada de entrada densa, operando como um mapeador universal de funções não lineares $f: \mathbb{R}^d \to \mathbb{R}^K$, onde $d = 128$ é a dimensionalidade dos embeddings e $K = 9$ representa as classes clínicas (8 macrotemas + 1 classe de abstenção).
+A implementação contém um **Perceptron Multicamadas (MLP - Multi-Layer Perceptron)** com embeddings densos. Um experimento histórico usa $d = 128$ e $K = 9$, correspondendo a oito rótulos operacionais mais uma classe residual. Esses rótulos não foram validados como a taxonomia clínica consolidada.
 
 ### 1.1. Inicialização de Pesos: He (Kaiming) vs Xavier Normal
 Para evitar que os gradientes desapareçam (*vanishing gradients*) ou explodam (*exploding gradients*) nas camadas profundas ativadas por ReLU, os pesos são inicializados segundo a teoria de He et al. (2015):
@@ -193,12 +193,12 @@ $$\text{Classe Final} =
 \end{cases}$$
 
 ### 5.2. Calibração de Probabilidades via Temperature Scaling (Guo et al., 2017)
-Para transformar os scores da rede em **probabilidades reais e confiáveis**, aplicamos **Temperature Scaling**:
+Temperature Scaling é uma transformação matemática que tenta melhorar a calibração dos scores em um conjunto de validação. Ela não transforma automaticamente os scores em probabilidades clínicas confiáveis:
 
 $$\hat{p}_k = \frac{\exp(z_k / T)}{\sum_{j=1}^K \exp(z_j / T)}$$
 
 - O hiperparâmetro escalar $T > 0$ é ajustado sobre os logits do conjunto de validação minimizando a Entropia Cruzada via L-BFGS sem alterar a acurácia das predições ($T$ é monotônico com relação à ordem dos logits).
-- **Resultado Obtido:** A rede convergiu para $T = 1.3736$, reduzindo o erro esperado de calibração (**ECE**) de $11{,}03\%$ para **$7{,}77\%$**.
+- **Resultado de um benchmark histórico:** em uma execução registrada, o ajuste convergiu para $T = 1.3736$ e reduziu o ECE no conjunto de teste de $11{,}03\%$ para **$7{,}77\%$**. Esse resultado não prova calibração em dados reais ou uso clínico.
 
 ### 5.3. Segmentação Literal por Spans ([`models/predictor.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/predictor.py))
 Para permitir auditoria humana por psicólogos:

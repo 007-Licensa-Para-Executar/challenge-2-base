@@ -9,12 +9,12 @@ Este cronograma orienta o desenvolvimento do **Diário Clínico Assistido & Copi
 | Restrição (Constraint) | Componente Técnico Responsável | Evidência Comprovável |
 | :--- | :--- | :--- |
 | **1. Ter pelo menos 2 agentes que trabalhem juntos** | Arquitetura consolidada com Agente 1 (Extrator) e Agente 2 (Analista Longitudinal e Copiloto RAG). | Testes de integração demonstrando passagem de dados estruturados entre os dois agentes. |
-| **2. Ter uma base de conhecimento** | Base tripartite: Acervo de Diretrizes Clínicas (TCC/Beck), Histórico do Paciente e Regras do Sistema. | Módulo `knowledge_base/` com índice vetorial e documentos com metadados de proveniência (autor, licença, data). |
+| **2. Ter uma base de conhecimento** | Base tripartite planejada: diretrizes clínicas autorizadas, histórico do paciente e regras do sistema. | BM25 demonstrado em dados sintéticos; índice clínico vetorial persistente permanece a definir. |
 | **3. Aplicar MLOps** | Pipeline em `mlops/`, lock do `uv`, CI e MLflow em SQLite com artefatos ao lado do banco. | `uv run bem-estar-mlops`, tag `promoted`, matriz de confusão e registry só após o gate de F1 macro. Ver `docs/mlops.md`. |
 | **4. Construir e testar rede neural simples** | MLP próprio com embeddings para sugerir uma categoria entre seis macrotemas consolidados, comparado a um baseline textual. | Pipeline, divisão treino/validação/teste e métricas reproduzíveis por macrotema. |
-| **5. Utilizar API por meio dos agentes** | Chamadas à API local Ollama, API de transcrição (STT Whisper) e API de busca vetorial. | Módulo de cliente HTTP tipado via `httpx` com tratamento de timeout, retry e testes de falha. |
+| **5. Utilizar API por meio dos agentes** | API local Ollama e API HTTP local de pseudonimização. Transcrição e busca vetorial são integrações futuras ou opcionais. | Clientes HTTP tipados com timeout, erro sanitizado e testes controlados. |
 | **6. Ferramenta de versionamento de código** | Repositório Git com branches temáticas (`feat/*`), Conventional Commits e Pull Requests. | Histórico de commits claro, branches documentadas e PRs revisados. |
-| **7. Solução ética e explicável** | Governança CFP/LGPD, diário assíncrono (sem bot direto) e pop-up com citações literais exatas. | Documento `docs/etic-risks.md` e modal de rastreabilidade implementado na interface. |
+| **7. Solução ética e explicável** | Governança CFP/LGPD, diário assíncrono e rastreabilidade por citações literais. | Documentos de risco e pseudonimização; a interface visual permanece especificação. |
 | **8. Pelo menos 1 resource de até 2 anos** | Artigos recentes: Li et al. (arXiv 2025), McBain et al. (JAMA 2025/2026), PsychAdapter (2024/2025), ImpactBench (2025/2026). | Documento `docs/references.md` com análise crítica e data de referência validada. |
 | **9. MVP funcional** | Aplicação executável ponta a ponta: ingestão do relato -> classificação neural -> agentes -> dashboard (/explore). | Comando unificado de inicialização e demonstração interativa completa. |
 
@@ -38,8 +38,17 @@ Semana 8: Auditoria Geral de MLOps, Testes Ponta a Ponta, Gravação da Demonstr
 ## 3. Critérios de Aceite para Demonstração do MVP
 
 1. **Entrada:** Um relato sintético (texto ou áudio simulado) é submetido ao sistema.
-2. **Processamento Neural:** A Rede Neural classifica o relato no macrotema correto (ex: `familia`) em menos de 50 ms.
+2. **Processamento Neural:** a Rede Neural sugere um rótulo operacional e informa o score sem apresentar o resultado como diagnóstico; latência deve ser medida no ambiente declarado.
 3. **Execução Multiagente:** O Agente 1 extrai os subtemas (`irmão`, `pai`) e os recortes literais exatos com índices de caracteres.
-4. **Armazenamento:** O relato e os metadados são salvos no SQLite e vetorizados.
-5. **Dashboard Interativo:** O psicólogo abre a tela `/explore`, clica no cartão `Família`, visualiza a pílula `Irmão`, clica e o **Pop-up Modal** exibe a citação exata e a opção de ouvir o áudio.
+4. **Armazenamento:** o relato e os metadados são salvos no SQLite; índice vetorial persistente não é pré-requisito desta demonstração.
+5. **Dashboard Interativo:** a interface `/explore` pode ser demonstrada apenas após implementação; a especificação atual não deve ser apresentada como tela disponível.
 6. **RAG Clínico:** O psicólogo solicita apoio ao Agente 2, e o copiloto retorna informações fundamentadas em fontes autorizadas com citação expressa do documento e seção.
+
+## 4. Desafios de Evolução e Validação
+
+Os próximos marcos de pesquisa devem ser separados das entregas já implementadas:
+
+1. **Integração longitudinal ponta a ponta:** acompanhar o paciente ao longo de sessões sem promover diagnóstico, prognóstico ou tratamento automático.
+2. **Sintomas evolutivos e comorbidades:** testar mudanças temporais e diferentes quadros sem assumir causalidade ou confundir estados clínicos distintos.
+3. **Dados culturalmente nativos:** aumentar o corpus em português por coleta ou produção culturalmente contextualizada, reduzindo tradução direta do inglês e dependência de modelos fechados.
+4. **Diversidade clínica:** ampliar avaliação além de depressão e ansiedade e revisar referências de abordagens como DBT e terapia humanista, sem apresentar qualquer terapia como conduta automática.

@@ -1,5 +1,10 @@
 # Avaliação preliminar do extrator
 
+> **Documento de método:** este protocolo explica como novas execuções devem ser
+> conduzidas e interpretadas. Os resultados observados ficam em
+> [evaluation-results.md](evaluation-results.md) e podem mudar após novas versões,
+> novos modelos ou novas revisões das referências.
+
 O conjunto contém 100 relatos inteiramente sintéticos em português: 60 de desenvolvimento e
 40 reservados (holdout). Os identificadores e textos não se repetem entre splits. Cada exemplo
 possui uma referência de tema, sentimento e sinal textual, além de marcações de cenário.

@@ -1,5 +1,10 @@
 # Fluxograma e Funcionamento da Rede Neural
 
+> **Documento histórico e de fluxo:** os diagramas descrevem o MLP implementado
+> e comparações arquiteturais teóricas. RNN, LSTM e GRU não são componentes
+> verificáveis desta versão. Percentuais, tamanhos de split e exemplos são
+> ilustrativos ou dependem da execução versionada.
+
 Este documento detalha o fluxo de processamento, arquitetura e ciclo de treinamento da **Rede Neural Perceptron Multicamadas (MLP)** e dos **Modelos Sequenciais (RNN, LSTM e GRU)** dedicados à identificação dos 8 temas psicológicos a partir dos relatos dos diários dos pacientes.
 
 ---
@@ -68,11 +73,11 @@ O diagrama a seguir descreve como a rede é ajustada matematicamente usando **Ba
 ```mermaid
 flowchart TD
     subgraph Dados["1. Preparação dos Dados"]
-        D1["Dataset Sintético em Português (360 relatos)"]
+        D1["Dataset Sintético em Português"]
         D2["Split Estratificado por Grupo/Persona"]
-        D3["Treino (70%)"]
-        D4["Validação (15%)"]
-        D5["Teste Holdout Cego (15%)"]
+        D3["Treino"]
+        D4["Validação"]
+        D5["Teste Holdout Cego"]
         D1 --> D2
         D2 --> D3
         D2 --> D4
@@ -153,6 +158,9 @@ $$\frac{\partial \mathcal{L}}{\partial z_1} = \left(\frac{\partial \mathcal{L}}{
 
 ### 4.1. MLP vs. Modelos Sequenciais (RNN, LSTM, GRU)
 
+As alternativas seguintes são conceituais. O repositório implementado não contém
+um `ClinicalSequentialClassifier` ou modelos RNN, LSTM e GRU ativos.
+
 ```mermaid
 flowchart TD
     Q1{"Qual a complexidade e tamanho do relato?"}
@@ -193,6 +201,9 @@ flowchart TD
 ---
 
 ## 5. Exemplo de Execução Real
+
+O trecho abaixo é ilustrativo. Os números não representam uma inferência
+confirmada ou uma taxonomia clínica validada.
 
 **Entrada Textual:**
 > *"Meu pai ligou só pra cobrar as notas da faculdade e comparar com o filho do vizinho. Desliguei o telefone com vontade de sumir do mapa, eles nunca perguntam como eu tô me sentindo por dentro."*

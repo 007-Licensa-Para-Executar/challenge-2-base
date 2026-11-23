@@ -30,3 +30,11 @@ No PDF e no LaTeX, os itens entre colchetes aparecem em vermelho.
 
 [Registrar responsáveis, aprovação de requisitos e evidências produzidas para cada versão do MVP.]
 
+[Validar acompanhamento longitudinal sem diagnóstico ou tratamento automático entre sessões.]
+
+[Avaliar mudanças temporais e comorbidades sem confundir diagnósticos ou alterar condutas clínicas.]
+
+[Construir ou selecionar dados culturalmente nativos em português e auditar modelos abertos quanto a licença, proveniência e viés.]
+
+[Testar diversidade de transtornos e abordagens terapêuticas, incluindo referências a DBT e terapia humanista, sem prescrição automatizada.]
+

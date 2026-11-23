@@ -1,6 +1,10 @@
 # Acesso e credenciais
 
-Verificação em 22/10/2026.
+Snapshot de verificação em 22/10/2026.
+
+Este documento registra uma configuração observada naquela data. Revalidar o
+token, sua expiração, o resource owner e as permissões antes de cada operação
+administrativa ou entrega do projeto.
 
 ## Evidências observadas
 
@@ -8,7 +12,8 @@ Verificação em 22/10/2026.
 - Leitura e escrita de arquivos e labels funcionaram neste repositório privado da organização.
 - Após a atualização do PAT, a criação de Projects da organização funcionou.
 - A leitura administrativa de colaboradores e de metadados de secrets no repositório pessoal público diogobertozi/diogobertozi recebeu 403. Nenhum valor de secret foi consultado.
-- O token informou expiração em 21/12/2026 às 18:58:39, horário de São Paulo.
+- Na verificação de 22/10/2026, o token informou expiração em 21/12/2026 às
+  18:58:39, horário de São Paulo.
 - A consulta de inventário de PATs da organização não serve para auditar este PAT: esse endpoint aceita somente GitHub Apps.
 
 Os testes são consistentes com o isolamento esperado, mas não constituem uma auditoria exaustiva de todos os endpoints. Confirmar no formulário do token o Resource owner **007-Licensa-Para-Executar**. Um PAT fine-grained tem um único Resource owner. Leitura de repositórios públicos fora desse owner continua possível.

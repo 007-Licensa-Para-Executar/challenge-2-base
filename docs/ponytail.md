@@ -1,5 +1,9 @@
 # Ponytail no desenvolvimento
 
+> **Nota operacional:** este arquivo registra uma ferramenta auxiliar de
+> desenvolvimento usada em uma configuração específica. Não faz parte do
+> produto clínico, não é um agente do sistema e não é dependência Python.
+
 Fonte revisada: https://github.com/DietrichGebert/ponytail
 Commit: `09c434ab73ca43761c5d8b0c5d341926c2fba710`.
 Manifesto Codex revisado: versão `5.3.2`, licença MIT.

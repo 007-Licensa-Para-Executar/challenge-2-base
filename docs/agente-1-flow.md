@@ -2,6 +2,11 @@
 
 > Para o caminho executável que usa dados tratados, consulte a [integração da API HTTP interna](api-local-pseudonimizacao.md).
 
+> **Nota de alinhamento v2.1:** o código atual usa rótulos operacionais granulares.
+> Na taxonomia consolidada, eles são apresentados em seis macrotemas. O teto de 24
+> subtemas é uma proposta de visualização e ainda não constitui uma decisão clínica
+> ou uma capacidade comprovada.
+
 Este documento descreve detalhadamente o fluxo de funcionamento do **Agente 1 (Decompositor Temático e Extrator de Evidências)**, sua integração com a **Rede Neural MLP** e o motor da **Roda de Bem-Estar (Sunburst Chart)**, modelado para fornecer ao psicólogo uma plataforma visual hierárquica, dinâmica e longitudinal.
 
 ---
@@ -12,11 +17,11 @@ O Agente 1 tem como missão exclusiva a **compreensão semântica profunda dos d
 
 A saída do Agente 1 alimenta diretamente a **Roda de Bem-Estar** (Sunburst Chart concêntrico):
 1. **Centro (Núcleo):** O paciente (representado pelo Homem Vitruviano).
-2. **Anel Interno (Nível 1):** Os **8 Macrotemas Clínicos Padrão** classificados em milissegundos pela Rede Neural MLP (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`).
+2. **Anel Interno (Nível 1):** Os **seis macrotemas consolidados**, apresentados como agrupamento de rótulos operacionais mais específicos.
 3. **Anel Externo (Nível 2):** Os **Subtemas Específicos** identificados pelo Agente 1 a partir dos relatos (ex.: *Cobrança Paterna*, *Insônia Inicial*, *Sobrecarga de Metas*).
 4. **Teto de 24 Subtemas no Total:** A plataforma acomoda no máximo 24 subtemas ativos simultaneamente, distribuídos livremente entre os macrotemas de acordo com o que o paciente mais fala.
 5. **Comportamento Rotativo:** Subtemas entram, permanecem ou saem da roda conforme o paciente altera os assuntos de desabafo ao longo dos dias e semanas.
-6. **Histórico Longitudinal:** Análise comparativa semanal e mensal permitindo ao psicólogo inspecionar a persistência, o surgimento ou a resolução de tópicos e a evolução da polaridade afetiva (vermelho a verde).
+6. **Histórico Longitudinal:** A comparação semanal ou mensal permite inspecionar persistência, surgimento e retirada de menções, sem inferir resolução ou evolução clínica da polaridade.
 
 ---
 
@@ -32,7 +37,7 @@ flowchart TD
 
     subgraph CamadaNeural["2. Classificação Rápida (Rede Neural MLP)"]
         B["ClinicalThemePredictor (Inferência &lt; 5ms)"]
-        C["Softmax: Distribuição Percentual dos 8 Macrotemas"]
+        C["Softmax: Distribuição dos rótulos temáticos operacionais"]
         D{"Confiança &gt;= 50%?"}
         E["Macrotema Dominante (ex: 'familia', 95.7%)"]
         F["Classe de Salvaguarda: 'outros_indeterminado'"]
@@ -69,7 +74,7 @@ flowchart TD
     end
 
     subgraph VisualizacaoPlataforma["6. Saída para o Psicólogo"]
-        R["Roda de Bem-Estar Sunburst (Centro: Vitruviano | Anel 1: 8 Temas | Anel 2: até 24 Subtemas)"]
+        R["Roda de Bem-Estar Sunburst (Centro: Vitruviano | Anel 1: 6 Macrotemas | Anel 2: até 24 Subtemas)"]
         S["Cores dos Arcos: Gradiente Vermelho (Sofrimento) a Verde (Florescimento)"]
         T["Histórico Longitudinal: Comparativo Semanal e Mensal (Persistentes, Emergentes, Rotacionados)"]
         
@@ -97,7 +102,7 @@ Inspirada no modelo concêntrico do **MIT ImpactBench** e na tradição humanist
                                 │   SUBTEMAS ESPECÍFICOS  │
                                 │   (Anel Externo - N2)   │
                                 ├─────────────────────────┤
-                                │   8 MACROTEMAS CLÍNICOS │
+                                │   6 MACROTEMAS CONSOLIDADOS │
                                 │   (Anel Interno - N1)   │
                                 ├─────────────────────────┤
                                 │  PACIENTE / VITRUVIANO  │
@@ -109,16 +114,17 @@ Inspirada no modelo concêntrico do **MIT ImpactBench** e na tradição humanist
 * Representa o paciente em sua integridade bio-psico-social.
 * Ponto de ancoragem para a navegação do psicólogo.
 
-### 3.2. Nível 1: Anel Interno (Os 8 Macrotemas Clínicos da Rede Neural)
-Os setores fixos do primeiro anel correspondem aos temas treinados e validados na Rede Neural:
-1. `familia` (relações domésticas e dinâmicas parentais)
-2. `trabalho` (ambiente profissional, metas, chefia e carreira)
-3. `relacionamentos` (vida afetiva, parcerias amorosas, amizades)
-4. `estudos` (vida acadêmica, provas, pressão formativa)
-5. `saude_sono` (qualidade do sono, queixas somáticas, energia física)
-6. `financas` (segurança material, gestão de dívidas, orçamento)
-7. `luto` (processos de perda, despedida e transição de vida)
-8. `autoestima` (autoimagem corporal, autocrítica e senso de valor pessoal)
+### 3.2. Nível 1: Anel Interno (Seis Macrotemas Consolidados)
+O primeiro anel representa a taxonomia consolidada:
+1. Autoestima e Identidade
+2. Relacionamentos e Família
+3. Trabalho, Estudos e Finanças
+4. Saúde, Sono e Rotina
+5. Perdas, Luto e Rupturas
+6. Outros / Indeterminado
+
+Os rótulos operacionais atuais podem ser agrupados nesses macrotemas. O mapeamento
+exato e a validação de interface permanecem pendentes.
 
 ### 3.3. Nível 2: Anel Externo (Até 24 Subtemas Ativos)
 * **Ponderação por Fala:** A largura do arco é diretamente proporcional à quantidade de vezes e à intensidade com que o paciente falou sobre o assunto.
@@ -153,8 +159,8 @@ stateDiagram-v2
 | :--- | :--- | :--- |
 | **Subtemas Persistentes** | Presentes tanto no período anterior quanto no atual. | Indicam **focos crônicos de atenção** ou tópicos nucleares da queixa do paciente (ex.: *Insônia* há 4 semanas). |
 | **Subtemas Emergentes (Novos)** | Não existiam no período anterior e entraram no Top-24 atual. | Novos acontecimentos de vida, **gatilhos recentes** ou novas áreas exploradas pelo paciente. |
-| **Subtemas Rotacionados (Esquecidos)** | Estavam ativos no período anterior e saíram da roda atual. | Pode representar **resolução do conflito**, alívio de sintomas ou **esquiva cognitiva**. |
-| **Variação da Polaridade ($\Delta$ Sentimento)** | O subtema permaneceu ativo, mas mudou de tom afetivo. | Mensuração objetiva de melhora (ex.: *Insônia* mudando de vermelho para verde após higiene do sono). |
+| **Subtemas Rotacionados (Sem menção no período atual)** | Estavam ativos no período anterior e não aparecem no conjunto atual. | Indica ausência de menção no recorte observado; não permite concluir resolução, alívio ou esquiva. |
+| **Variação da Polaridade ($\Delta$ Sentimento)** | O subtema permaneceu ativo, mas mudou de tom afetivo. | Descreve mudança observada na entrada; não demonstra melhora clínica ou efeito de uma intervenção. |
 
 ---
 
@@ -163,7 +169,7 @@ stateDiagram-v2
 A implementação reside no pacote [`agents/extractor/`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor):
 
 ### 5.1. Contratos de Dados ([`agents/extractor/contracts.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py))
-* [`MacroTema`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L16): Enum com os 8 macrotemas clínicos + salvaguarda.
+* [`MacroTema`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L16): Enum atual com rótulos operacionais granulares e classes de salvaguarda; o agrupamento consolidado ainda precisa ser aplicado à interface.
 * [`EvidenceSpan`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L116): Citação literal, índices de caractere (`start_char`, `end_char`) e carimbos de áudio (`audio_start_sec`, `audio_end_sec`).
 * [`SubTemaItem`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L131): Nome do subtema, contextualização e lista de evidências literais.
 * [`Agent1Output`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L168): Envelope completo da extração de cada diário.

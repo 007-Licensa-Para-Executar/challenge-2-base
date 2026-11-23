@@ -1,10 +1,16 @@
 # 05 - Estratégia de Representação Vetorial e Embeddings
 
+> **Estado atual:** a rede implementada usa `ClinicalTextEmbedder` com embeddings
+> densos de 128 dimensões, em modo gaussiano ou LSA/SVD. O recuperador de RAG
+> implementado usa BM25 por padrão e aceita E5 local como backend opcional.
+> SQLite-vec, ChromaDB e índice vetorial persistente não são componentes
+> verificados desta implementação.
+
 ## 1. Visão Geral e Critérios de Projeto
 
 A representação vetorial no sistema atua em dois subsistemas com requisitos distintos:
-1. **Camada de Deep Learning (Rede Neural Própria):** Requer representações adequadas para treinar o classificador dos 8 macrotemas clínicos sem violar a restrição de "construir a rede do zero".
-2. **Camada de Recuperação Semântica (Banco Vetorial & RAG):** Requer modelos de linguagem densos pré-treinados capazes de capturar nuances semânticas e relações conceituais em português brasileiro.
+1. **Camada de Deep Learning (Rede Neural Própria):** vetores densos locais de 128 dimensões são usados pelo classificador temático operacional.
+2. **Camada de Recuperação (RAG):** o demonstrador usa recuperação lexical BM25; o backend E5 local é opcional e não exige envio de dados a serviços externos.
 
 ---
 
@@ -13,32 +19,36 @@ A representação vetorial no sistema atua em dois subsistemas com requisitos di
 | Característica | TF-IDF (Term Frequency-Inverse Document Frequency) | multilingual-e5-small (Intfloat) | paraphrase-multilingual-MiniLM-L12-v2 |
 | :--- | :--- | :--- | :--- |
 | **Tipo de Representação** | Esparsa (Sparsely Bag-of-Words/N-grams) | Densa (Dense Embedding Transformer) | Densa (Dense Embedding Transformer) |
-| **Dimensão do Vetor** | 512 a 1.024 (configurável) | 384 dimensões | 384 dimensões |
+| **Dimensão do Vetor** | 128 no embedder clínico; TF-IDF legado pode usar outra dimensão | 384 dimensões no modelo candidato E5 | 384 dimensões |
 | **Contexto Máximo** | Ilimitado (mas sem contexto sintático) | 512 tokens | 128 a 512 tokens |
 | **Suporte ao Português** | Depende de Stemmer (NLTK RSLP) | Excelente (treinado em 100+ línguas) | Muito Bom (alinhamento semântico) |
 | **Custo Computacional** | Quase zero (CPU rápida) | Baixo (~130 MB de parâmetros) | Muito Baixo (~120 MB de parâmetros) |
-| **Aplicação no Projeto** | Entrada para o treino da Rede Neural MLP | Indexação no Banco Vetorial (SQLite-vec / Chroma) | Alternativa leve para ambiente local restrito |
+| **Aplicação no Projeto** | Implementado em `models/embedder.py` | Backend E5 opcional no recuperador | Não confirmado como implementação ativa |
 
 ---
 
 ## 3. Decisão Arquitetural e Segregação de Papéis
 
 ### A. Para o Treinamento da Rede Neural de Classificação Temática
-- **Abordagem Adotada:** Vetorização híbrida via **TF-IDF com sub-palavras e n-grams de caracteres (1 a 3-grams)** com vocabulário fixado em 1.024 termos clínicos mais frequentes.
-- **Justificativa Ética e de Engenharia:** Permite demonstrar com total clareza matemática que a rede neural (MLP) está efetivamente aprendendo as fronteiras de decisão a partir dos pesos, sem depender de representações "mágicas" de embeddings proprietários.
+- **Abordagem Implementada:** `ClinicalTextEmbedder` cria um vocabulário local, limita os termos configurados e gera vetores densos de 128 dimensões.
+- **Inicialização:** Gaussian/Xavier-like por padrão ou projeção LSA/SVD quando há dados suficientes e o modo SVD é selecionado.
+- **Tratamento:** stop words, remoção de acentos, pesos IDF opcionais e normalização por documento.
+- **Limitação:** o vetor representa o vocabulário e o conjunto de treino observado. Não prova semântica clínica nem calibração do classificador.
 
-### B. Para o Banco Vetorial e RAG (Histórico do Paciente e Diretrizes Clínicas)
-- **Modelo Adotado:** `intfloat/multilingual-e5-small`.
-- **Prefixo de Instrução:**
+### B. Para o RAG (Histórico do Paciente e Diretrizes Clínicas)
+- **Modelo Candidato:** `intfloat/multilingual-e5-small`.
+- **Estado:** pode ser usado pelo backend `e5` quando o diretório local do modelo é fornecido. Não é baixado automaticamente.
+- **Prefixo de Instrução no código atual:**
   - Para indexação de passagens/diários: `"passage: <texto>"`
   - Para perguntas/buscas do psicólogo: `"query: <texto>"`
-- **Vantagens Clínicas:** Consegue aproximar expressões colloquiais de desabafo (ex: *"sinto um nó na garganta e não consigo sair da cama"*) de conceitos técnicos de depressão e ansiedade somática indexados nas diretrizes clínicas, superando a barreira lexical do vocabulário estrito.
+- **Limitação:** proximidade semântica não comprova relevância clínica, suficiência da fonte ou correção da resposta gerada.
 
 ---
 
 ## 4. Estratégia de Chunking e Gestão de Contexto
 
-Para evitar a perda de contexto psicológico decorrente do limite de 512 tokens:
-1. **Diários Curtos (< 300 palavras):** O relato é indexado como um único chunk integral, preservando a coerência narrativa e a progressão dos afetos.
-2. **Relatos Longos (> 300 palavras):** Divisão com janela deslizante de 250 tokens e **sobreposição (*overlap*) de 50 tokens**, garantindo que conectivos e causas de sofrimento não sejam cortados entre blocos.
-3. **Metadados Anexados ao Vetor:** Todo vetor carrega metadados imutáveis: `patient_id`, `data_registro`, `modalidade` (texto/áudio), `macrotema_previsto` e `subtemas_associados`.
+No recuperador atual:
+1. Os trechos são divididos em blocos literais de até 600 caracteres por padrão.
+2. O limite pode ser configurado no retriever, sem overlap persistente.
+3. A evidência conserva `record_id`, `patient_id`, data, título, texto, início e fim no original.
+4. Cada consulta é limitada ao conjunto previamente selecionado por paciente e período.

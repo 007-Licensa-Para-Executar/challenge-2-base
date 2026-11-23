@@ -1,8 +1,13 @@
 # 03 - Pipeline de RAG: Recuperação Híbrida e Síntese Clínica Citada
 
+> **Estado da arquitetura:** o demonstrador implementado usa recuperação BM25
+> sobre registros sintéticos e pode usar E5 local opcional. RRF, corpus clínico
+> normativo indexado e síntese clínica completa são arquitetura-alvo, não
+> capacidades validadas apenas por este documento.
+
 ## 1. Visão Geral do Subsistema de RAG
 
-O subsistema de **Geração Aumentada por Recuperação (RAG)** capacita o **Agente 3 (Copiloto Clínico)** a subsidiar o psicólogo com embasamento teórico estrito, conectando os subtemas identificados nos diários às melhores práticas documentadas na literatura de psicologia clínica.
+O subsistema de **Geração Aumentada por Recuperação (RAG)** capacita o **Agente 2 (Analista Longitudinal e Copiloto RAG)** a separar registros recuperados de respostas geradas e, quando houver corpus autorizado, ancorar briefings em documento e seção.
 
 O princípio fundacional do nosso RAG é a **explicabilidade e ancoragem documental**: a IA nunca gera conselhos de "senso comum" ou da "memória paramétrica" do modelo; cada sugestão apresentada ao terapeuta deve ser formalmente rastreável até um capítulo, protocolo ou diretriz da base autorizada.
 
@@ -30,7 +35,7 @@ Para contornar as limitações de vocabulário da busca lexical e as imprecisõe
        │                                     │
        ├─ (Abaixo do limiar)                 └─ (Acima do limiar)
        ▼                                                ▼
-[ Abstenção Segura ]                         [ Injeção no Prompt do Agente 3 ]
+[ Abstenção Segura ]                         [ Injeção no Prompt do Agente 2 ]
 ("Sem diretrizes autorizadas")                          │
                                                         ▼
                                              [ Síntese Clínica Citada com [Doc_ID] ]
@@ -45,18 +50,18 @@ Onde $k = 60$ é uma constante padrão que equilibra a importância de itens bem
 
 ## 3. Política Rígida de Abstenção (Anti-Alucinação)
 
-Em contextos clínicos de saúde mental, a alucinação de diretrizes representa risco ético severo. Para eliminar esse risco:
-1. **Limiar Mínimo de Similaridade ($\tau = 0.70$):** Se nenhum trecho da base clínica atingir a pontuação de relevância mínima, o sistema interrompe o fluxo de geração.
+Em contextos clínicos de saúde mental, a alucinação de diretrizes representa risco ético severo. Para reduzir esse risco:
+1. **Limiar mínimo:** o valor $0.70$ é uma proposta arquitetural; o benchmark e o corpus autorizados ainda precisam validar a regra. Scores BM25 não são diretamente comparáveis a similaridade vetorial.
 2. **Resposta Padrão de Abstenção:**
    > *"O sistema não encontrou diretrizes clínicas autorizadas indexadas na base de conhecimento para o subtema especificado. Nenhuma sugestão interventiva será gerada automaticamente."*
 3. **Proibição de Inferência Especulativa:** O prompt do sistema proíbe categoricamente o LLM de utilizar conhecimentos externos não presentes no contexto recuperado.
 
 ---
 
-## 4. Prompt de Síntese Citada (Agente 3)
+## 4. Prompt Conceitual de Síntese Citada (Agente 2)
 
 ```markdown
-Você é o Copiloto Clínico de Apoio ao Terapeuta. Sua função exclusiva é correlacionar o relato estruturado do paciente com as diretrizes clínicas recuperadas abaixo.
+Você é o Agente 2, Copiloto RAG de apoio ao terapeuta. Sua função é correlacionar o relato autorizado com as diretrizes recuperadas, sem diagnosticar ou prescrever.
 
 DIRETRIZES CLÍNICAS RECUPERADAS:
 {contextos_recuperados}

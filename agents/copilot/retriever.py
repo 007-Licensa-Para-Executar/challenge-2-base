@@ -88,7 +88,7 @@ def chunk_record(record: DiaryRecord, chunk_chars: int) -> list[Evidence]:
     """Nonoverlapping literal spans; prefer a whitespace boundary near the limit."""
     result = []
     start = 0
-    text = record.original_text
+    text = record.analysis_text
     while start < len(text):
         end = min(start + chunk_chars, len(text))
         if end < len(text):
@@ -102,7 +102,7 @@ def chunk_record(record: DiaryRecord, chunk_chars: int) -> list[Evidence]:
         if quote.strip():
             result.append(
                 Evidence(
-                    chunk_id=f"{record.record_id}:{start}:{end}",
+                    chunk_id=f"{record.evidence_key}:{start}:{end}",
                     record_id=record.record_id,
                     patient_id=record.patient_id,
                     recorded_at=record.recorded_at,
@@ -111,6 +111,7 @@ def chunk_record(record: DiaryRecord, chunk_chars: int) -> list[Evidence]:
                     start_char=start,
                     end_char=end,
                     score=0.0,
+                    representation_id=record.representation_id,
                 )
             )
         start = end

@@ -1,8 +1,20 @@
-"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas."""
+"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas e emoções."""
 
 from typing import TYPE_CHECKING
 
 from models.embedder import ClinicalTextEmbedder
+from models.emotion_net import EKMAN_LABELS, EmotionNeuralNetwork, EmotionPipeline
+from models.emotion_predictor import EmotionDiaryPredictor, EmotionDiaryResult
+from models.emotion_taxonomy import (
+    DIVERTIDAMENTE_CORE_EMOTIONS,
+    DIVERTIDAMENTE_EMOTIONS,
+    EmotionDivertidamente,
+    SubEmotion,
+    canonicalize_emotion_id,
+    get_all_divertidamente_taxonomy,
+    get_divertidamente_emotion,
+    resolve_sub_emotion,
+)
 from models.numpy_mlp import NumpyClinicalMLP
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
@@ -29,12 +41,25 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "DIVERTIDAMENTE_CORE_EMOTIONS",
+    "DIVERTIDAMENTE_EMOTIONS",
+    "EKMAN_LABELS",
     "THEME_CLASSES",
     "ClinicalTextEmbedder",
     "ClinicalThemeMLP",
     "ClinicalThemePredictor",
     "DiaryTopicBreakdown",
     "DiaryTopicSegment",
+    "EmotionDiaryPredictor",
+    "EmotionDiaryResult",
+    "EmotionDivertidamente",
+    "EmotionNeuralNetwork",
+    "EmotionPipeline",
     "NumpyClinicalMLP",
+    "SubEmotion",
     "TopicDistribution",
+    "canonicalize_emotion_id",
+    "get_all_divertidamente_taxonomy",
+    "get_divertidamente_emotion",
+    "resolve_sub_emotion",
 ]

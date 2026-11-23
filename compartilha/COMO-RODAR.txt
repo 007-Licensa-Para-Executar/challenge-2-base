@@ -1,0 +1,59 @@
+Diário fictício, só nesta máquina. Não há login e não há relato real.
+A imagem sobe a API. Não inclui Flutter, Next.js nem a ponte do classificador.
+
+1. Pré-requisitos
+   Docker com Compose. Python do host não é necessário para rodar o container.
+
+2. Modelo, em um passo separado
+   O container não baixa pesos. Obtenha fora do Compose o Faster-Whisper small
+   já convertido (CTranslate2), com model.bin, config.json, tokenizer.json e
+   vocabulary.txt. Copie essa pasta para um lugar fora do repositório.
+
+3. Onde apontar o modelo
+   A pasta montada é somente leitura, só ela, não o disco inteiro.
+   Exemplo:
+     export DIARY_MODEL_DIR="$HOME/.local/share/agente-residencia/faster-whisper-small"
+   O arquivo esperado é $DIARY_MODEL_DIR/model.bin. Ele não entra no Git.
+
+4. Construir
+   Na mesma sessão em que DIARY_MODEL_DIR foi exportado:
+     cd compartilha
+     docker compose build
+   Sem essa variável o Compose recusa a configuração.
+
+5. Iniciar
+     docker compose up
+   Sem model.bin o processo termina com erro e não busca o arquivo na rede.
+
+6. API
+   http://127.0.0.1:8765
+   POST /api/texto com {"text": "..."}
+   POST /api/audio com o campo audio
+   GET /api/historico
+   O Host precisa ser 127.0.0.1:8765 ou localhost:8765.
+   Dentro do container o processo escuta em 0.0.0.0 para a porta publicada
+   alcançar a API. No host a publicação é só 127.0.0.1:8765.
+
+7. Logs
+     docker compose logs -f diario
+
+8. Parar e voltar
+     docker compose stop
+     docker compose start
+   O processo principal recebe SIGTERM. A fila queued é retomada na subida,
+   sem um novo envio. Se a parada corta uma transcrição, o item fica
+   processing. A reserva dura 15 minutos e não é tomada por outro passo
+   nesse intervalo. Depois desse prazo, a fila em execução ou a próxima
+   subida recolhe o item.
+
+9. Dados fictícios
+   O SQLite e os áudios ficam no volume diario-ficticio_diary-data.
+   docker compose down sem -v conserva o volume.
+   Cópia, com o container parado ou em execução:
+     docker compose cp diario:/data ./copia-diario
+   Para devolver: suba de novo e use docker compose cp no sentido inverso.
+
+10. Limpar de propósito
+    docker compose down -v
+    Isso apaga o volume desta demonstração. Não use -v se quiser conservar
+    os relatos fictícios.

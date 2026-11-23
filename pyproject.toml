@@ -7,6 +7,8 @@ dependencies = [
     "ollama>=0.6,<1",
     "pydantic>=2.11,<3",
     "httpx>=0.28,<1",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
     "prompt-toolkit>=3.0.50,<4",
     "vadersentiment>=3.3.2,<4",
     "cryptography>=42,<45",
@@ -16,10 +18,13 @@ dependencies = [
     "joblib>=1.3,<2",
     "numpy>=1.26,<3",
     "matplotlib>=3.8,<4",
+    "faster-whisper>=1.1,<2",
+    "av>=18,<19",
 ]
 
 [project.optional-dependencies]
 rag = ["sentence-transformers>=3,<6"]
+privacy = ["presidio-analyzer>=2.2.360,<3", "spacy>=3.8,<3.9"]
 
 [project.scripts]
 bem-estar = "app.shell:main"
@@ -39,7 +44,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "evaluation", "app", "models", "mlops", "data", "security"]
+packages = ["agents", "evaluation", "app", "models", "mlops", "data", "security", "privacy"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "knowledge_base/patient_demo" = "knowledge_base/patient_demo"
@@ -52,4 +57,4 @@ line-length = 100
 target-version = "py312"
 
 [tool.hatch.build.targets.sdist]
-include = ["/app", "/agents", "/evaluation", "/security", "/models", "/mlops", "/data", "/knowledge_base/patient_demo", "/tests", "/docs", "/README.md", "/README_MVP.md", "/pyproject.toml", "/uv.lock", "/.env.example"]
+include = ["/app", "/agents", "/evaluation", "/security", "/privacy", "/models", "/mlops", "/data", "/knowledge_base/patient_demo", "/tests", "/docs", "/README.md", "/README_MVP.md", "/pyproject.toml", "/uv.lock", "/.env.example"]

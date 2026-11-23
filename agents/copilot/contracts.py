@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import UUID4, AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -50,30 +50,57 @@ class DiaryRecord(Contract):
     record_id: str = Field(default_factory=lambda: uuid4().hex, pattern=r"^[A-Za-z0-9_-]{1,80}$")
     patient_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
     recorded_at: AwareDatetime
-    original_text: str = Field(min_length=1, max_length=20000)
-    source_title: str = Field(default="Diário sintético", min_length=1, max_length=200)
+    original_text: str | None = Field(default=None, min_length=1, max_length=20000)
+    treated_text: str | None = Field(default=None, min_length=1, max_length=200000)
+    representation_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,128}$")
+    detector_version: str | None = Field(default=None, min_length=1, max_length=512)
+    source_title: str = Field(default="Diário sintético", min_length=1, max_length=4096)
     classification: ThemePrediction = Field(
         default_factory=lambda: ThemePrediction(status="not_requested")
     )
     synthetic: Literal[True] = True
-    schema_version: Literal["1.0.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.0.0", "2.0.0"] = SCHEMA_VERSION
 
     @model_validator(mode="after")
-    def nonempty_text(self):
-        if not self.original_text.strip():
+    def valid_representation(self):
+        if self.schema_version == "2.0.0":
+            from pydantic import TypeAdapter
+
+            TypeAdapter(UUID4).validate_python(self.patient_id)
+            if self.original_text is not None or not all(
+                (self.treated_text, self.representation_id, self.detector_version)
+            ):
+                raise ValueError("Representação protegida inválida")
+        elif (
+            self.original_text is None or len(self.source_title) > 200
+            or any((self.treated_text, self.representation_id, self.detector_version))
+        ):
+            raise ValueError("Representação legada inválida")
+        if not self.analysis_text.strip():
             raise ValueError("Texto não pode ser composto apenas por espaços")
         return self
+
+    @property
+    def analysis_text(self) -> str:
+        return self.treated_text if self.treated_text is not None else (self.original_text or "")
+
+    @property
+    def evidence_key(self) -> str:
+        if self.representation_id:
+            return f"{self.record_id}:{self.representation_id}"
+        return self.record_id
 
 
 class Query(Contract):
     patient_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
-    question: str = Field(min_length=1, max_length=2000)
+    question: str = Field(min_length=1, max_length=20000)
+    treated: bool = False
     start_at: AwareDatetime | None = None
     end_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def valid_window(self):
-        if not self.question.strip():
+        if not self.question.strip() or (not self.treated and len(self.question) > 2000):
             raise ValueError("Pergunta vazia")
         if self.start_at and self.end_at and self.start_at > self.end_at:
             raise ValueError("Início do período posterior ao fim")
@@ -90,6 +117,7 @@ class Evidence(Contract):
     start_char: int = Field(ge=0)
     end_char: int = Field(ge=1)
     score: float = Field(ge=0)
+    representation_id: str | None = None
 
     @model_validator(mode="after")
     def valid_span(self):

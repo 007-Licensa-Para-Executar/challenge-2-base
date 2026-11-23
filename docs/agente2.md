@@ -1,5 +1,7 @@
 # Guia de Desenvolvimento: Agente 2 (Correlacionador Longitudinal e Analista de Padrões)
 
+> Para o caminho executável que usa dados tratados, consulte a [integração da API HTTP interna](api-local-pseudonimizacao.md).
+
 ## 1. Identificação e Propósito do Agente
 * **Arquivo no Código:** `agents/correlator/service.py` e `agents/correlator/prompt.py`
 * **Contrato de Dados:** `agents/correlator/contracts.py`

@@ -1,5 +1,7 @@
 # Fluxo de Processamento do Agente 1 (Decomposição Temática e Roda de Bem-Estar)
 
+> Para o caminho executável que usa dados tratados, consulte a [integração da API HTTP interna](api-local-pseudonimizacao.md).
+
 Este documento descreve detalhadamente o fluxo de funcionamento do **Agente 1 (Decompositor Temático e Extrator de Evidências)**, sua integração com a **Rede Neural MLP** e o motor da **Roda de Bem-Estar (Sunburst Chart)**, modelado para fornecer ao psicólogo uma plataforma visual hierárquica, dinâmica e longitudinal.
 
 ---

@@ -11,7 +11,7 @@ import uvicorn
 from cryptography.fernet import Fernet
 
 from agents.copilot import cli
-from agents.copilot.contracts import DraftAnswer, Statement
+from agents.copilot.contracts import DraftAnswer, Statement, ThemePrediction
 from privacy.client import PrivacyClient, PrivacyError
 from privacy.detector import FixtureDetector
 from privacy.server import create_app
@@ -70,12 +70,41 @@ def test_real_http_ingestion_query_and_identity(tmp_path, service, monkeypatch, 
     def classify(record, **_kwargs):
         received.append(record.analysis_text)
         assert record.original_text is None
-        return record
+        return record.model_copy(update={
+            "classification": ThemePrediction(status="ok", primary_theme="familia",
+                                              candidate_score=0.8),
+        })
 
+    agent1_calls = []
+    post = httpx.Client.post
+
+    def ollama_post(client, url, **kwargs):
+        if not url.endswith("/api/chat"):
+            return post(client, url, **kwargs)
+        prompt = kwargs["json"]["messages"][-1]["content"]
+        assert NAME not in prompt and "example.invalid" not in prompt
+        assert "Minha avó [PERSON_" in prompt and "[EMAIL]" in prompt
+        agent1_calls.append(prompt)
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "message": {"content": json.dumps({
+                "subtemas": [{
+                    "nome": "Avó", "descricao": "Relato sobre a avó",
+                    "evidencias": [{"quote_text": "Minha avó", "start_char": 0, "end_char": 9}],
+                }],
+                "sentimento_predominante": "nao_identificado", "score_polaridade": 0.0,
+                "indicio_textual_risco": "nao_identificado",
+            })},
+        })
+
+    monkeypatch.setattr(httpx.Client, "post", ollama_post)
     monkeypatch.setattr(cli, "classify_record", classify)
-    assert cli.main(["ingest", "--synthetic", "--classify", "--record-id", "demo1",
+    assert cli.main(["ingest", "--synthetic", "--classify", "--subtopics", "--record-id", "demo1",
                      "--text", text, "--title", NAME, *time_args, *flags]) == 0
     saved = json.loads(capsys.readouterr().out)
+    assert len(agent1_calls) == 1
+    assert saved["agent1"]["patient_id"] == patient
+    span = saved["agent1"]["subtemas"][0]["evidencias"][0]
+    assert saved["treated_text"][span["start_char"]:span["end_char"]] == span["quote_text"]
     assert cli.main(["ingest", "--synthetic", "--classify", "--record-id", "demo1",
                      "--text", text, "--title", NAME, *time_args, *flags]) == 0
     assert json.loads(capsys.readouterr().out)["representation_id"] == saved["representation_id"]
@@ -115,7 +144,8 @@ def test_failure_prevents_classification_and_analytics(tmp_path, service, monkey
         pytest.fail("classificação executada depois de falhar a API")
 
     monkeypatch.setattr(cli, "classify_record", unexpected)
-    args = ["ingest", "--synthetic", "--classify", "--privacy", "--privacy-dir", str(tmp_path),
+    args = ["ingest", "--synthetic", "--classify", "--subtopics", "--privacy-dir", str(tmp_path),
+            "--privacy",
             "--privacy-url", service, "--patient-id", str(uuid4()), "--text", NAME,
             "--at", "2026-11-18T12:00:00Z"]
     assert cli.main(args) == 2

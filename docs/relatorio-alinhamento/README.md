@@ -5,7 +5,7 @@
 Especificação de requisitos e arquitetura do produto, alinhada à versão 2.1 consolidada e ao documento de insights clínicos e arquitetura de agentes.
 
 - [Projeto LaTeX](main.tex): documento principal compilável com pdfLaTeX.
-- [PDF de leitura](relatorio.pdf): snapshot anterior, não regenerado nesta atualização; gere-o com `--pdf` se precisar da versão 2.1.
+- [PDF de leitura](relatorio.pdf): versão 2.1 compilada diretamente da fonte Markdown.
 - [Fonte editorial](relatorio.md): texto completo para revisão.
 - [Decisões e validações pendentes](perguntas-equipe.md): escolhas consolidadas e itens técnicos ainda por validar.
 

@@ -1,5 +1,7 @@
 # 06 - Rede Neural e Deep Learning: Classificação dos 8 Temas Clínicos
 
+> **Nota de alinhamento v2.1:** este documento descreve oito rótulos operacionais usados em uma implementação anterior. Na arquitetura consolidada, esses rótulos podem ser agrupados em seis macrotemas. Consulte o [relatório v2.1](relatorio-alinhamento/relatorio.md) para a taxonomia vigente e mantenha esta página como referência técnica histórica até o mapeamento final ser implementado.
+
 ## 1. Objetivo e Papel no Ecossistema
 
 O componente de **Deep Learning** atende diretamente à **Restrição 4 (Construir e testar pelo menos uma rede neural simples)** e fundamenta a primeira camada de inteligência do sistema.

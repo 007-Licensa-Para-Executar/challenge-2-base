@@ -8,10 +8,10 @@ Este cronograma orienta o desenvolvimento do **Diário Clínico Assistido & Copi
 
 | Restrição (Constraint) | Componente Técnico Responsável | Evidência Comprovável |
 | :--- | :--- | :--- |
-| **1. Ter pelo menos 2 agentes que trabalhem juntos** | Agente 1 (Decompositor de Subtemas e Evidências) integrado ao Agente 2 (Correlacionador Longitudinal) e Agente 3 (RAG). | Testes de integração em `tests/test_agents_collaboration.py` demonstrando passagem de dados estruturados entre os agentes. |
+| **1. Ter pelo menos 2 agentes que trabalhem juntos** | Arquitetura consolidada com Agente 1 (Extrator) e Agente 2 (Analista Longitudinal e Copiloto RAG). | Testes de integração demonstrando passagem de dados estruturados entre os dois agentes. |
 | **2. Ter uma base de conhecimento** | Base tripartite: Acervo de Diretrizes Clínicas (TCC/Beck), Histórico do Paciente e Regras do Sistema. | Módulo `knowledge_base/` com índice vetorial e documentos com metadados de proveniência (autor, licença, data). |
 | **3. Aplicar MLOps** | Pipeline em `mlops/`, lock do `uv`, CI e MLflow em SQLite com artefatos ao lado do banco. | `uv run bem-estar-mlops`, tag `promoted`, matriz de confusão e registry só após o gate de F1 macro. Ver `docs/mlops.md`. |
-| **4. Construir e testar rede neural simples** | MLP scikit-learn com TF-IDF para classificar o sentimento dos relatos sintéticos, comparado a um baseline de classe mais frequente. | `models/neural_net.py`, `models/baseline.py` e `tests/test_mlops.py`, com avaliação opcional no holdout. |
+| **4. Construir e testar rede neural simples** | MLP próprio com embeddings para sugerir uma categoria entre seis macrotemas consolidados, comparado a um baseline textual. | Pipeline, divisão treino/validação/teste e métricas reproduzíveis por macrotema. |
 | **5. Utilizar API por meio dos agentes** | Chamadas à API local Ollama, API de transcrição (STT Whisper) e API de busca vetorial. | Módulo de cliente HTTP tipado via `httpx` com tratamento de timeout, retry e testes de falha. |
 | **6. Ferramenta de versionamento de código** | Repositório Git com branches temáticas (`feat/*`), Conventional Commits e Pull Requests. | Histórico de commits claro, branches documentadas e PRs revisados. |
 | **7. Solução ética e explicável** | Governança CFP/LGPD, diário assíncrono (sem bot direto) e pop-up com citações literais exatas. | Documento `docs/etic-risks.md` e modal de rastreabilidade implementado na interface. |
@@ -24,11 +24,11 @@ Este cronograma orienta o desenvolvimento do **Diário Clínico Assistido & Copi
 
 ```
 Semana 1: Escopo, Fronteiras Clínicas e Alinhamento das 9 Constraints
-Semana 2: Geração de Dados Sintéticos (PsychAdapter) & Preparação do Dataset dos 8 Temas
+Semana 2: Geração de Dados Sintéticos (PsychAdapter) & Preparação do Dataset dos 6 Macrotemas
 Semana 3: Construção, Treino e Teste da Rede Neural Simples (MLP) + Rastreamento no MLflow
 Semana 4: Implementação do Agente 1 (Decompositor de Subtemas e Ancoragem Literal)
 Semana 5: Ingestão da Base de Conhecimento Clínico e Pipeline Híbrido de RAG (BM25 + e5-small)
-Semana 6: Implementação do Agente 2 (Correlacionador Longitudinal) e Agente 3 (Copiloto RAG)
+Semana 6: Implementação do Agente 2 (Análise Longitudinal e Copiloto RAG)
 Semana 7: Interface do Psicólogo Inspirada no ImpactBench (/explore) com Modal Pop-up de Citações
 Semana 8: Auditoria Geral de MLOps, Testes Ponta a Ponta, Gravação da Demonstração e Entrega
 ```
@@ -42,4 +42,4 @@ Semana 8: Auditoria Geral de MLOps, Testes Ponta a Ponta, Gravação da Demonstr
 3. **Execução Multiagente:** O Agente 1 extrai os subtemas (`irmão`, `pai`) e os recortes literais exatos com índices de caracteres.
 4. **Armazenamento:** O relato e os metadados são salvos no SQLite e vetorizados.
 5. **Dashboard Interativo:** O psicólogo abre a tela `/explore`, clica no cartão `Família`, visualiza a pílula `Irmão`, clica e o **Pop-up Modal** exibe a citação exata e a opção de ouvir o áudio.
-6. **RAG Clínico:** O psicólogo solicita apoio do Copiloto, e o Agente 3 retorna orientações fundamentadas em TCC com citação expressa do ID do documento.
+6. **RAG Clínico:** O psicólogo solicita apoio ao Agente 2, e o copiloto retorna informações fundamentadas em fontes autorizadas com citação expressa do documento e seção.

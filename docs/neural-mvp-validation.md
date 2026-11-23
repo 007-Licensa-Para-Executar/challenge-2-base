@@ -1,5 +1,7 @@
 # Validação técnica do Classificador Neural de Temas — Benchmark Pré-Produção
 
+> **Nota de alinhamento v2.1:** este relatório registra um benchmark anterior com oito rótulos operacionais e uma classe residual. Ele é evidência técnica histórica, não uma redefinição da taxonomia consolidada. No relatório v2.1, os resultados devem ser interpretados dentro de seis macrotemas; o mapeamento operacional ainda precisa ser fechado e validado.
+
 Data: 11/11/2026. Este documento consolida a evolução do classificador neural após a integração do conjunto de relatos reais anonimizados em português (`data/real_diaries.json`), a adoção de embeddings semânticos densos contínuos via LSA (TruncatedSVD + TF-IDF sublinear e ponderação IDF) e a calibração de probabilidades pós-treinamento por Temperature Scaling (Guo et al., 2017).
 
 ---

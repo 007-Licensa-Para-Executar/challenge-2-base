@@ -1,5 +1,7 @@
 # Dossiê Técnico e Teórico: Deep Learning & Rede Neural Clássica
 
+> **Nota de alinhamento v2.1:** este dossiê documenta uma implementação anterior com nove classes operacionais. Os conceitos de MLP e treinamento continuam relevantes, mas a taxonomia consolidada usa seis macrotemas. Consulte o [relatório v2.1](relatorio-alinhamento/relatorio.md) antes de interpretar os rótulos como especificação atual.
+
 > **Documento Oficial de Domínio Técnico e Fundamentação Científica**  
 > **Componente:** Classificador Neural dos 8 Macrotemas Clínicos (`models/`)  
 > **Público-Alvo:** Engenheiros de ML, Pesquisadores e Banca Avaliadora de Pós-Graduação/Mestrado

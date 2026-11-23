@@ -4,6 +4,12 @@ Bem-vindo à documentação técnica do **Diário Psicológico Assistido & Copil
 
 Este repositório foi projetado para atender com excelência às **9 Constraints do Challenge 2**, fornecendo guias modulares passo a passo para que você abra o documento correspondente e saiba exatamente o que fazer, como codificar, como testar e quais referências científicas seguir.
 
+## Documento consolidado de requisitos
+
+Para o alinhamento atual do produto, use como referência principal o [relatório consolidado v2.1](relatorio-alinhamento/relatorio.md). A versão consolidada define seis macrotemas, dois agentes locais e distingue requisitos pretendidos das capacidades efetivamente implementadas.
+
+Os documentos técnicos abaixo podem conter propostas, detalhes históricos ou nomes de implementação anteriores. Onde houver divergência, prevalece o relatório consolidado.
+
 ---
 
 ## 🗺️ Mapa de Navegação Rápida para Desenvolvedores
@@ -36,8 +42,8 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
   - *O que faz:* Formalização matemática completa, dedução do gradiente da Softmax/Cross-Entropy, engenharia de embeddings no `ClinicalTextEmbedder`, dualidade NumPy puro vs PyTorch, otimizadores e regularização.
 * [**`neural-network-flow.md`**](file:///docs/neural-network-flow.md): **Fluxograma e Funcionamento da Rede Neural**.
   - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência e treino), formulação matemática, comparação MLP vs RNN/LSTM/GRU, normalizações (BatchNorm/LayerNorm/RMSNorm), resolução de gradientes e exemplo real.
-* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
-  - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
+* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador Temático)**.
+  - *O que faz:* Multi-Layer Perceptron que pode usar oito rótulos operacionais (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`) mapeados aos seis macrotemas consolidados. Implementações completas em PyTorch e em NumPy puro.
   - *Código:* `models/torch_mlp.py` e `models/train.py`.
 * [**`banco-vetorial.md`**](file:///docs/banco-vetorial.md): **Banco Vetorial Local (`sqlite-vec`)**.
   - *O que faz:* Armazenamento relacional e vetorial de 384 dimensões 100% local, criptografado e sem envio de dados para a nuvem.
@@ -53,7 +59,7 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 
 ### 4. Interface e Operações
 * [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
-  - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
+  - *O que faz:* Dashboard interativo em Streamlit com visualização dos seis macrotemas consolidados, desdobramento em subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
   - *Código:* `app/dashboard.py`.
 * [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
   - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.

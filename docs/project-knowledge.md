@@ -14,7 +14,7 @@ Estudos recentes de grande escala (como McBain et al., *JAMA Network Open*, 2025
 Ao invés de desabafar com um bot conversacional que tenta agir como terapeuta substituto, o paciente utiliza um **Diário Multimodal Pessoal** (suportando texto escrito, fotos/imagens de apoio e mensagens de voz gravadas). 
 1. **O paciente desabafa de forma autêntica e privada**, sabendo que o material não será julgado por um chatbot, mas servirá de subsídio para o seu psicólogo real.
 2. **O sistema inteligente processa esses registros em segundo plano**, através de uma Rede Neural de Deep Learning para categorização macrotemática e de uma rede colaborativa de agentes de IA para decomposição em subtemas, correlação longitudinal e busca em diretrizes clínicas (RAG).
-3. **O psicólogo acessa um Painel Interativo inspirado no MIT ImpactBench**, onde visualiza a evolução longitudinal do paciente, os 8 temas clínicos fundamentais, os subtemas emergentes e, ao clicar, abre *pop-ups* com as citações e trechos literais exatos (áudio ou texto) gravados pelo paciente fora da sessão.
+3. **O psicólogo acessa um Painel Interativo inspirado no MIT ImpactBench**, onde visualiza a evolução longitudinal do paciente, os seis macrotemas consolidados, os subtemas emergentes e, ao clicar, abre *pop-ups* com as citações e trechos literais exatos (áudio ou texto) gravados pelo paciente fora da sessão.
 
 ---
 
@@ -58,14 +58,12 @@ flowchart TD
         
         DB_PACIENTE --> AG2["Agente 2: Correlacionador Longitudinal & Padrões"]
         
-        AG2 --> AG3["Agente 3: Copiloto Clínico & RAG de Diretrizes"]
-        RAG_KB[("Base de Diretrizes Clínicas (TCC / DSM-5 / RAG)")] --> AG3
+        RAG_KB[("Base de Diretrizes Clínicas (TCC / RAG)")] --> AG2
     end
 
     subgraph Psicologo ["4. Painel Clínico do Psicólogo (ImpactBench-Style)"]
         AG2 --> DASH["Dashboard Interativo (/explore)"]
-        AG3 --> DASH
-        DASH --> V1["Visualização dos 8 Temas Principais"]
+        DASH --> V1["Visualização dos 6 Macrotemas Consolidados"]
         V1 -->|Clique no Tema| V2["Expansão dos Subtemas Clínicos"]
         V2 -->|Clique no Subtema| MODAL["Modal Pop-up com Citações Literais / Áudio"]
     end
@@ -80,7 +78,7 @@ flowchart TD
    - A **Rede Neural** (construída e treinada pelo grupo) avalia o texto e detecta que a temática preponderante é **Família** (com 91% de probabilidade).
    - O **Agente 1 (Decompositor)** analisa o conteúdo em profundidade e descobre os subtemas específicos: *"Discussão sobre finanças do pai"* e *"Relação com irmão mais novo"*. Mapeia os trechos literais exatos com carimbos de tempo e posições de caracteres.
    - O **Agente 2 (Correlacionador Longitudinal)** verifica os últimos 30 dias e nota que o subtema *"irmão"* é reincidente às quintas-feiras e correlaciona-se com picos do sentimento *"frustração"*.
-   - O **Agente 3 (RAG de Diretrizes)** consulta protocolos clínicos autorizados (ex: TCC para resolução de conflitos e comunicação assertiva) e gera sugestões de perguntas investigativas para o psicólogo abordar em sessão.
+   - O **Agente 2 (Analista Longitudinal e Copiloto RAG)** consulta protocolos clínicos autorizados (ex: TCC para resolução de conflitos e comunicação assertiva) e gera sínteses, briefings e sugestões revisáveis ao psicólogo.
 3. **Consulta Clínica Enriquecida:**
    - Minutos antes da sessão, o psicólogo abre a tela do paciente no sistema (com interface visual limpa no estilo ImpactBench).
    - O psicólogo nota o alerta visual no tema **Família**, clica e vê o nó **Irmão**.
@@ -93,10 +91,10 @@ flowchart TD
 
 | Restrição | Como o Projeto Atende |
 | :--- | :--- |
-| **1. Pelo menos 2 agentes que trabalhem juntos** | **Três agentes integrados:** Agente 1 (Decompositor/Extrator de Subtemas) alimenta o Agente 2 (Correlacionador Longitudinal), que por sua vez aciona o Agente 3 (Consultor RAG de Diretrizes Clínicas). |
+| **1. Pelo menos 2 agentes que trabalhem juntos** | **Arquitetura consolidada com dois agentes:** Agente 1 (Extrator) estrutura relatos e evidências; Agente 2 (Analista Longitudinal e Copiloto RAG) produz sínteses e consultas normativas autorizadas. |
 | **2. Ter uma base de conhecimento** | Base tripartite: Acervo de Diretrizes Clínicas autorizadas (TCC/Beck, protocolos de regulação emocional), Base Histórica de Relatos do Paciente e Regras Imutáveis de Sistema. |
 | **3. Aplicar MLOps** | Pipeline estruturado com `uv`, GitHub Actions (CI para pytest e ruff), rastreamento de experimentos com MLflow (hiperparâmetros, loss, F1-macro e matrizes de confusão) e versionamento de modelos. |
-| **4. Construir e testar pelo menos uma rede neural simples** | Rede Neural MLP construída e treinada especificamente para classificar os 8 temas padrão a partir de vetores de texto, com divisão treino/validação/teste e métricas reproduzíveis. |
+| **4. Construir e testar pelo menos uma rede neural simples** | Rede Neural MLP construída e treinada para sugerir uma categoria entre seis macrotemas consolidados a partir de vetores de texto, com divisão treino/validação/teste e métricas reproduzíveis. |
 | **5. Utilizar API por meio dos agentes** | Agentes utilizam APIs para transcrição de áudio (STT), inferência de LLM (API local Ollama / OpenAI-compatible via `httpx`/`pydantic-ai`) e recuperação vetorial. |
 | **6. Ferramenta de versionamento de código** | Repositório Git com histórico atômico, branches temáticas (`feat/*`), convenção de Conventional Commits e Pull Requests documentados. |
 | **7. Solução ética e explicável** | Governança alinhada ao CFP e NIST AI RMF: privacidade local, abstenção estrita de diagnósticos/prescrições e rastreabilidade total (pop-up de evidências literais). |

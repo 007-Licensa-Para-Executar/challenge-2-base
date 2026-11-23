@@ -23,6 +23,7 @@ from agents.patient_diary import (
     parse_entry,
 )
 from agents.patient_diary.contracts import Segment, TranscriptResult
+from agents.patient_diary.store import _CARE_LINKS, _ENTRIES_V3, _TRANSCRIPTS
 
 
 def actor(user_id="alice", role="patient"):
@@ -236,7 +237,7 @@ def test_faster_whisper_stays_local_and_optional(tmp_path, monkeypatch):
 
         def transcribe(self, audio, language, initial_prompt=None):
             assert language == "pt"
-            assert "Brasil" in initial_prompt
+            assert initial_prompt is None
             segment = SimpleNamespace(start=0.0, end=0.4, text=" olá sintético ")
             return iter([segment]), SimpleNamespace(language="pt")
 
@@ -391,7 +392,78 @@ def test_version_two_entries_survive_the_transcript_migration(tmp_path):
     assert entries[1].audio_sha256 == digest
     assert entries[1].processing_status == "queued"
     with sqlite3.connect(path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transcripts'"
         ).fetchone()
+        assert conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'transcript_revisions'"
+        ).fetchone()
+
+
+def test_version_four_database_gains_revisions_without_losing_rows(tmp_path):
+    path = tmp_path / "v4.sqlite3"
+    written = "Relato fictício da versão 4."
+    heard = "Transcrição automática fictícia."
+    audio_name = f"{'ab' * 16}.wav"
+    digest = "cd" * 32
+    with sqlite3.connect(path) as conn:
+        conn.execute("PRAGMA user_version = 4")
+        conn.execute(_ENTRIES_V3)
+        conn.execute(_CARE_LINKS)
+        conn.execute(_TRANSCRIPTS)
+        conn.execute(
+            "INSERT INTO patient_entries ("
+            "entry_id, patient_id, author_user_id, created_at, input_type, original_text, "
+            "processing_status, consent_id) VALUES (?, ?, ?, ?, 'text', ?, 'ready', ?)",
+            ("t1", "alice", "alice", "2026-11-05T12:00:00.000000+00:00", written, "consent-1"),
+        )
+        conn.execute(
+            "INSERT INTO patient_entries ("
+            "entry_id, patient_id, author_user_id, created_at, input_type, original_text, "
+            "processing_status, consent_id, audio_path, audio_sha256, duration_sec) "
+            "VALUES (?, ?, ?, ?, 'audio', NULL, 'ready', ?, ?, ?, ?)",
+            (
+                "a1",
+                "alice",
+                "alice",
+                "2026-11-05T12:00:01.000000+00:00",
+                "consent-1",
+                audio_name,
+                digest,
+                0.4,
+            ),
+        )
+        conn.execute(
+            "INSERT INTO transcripts ("
+            "transcript_id, entry_id, language, text, segments_json, model_name, "
+            "created_at, status) VALUES (?, ?, 'pt', ?, ?, ?, ?, 'ready')",
+            (
+                "tr1",
+                "a1",
+                heard,
+                '[{"start_sec": 0.0, "end_sec": 0.4, "text": "Transcrição automática fictícia."}]',
+                "faster-whisper-small",
+                "2026-11-05T12:00:02.000000+00:00",
+            ),
+        )
+    diary = PatientDiaryStore(path, tmp_path / "audio")
+    entries = diary.list_entries("alice", actor())
+    assert [item.entry_id for item in entries] == ["t1", "a1"]
+    assert entries[0].original_text == written
+    assert entries[1].audio_sha256 == digest
+    assert diary.read_transcript("a1", actor()).text == heard
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("SELECT text FROM transcripts WHERE entry_id = 'a1'").fetchone() == (
+            heard,
+        )
+        assert conn.execute("SELECT COUNT(*) FROM transcript_revisions").fetchone() == (0,)
+    again = PatientDiaryStore(path, tmp_path / "audio")
+    assert again.list_entries("alice", actor())[0].original_text == written
+    assert again.read_transcript("a1", actor()).text == heard
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("SELECT COUNT(*) FROM patient_entries").fetchone() == (2,)
+        assert conn.execute("SELECT COUNT(*) FROM transcripts").fetchone() == (1,)
+        assert conn.execute("SELECT COUNT(*) FROM transcript_revisions").fetchone() == (0,)

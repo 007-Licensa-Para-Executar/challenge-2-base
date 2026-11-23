@@ -8,6 +8,7 @@ import pytest
 from agents.patient_diary.contracts import InvalidEntryError
 from agents.patient_diary.evaluate import (
     CLINICAL_LIMIT,
+    FICTIONAL_LINES,
     evaluate_audio,
     main,
     normalize,
@@ -35,6 +36,14 @@ def test_wer_and_cer_of_the_espeak_sample():
     assert ("name", "Marina", "missed") in notes
     assert ("symptom", "dor", "missed") in notes
     assert ("medication", "remédio", "preserved") in notes
+
+
+def test_fictional_lines_cover_negation_name_emotion_and_pauses():
+    labels = [line.label for line in FICTIONAL_LINES]
+    assert labels == ["curta", "negacao", "nome", "emocao", "longa", "pausas"]
+    heard = score_pair("Não.", "")
+    assert heard.hypothesis == ""
+    assert any(note.kind == "negation" and note.status == "missed" for note in heard.terms)
 
 
 def test_empty_reference_is_rejected():

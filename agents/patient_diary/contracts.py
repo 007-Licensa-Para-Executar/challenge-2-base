@@ -139,6 +139,45 @@ class Transcript(Contract):
         return self
 
 
+class TranscriptRevision(Contract):
+    """Correção humana. Não substitui a linha da transcrição automática."""
+
+    revision_id: str = Field(pattern=ID_PATTERN)
+    entry_id: str = Field(pattern=ID_PATTERN)
+    revised_text: str = Field(min_length=1, max_length=TEXT_LIMIT)
+    reviewer_user_id: str = Field(pattern=ID_PATTERN)
+    created_at: AwareDatetime
+    revision_number: int = Field(ge=1)
+
+
+class ThemeSource(Contract):
+    """Texto que pode seguir para a rede. Áudio sem revisão sai sem o texto automático."""
+
+    entry_id: str = Field(pattern=ID_PATTERN)
+    patient_id: str = Field(pattern=ID_PATTERN)
+    text: str | None = Field(default=None, min_length=1, max_length=TEXT_LIMIT)
+    input_type: Literal["text", "audio"]
+    text_source: Literal["written", "reviewed_transcript", "none"]
+    review_status: Literal["not_required", "unreviewed", "reviewed"]
+    created_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def confirmed(self):
+        if self.review_status == "unreviewed":
+            if self.text is not None or self.text_source != "none" or self.input_type != "audio":
+                raise ValueError("unreviewed_transcript")
+            return self
+        if not self.text or not self.text.strip():
+            raise ValueError("empty_text")
+        if self.review_status == "not_required":
+            if self.input_type != "text" or self.text_source != "written":
+                raise ValueError("invalid_entry")
+            return self
+        if self.input_type != "audio" or self.text_source != "reviewed_transcript":
+            raise ValueError("invalid_entry")
+        return self
+
+
 class Actor(Contract):
     """Identidade da sessão. Não autentica e não carrega permissões declaradas pelo cliente."""
 

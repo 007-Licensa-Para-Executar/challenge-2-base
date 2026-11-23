@@ -57,8 +57,8 @@ def test_stores_text_preserves_accents_and_normalizes_timezone(tmp_path):
         }
         version = conn.execute("PRAGMA user_version").fetchone()[0]
     assert raw == ("2026-11-05T12:00:00.000000+00:00", text)
-    assert tables == {"patient_entries", "care_links", "transcripts"}
-    assert version == 4
+    assert tables == {"patient_entries", "care_links", "transcripts", "transcript_revisions"}
+    assert version == 5
     import os
 
     if os.name != "nt":

@@ -61,11 +61,8 @@ class FasterWhisperTranscriber:
     def transcribe(self, path: Path) -> TranscriptResult:
         model = self._load()
         try:
-            segments, _info = model.transcribe(
-                str(path),
-                language="pt",
-                initial_prompt="Transcrição em português do Brasil.",
-            )
+            # Sem prompt inicial: ele apagou a frase curta "Não." no áudio fictício.
+            segments, _info = model.transcribe(str(path), language="pt")
             pieces = [
                 Segment(start_sec=float(item.start), end_sec=float(item.end), text=item.text.strip())
                 for item in segments

@@ -297,7 +297,7 @@ def test_migrates_written_entries_and_refuses_rag_databases(tmp_path):
     assert [item.entry_id for item in entries] == ["a1", "t1"]
     assert entries[1].original_text == text
     with sqlite3.connect(legacy) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert conn.execute("SELECT COUNT(*) FROM patient_entries").fetchone() == (2,)
 
     foreign = tmp_path / "rag.sqlite3"

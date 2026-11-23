@@ -1,21 +1,21 @@
 # Diário Emocional Inteligênte
 
-**Equipe 007 - Licensa para Executar | Versão 1.0 | 06/11/2026**
+**Equipe 007 - Licensa para Executar | Versão 2.1 | 19/11/2026**
 
-Especificação autônoma de requisitos e arquitetura do produto, com autoria institucional da Equipe 007. O assistente usa o placeholder **[AGENT-NAME]** até a escolha do nome definitivo.
+Especificação de requisitos e arquitetura do produto, alinhada à versão 2.1 consolidada e ao documento de insights clínicos e arquitetura de agentes.
 
 - [Projeto LaTeX](main.tex): documento principal compilável com pdfLaTeX.
-- [PDF de leitura](relatorio.pdf): conteúdo equivalente, com paginação independente.
+- [PDF de leitura](relatorio.pdf): snapshot anterior, não regenerado nesta atualização; gere-o com `--pdf` se precisar da versão 2.1.
 - [Fonte editorial](relatorio.md): texto completo para revisão.
-- [Perguntas para a equipe](perguntas-equipe.md): 24 decisões agrupadas por dependência.
+- [Decisões e validações pendentes](perguntas-equipe.md): escolhas consolidadas e itens técnicos ainda por validar.
 
 ## Como revisar
 
-As lacunas e decisões abertas aparecem **em vermelho e entre colchetes no LaTeX e no PDF**. No Markdown, conservam os colchetes. O documento não declara funcionalidades implementadas nem resultados de avaliações ainda não realizadas.
+As validações ainda abertas aparecem **em vermelho e entre colchetes no LaTeX e no PDF**. No Markdown, conservam os colchetes. O documento não declara funcionalidades implementadas nem resultados de avaliações ainda não realizadas.
 
-Comece pelas decisões sobre taxonomia, quantidade de temas, dados, referências, construção da rede, corpus RAG e avaliação. Para cada resposta, registre escolha, justificativa, responsável, data e requisitos afetados. Nome, público, interface, autonomia e operação têm perguntas específicas. Requisitos e critérios de aceite têm identificadores próprios para permitir rastreabilidade.
+As definições consolidadas incluem público jovem-adulto, seis macrotemas, dois agentes locais e três camadas documentais. As validações pendentes concentram-se em dados e licenças, versões de modelos, metas de avaliação, controles operacionais e preparação para uso com dados reais.
 
-O relatório cobre visão, atores, jornadas, funções, regras, arquitetura, ferramentas, projetos locais, dados, rede neural, RAG, subtemas, visualizações, avaliação, MLOps e requisitos acadêmicos. A pesquisa bibliográfica tem corte em **06/11/2026**, inclui fontes primárias do MIT e distingue evidência científica de orientação de engenharia de fornecedores.
+O relatório cobre visão, atores, jornadas, requisitos, camadas de acesso, pseudonimização, agentes, rede neural, RAG, acompanhamento longitudinal, avaliação e MLOps. A versão foi consolidada em **19/11/2026** e distingue requisitos de implementação comprovada.
 
 ## Edição e geração
 
@@ -31,7 +31,7 @@ No macOS/Linux, use `python3` se necessário. O script usa somente a biblioteca 
 uv run --no-project --with reportlab python gerar_relatorio.py --pdf
 ```
 
-O comando com `--pdf` pode baixar ReportLab na primeira execução e não altera dependências do aplicativo. O PDF é gerado diretamente do Markdown; o PDF do compilador LaTeX possui tipografia e paginação próprias. O gerador aplica vermelho aos trechos entre colchetes, inclusive ao placeholder do nome, e usa metadados determinísticos no PDF de leitura.
+O comando com `--pdf` pode baixar ReportLab na primeira execução e não altera dependências do aplicativo. O PDF é gerado diretamente do Markdown; o PDF do compilador LaTeX possui tipografia e paginação próprias. O gerador aplica vermelho aos trechos entre colchetes e usa metadados determinísticos no PDF de leitura.
 
 ## LaTeX e Overleaf
 

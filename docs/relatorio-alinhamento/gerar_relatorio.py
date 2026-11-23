@@ -12,8 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 TITLE = "Diário Emocional Inteligênte"
-SUBTITLE = "Especificação de requisitos e arquitetura de referência"
-VERSION = "Equipe 007 - Licensa para Executar | Versão 1.0 | 06/11/2026"
+SUBTITLE = "Especificação de requisitos, conformidade ético-legal e arquitetura de referência"
+VERSION = "Equipe 007 - Licensa para Executar | Versão 2.1 | 19/11/2026"
 PENDING = r"\[(?:[^\[\]]|\[[^\[\]]*\])*\]"
 
 
@@ -111,16 +111,16 @@ def make_tex(content) -> str:
 \vspace{12mm}
 {\Huge\bfseries Diário Emocional Inteligênte\par}
 \vspace{6mm}
-{\LARGE Especificação de requisitos e arquitetura de referência\par}
+{\LARGE Especificação de requisitos, conformidade ético-legal e arquitetura de referência\par}
 \vspace{14mm}
-{\large Versão 1.0 / 06 de novembro de 2026\par}
+{\large Versão 2.1 / 19 de novembro de 2026\par}
 \vspace{8mm}
-Um agente a serviço da organização profissional.\par
-Assistente: \pendencia{AGENT-NAME}.\par
+Dois agentes locais sob supervisão da psicóloga.\par
+Agente 1: Extrator. Agente 2: Analista Longitudinal e Copiloto RAG.\par
 \vfill
 Autoria institucional: Equipe 007 - Licensa para Executar.\par
 Challenge 2 - Bem-estar.\par
-\pendencia{Decisões abertas aparecem em vermelho e entre colchetes.}\par
+\pendencia{Validações técnicas abertas aparecem em vermelho e entre colchetes.}\par
 Especificação do produto pretendido; não representa declaração de implementação.\par
 \end{titlepage}
 \tableofcontents
@@ -232,13 +232,13 @@ def make_pdf(content) -> None:
         Paragraph(SUBTITLE, subtitle),
         Spacer(1, 12 * mm),
         Paragraph(pdf_inline(VERSION), body),
-        Paragraph("Um agente a serviço da organização profissional.", body),
-        Paragraph(pdf_inline("Assistente: [AGENT-NAME]"), body),
+        Paragraph("Dois agentes locais sob supervisão da psicóloga.", body),
+        Paragraph("Agente 1: Extrator. Agente 2: Analista Longitudinal e Copiloto RAG.", body),
         Spacer(1, 30 * mm),
         Paragraph("Autoria institucional: Equipe 007 - Licensa para Executar.", body),
         Paragraph("Challenge 2 - Bem-estar.", body),
         Paragraph(
-            pdf_inline("[Decisões abertas aparecem em vermelho e entre colchetes.]"),
+            pdf_inline("[Validações técnicas abertas aparecem em vermelho e entre colchetes.]"),
             body,
         ),
         Paragraph(
@@ -290,7 +290,7 @@ def make_pdf(content) -> None:
         if doc.page > 1:
             canvas.setFont("Vera", 7.5)
             canvas.setFillColor(colors.HexColor("#526471"))
-            canvas.drawString(23 * mm, 13 * mm, "Equipe 007 | Requisitos | v1.0 | 06/11/2026")
+            canvas.drawString(23 * mm, 13 * mm, "Equipe 007 | Requisitos | v2.1 | 19/11/2026")
             canvas.drawRightString(187 * mm, 13 * mm, str(doc.page))
 
     doc = SimpleDocTemplate(
@@ -319,12 +319,12 @@ def main() -> None:
     markdown = (ROOT / "relatorio.md").read_text(encoding="utf-8")
     content = list(blocks(markdown))
     (ROOT / "main.tex").write_text(make_tex(content), encoding="utf-8")
-    questions = markdown.split("## 20. Perguntas para decisão da Equipe 007\n", 1)[1]
+    questions = markdown.split("## 20. Decisões consolidadas e validações pendentes\n", 1)[1]
     questions = questions.split("## 21.", 1)[0]
     (ROOT / "perguntas-equipe.md").write_text(
-        "# Decisões da Equipe 007 - Licensa para Executar\n\n"
-        "Diário Emocional Inteligênte | 06/11/2026 | Versão 1.0\n\n"
-        "No PDF e no LaTeX, os itens entre colchetes aparecem em vermelho.\n" + questions,
+        "# Decisões consolidadas e validações pendentes - Equipe 007\n\n"
+        "Diário Emocional Inteligênte | 19/11/2026 | Versão 2.1\n\n"
+        "No PDF e no LaTeX, os itens entre colchetes aparecem em vermelho.\n\n" + questions,
         encoding="utf-8",
     )
     if args.pdf:

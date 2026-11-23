@@ -1,6 +1,15 @@
 """Diário do paciente, fora do RAG de relatos sintéticos e da literatura."""
 
-from .contracts import Actor, InvalidEntryError, PatientEntry, QueuedAudio, Transcript, parse_entry
+from .contracts import (
+    Actor,
+    EmotionCheckin,
+    InvalidEntryError,
+    PatientEntry,
+    QueuedAudio,
+    Transcript,
+    parse_emotion_checkin,
+    parse_entry,
+)
 from .store import (
     AccessDeniedError,
     DuplicateAudioError,
@@ -16,6 +25,7 @@ __all__ = [
     "AccessDeniedError",
     "Actor",
     "DuplicateAudioError",
+    "EmotionCheckin",
     "EntryConflictError",
     "EntryNotFoundError",
     "FakeTranscriber",
@@ -28,5 +38,6 @@ __all__ = [
     "Transcript",
     "TranscriptionError",
     "TranscriptionWorker",
+    "parse_emotion_checkin",
     "parse_entry",
 ]

@@ -64,6 +64,15 @@ export default function AuthForm({ mode }) {
         return;
       }
 
+      // Avisa outras abas; a lista da psicóloga relê os dados do servidor ao receber o sinal.
+      if (cadastro) {
+        try {
+          window.localStorage.setItem("meu-diario:cadastro-atualizado", String(Date.now()));
+        } catch {
+          // A atualização periódica continua funcionando mesmo se o navegador bloquear o storage.
+        }
+      }
+
       setAviso({
         tipo: "sucesso",
         texto:
@@ -72,16 +81,6 @@ export default function AuthForm({ mode }) {
             ? "Cadastro enviado. Agora você já pode entrar com seus dados."
             : "Acesso realizado com sucesso."),
       });
-
-      if (!cadastro) {
-        setTimeout(() => {
-          window.location.href = "/diario";
-        }, 500);
-      } else {
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 1200);
-      }
     } catch {
       setAviso({
         tipo: "erro",

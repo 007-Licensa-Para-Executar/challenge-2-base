@@ -2,7 +2,6 @@
   "name": "diario-paciente-auth-next",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -10,11 +9,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node test-integration.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.4.6",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
   }
 }

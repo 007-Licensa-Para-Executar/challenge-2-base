@@ -1,0 +1,5 @@
+# Dependências e arquivos gerados pela app Next.js.
+node_modules/
+.next/
+out/
+data/

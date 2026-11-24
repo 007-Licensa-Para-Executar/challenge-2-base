@@ -2,7 +2,7 @@
 
 ## 1. Visão Geral da Colaboração Multiagente
 
-Para cumprir com rigor as restrições do projeto (**Requisito 1: Pelo menos 2 agentes que trabalhem juntos** e **Requisito 5: Utilizar API por meio dos agentes**), o sistema adota um pipeline colaborativo com especialização estrita de papéis. Em vez de delegar todas as tarefas a um único modelo genérico, três agentes com contratos de dados definidos e validados por Pydantic cooperam em etapas sequenciais e cíclicas.
+Para cumprir com rigor as restrições do projeto (**Requisito 1: Pelo menos 2 agentes que trabalhem juntos** e **Requisito 5: Utilizar API por meio dos agentes**), o sistema adota um pipeline colaborativo com especialização estrita de papéis. Dois agentes com contratos definidos e validados por Pydantic cooperam por meio de documentos publicados em um barramento.
 
 ```mermaid
 sequenceDiagram
@@ -12,7 +12,7 @@ sequenceDiagram
     participant Ag1 as Agente 1 (Decompositor & Evidências)
     participant Store as Repositório Clínico (SQLite / Vetorial)
     participant Ag2 as Agente 2 (Correlacionador Longitudinal)
-    participant Ag3 as Agente 3 (RAG & Copiloto Clínico)
+    participant KB as Base de Conhecimento
     actor Psicologo as Psicólogo (Dashboard)
 
     Paciente->>DL: Envia relato do diário (Texto/Áudio transcrito)
@@ -20,14 +20,10 @@ sequenceDiagram
     Ag1->>Ag1: Extrai Subtemas ("Irmão", "Pai") e Trechos Literais Exatos
     Ag1->>Store: Persiste Metadados Estruturados e Spans de Evidência
     
-    Psicologo->>Ag2: Solicita panorama da semana / mês do paciente
-    Ag2->>Store: Recupera histórico longitudinal de registros
-    Ag2->>Ag2: Identifica padrões, gatilhos recorrentes e correlações afetivas
-    Ag2-->>Psicologo: Alimenta Dashboard com Métricas e Nós Interativos
-    
-    Psicologo->>Ag3: Clica em Subtema ou solicita subsídio terapêutico
-    Ag3->>Store: Consulta Base de Conhecimento Clínico (RAG - TCC / Beck)
-    Ag3-->>Psicologo: Retorna Diretrizes Clínicas citadas e sugestões de pauta
+    Psicologo->>Ag2: Solicita síntese, rascunho ou briefing
+    Ag2->>Store: Recupera histórico válido e textos autorizados da janela
+    Ag2->>KB: No modo briefing, consulta diretrizes autorizadas
+    Ag2-->>Psicologo: Retorna síntese, rascunho ou briefing citado
 ```
 
 ---
@@ -59,20 +55,7 @@ sequenceDiagram
   2. **Detecção de Trajetória Afetiva:** Calcular tendências de melhora ou agravamento de humor em relação a semanas anteriores (inspirado nas dimensões psicológicas do MIT ImpactBench).
   3. **Mapeamento de Recursos Protetivos vs. Gatilhos de Vulnerabilidade:** Separar momentos em que o paciente relatou superação, suporte social e sentimentos positivos daqueles marcados por estresse agudo.
 * **Saídas:** Esquema estruturado `LongitudinalSynthesis` consumido diretamente pelos gráficos e cartões do Dashboard do psicólogo.
-* **Colaboração:** Consome diretamente os dados gerados pelo Agente 1 e entrega dados sumarizados para o Agente 3 e para a interface visual.
-
-### Agente 3: Copiloto Clínico & Especialista RAG em Diretrizes
-* **Papel:** Consultar acervos clínicos validados (TCC, diretrizes da APA, protocolos de regulação emocional) para subsidiar o psicólogo com hipóteses e perguntas reflexivas para a sessão.
-* **Entradas:**
-  - Subtema selecionado pelo psicólogo no painel ou síntese longitudinal gerada pelo Agente 2.
-  - Base de Conhecimento Clínico (recuperação híbrida via banco vetorial e BM25).
-* **Tarefas Internas:**
-  1. **Recuperação Contextual:** Buscar na literatura técnica autorizada protocolos pertinentes ao subtema e à dinâmica emocional identificada (ex: técnicas de reestruturação cognitiva para desentendimentos familiares).
-  2. **Elaboração de Perguntas Investigativas:** Formular de 2 a 4 sugestões de perguntas abertas que o psicólogo pode usar em sessão para aprofundar o relato trazido pelo diário.
-  3. **Explicabilidade por Citações Mandatórias:** Toda recomendação teórica deve vir acompanhada pelo identificador da fonte clínica (`[Doc_ID]`, capítulo/página e título).
-  4. **Regra de Abstenção Total:** Caso o subtema não tenha literatura clínica indexada na base do sistema, o agente deve declarar explicitamente sua insuficiência de dados.
-* **Saídas:** Relatório estruturado `ClinicalGuidelineBriefing` exibido na aba de apoio do psicólogo.
-* **Chamadas de API:** API do motor vetorial e API de inferência de linguagem com parâmetros restritos de temperatura ($T = 0.1$).
+* **Colaboração:** Consome diretamente os registros validados produzidos pelo Agente 1. No modo briefing, consulta uma base autorizada e pode se abster quando não houver respaldo suficiente.
 
 ---
 

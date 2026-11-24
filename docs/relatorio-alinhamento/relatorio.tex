@@ -63,14 +63,16 @@ Ao mesmo tempo, agentes de IA conversacionais, por estarem disponíveis a qualqu
 A solução contribui para o bem-estar ao fortalecer o acompanhamento psicológico, e não ao substituí-lo. Ao organizar os registros do paciente entre as sessões, o sistema oferece ao psicólogo uma visão mais contínua e estruturada da evolução emocional do paciente, o que permite sessões mais bem direcionadas e a percepção mais cedo de mudanças relevantes. O efeito esperado é um cuidado mais próximo e consistente, com a decisão clínica permanecendo sempre com o profissional.
 
 \subsection{Guiding Questions}
-Listar as principais perguntas que orientaram o desenvolvimento.
+Como organizar registros emocionais entre sessões sem substituir o julgamento clínico do psicólogo?
+Como tornar temas, sentimentos e evidências rastreáveis?
+Como distinguir padrões estruturados de dados originais e preservar o contexto do paciente?
+Como avaliar o RAG e a abstenção sem gerar condutas clínicas fabricadas?
 
 \subsection{Essential Question}
 ``A IA vai substituir o humano ou ampliar seu potencial?''
 
 \subsection{Hipótese Elaborada pelo Grupo}
-A IA tem como principal potencial ser uma ferramenta de aprimoramento do trabalho humano. No contexto de saúde mental, ela pode ampliar a capacidade do psicólogo de acompanhar seus pacientes, organizando informações e destacando pontos de atenção. Por outro lado, é pouco provável que consiga substituí-lo, pois o cuidado psicológico depende de julgamento clínico, vínculo, responsabilidade ética e interpretação de contexto, que a IA não oferece de forma confiável.
-% descrever melhor como, de forma técnica, um agente não substitui um psicólogo
+A IA tem como principal potencial ser uma ferramenta de aprimoramento do trabalho humano. No contexto de saúde mental, ela pode ampliar a capacidade do psicólogo de acompanhar seus pacientes, organizando informações e destacando pontos de atenção. Por outro lado, é pouco provável que consiga substituí-lo, pois o cuidado psicológico depende de julgamento clínico, vínculo, responsabilidade ética e interpretação de contexto, que a IA não oferece de forma confiável. Tecnicamente, o sistema se limita a extrair estruturas, calcular resultados determinísticos e preparar briefings ancorados em fontes; não mantém vínculo, não decide condutas e não publica resultados sem revisão humana.
 
 
 % =====================================================
@@ -89,8 +91,6 @@ A IA tem como principal potencial ser uma ferramenta de aprimoramento do trabalh
 
 % =====================================================
 \section{Visão Geral da Solução}
-
-% melhor contextitalização do que é um diário de bordo
 
 \subsection{Objetivo Geral}
 Desenvolver um sistema multiagente que apoie o acompanhamento psicológico entre sessões, transformando os registros escritos pelo paciente em informações organizadas que auxiliem o psicólogo, sem diagnosticar, aconselhar ou substituir o profissional.
@@ -339,7 +339,10 @@ O prompt de síntese orienta o modelo a analisar como os sentimentos evoluíram 
 \end{itemize}
 
 \subsection{Limitações}
-Descrever limitações identificadas.
+Os resultados apresentados são obtidos principalmente com dados sintéticos e não comprovam validade clínica.
+O modelo local pode produzir interpretações incorretas mesmo com saída JSON válida.
+A classificação automática não substitui avaliação profissional, triagem ou atendimento de crise.
+O modo briefing depende da qualidade e da cobertura da base autorizada; a ausência de resultados pode exigir abstenção.
 
 % =====================================================
 \section{Fluxograma da Solução}
@@ -478,22 +481,21 @@ análise. Nenhum conteúdo migra automaticamente para o prontuário ou para terc
 \begin{tabularx}{\textwidth}{|p{5cm}|Y|}
   \hline
   \cab{Categoria} & \cab{Ferramenta} \\ \hline
-  LLM                  & \\ \hline
-  Framework de Agentes & \\ \hline
-  Banco de Dados       & \\ \hline
-  API                  & \\ \hline
-  IDE                  & \\ \hline
-  Outros               & \\ \hline
+  LLM                  & Ollama local com saída estruturada via esquema Pydantic \\ \hline
+  Framework de Agentes & Python, Pydantic e orquestrador local por documentos \\ \hline
+  Banco de Dados       & SQLite para registros, documentos e metadados locais \\ \hline
+  API                  & HTTP local por meio de \texttt{httpx} \\ \hline
+  IDE                  & Visual Studio Code \\ \hline
+  Outros               & Pytest, PyTorch/NumPy, MLflow, uv e BM25/retrieval local \\ \hline
 \end{tabularx}
 
 \subsection{Metodologia de Desenvolvimento}
-Descrever:
 \begin{itemize}
-  \item Pesquisa realizada;
-  \item Processo de ideação;
-  \item Desenvolvimento;
-  \item Testes;
-  \item Iterações e melhorias.
+  \item Pesquisa sobre acompanhamento psicológico, explicabilidade, LGPD, RAG e arquitetura multiagente.
+  \item Ideação baseada em requisitos, jornadas de uso, riscos éticos e fronteiras clínicas.
+  \item Desenvolvimento incremental da rede neural, dos agentes, do barramento e da interface.
+  \item Testes automatizados de contratos, citações, abstenção, comunicação e reproducibilidade.
+  \item Iterações documentadas por branches, Pull Requests e revisão dos resultados.
 \end{itemize}
 
 % =====================================================

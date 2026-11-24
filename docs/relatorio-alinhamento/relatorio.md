@@ -147,7 +147,7 @@ O sistema possui dois percursos complementares. Na ingestão, recebe o original,
 | Recuperador RAG | Consulta e filtros de acesso | Trechos com origem e localização |
 | Persistência | Operações validadas | Registros duráveis e histórico de alterações |
 
-A colaboração entre agentes deve ser demonstrável por uma troca de informações tipadas e responsabilidades distintas. Não se deve contar cada função ou chamada de modelo como agente sem justificar seu papel. [DEC-10: adotar dois agentes, com organização e interface conversacional, ou três, separando análise longitudinal; documentar a responsabilidade e o ganho de cada um.]
+A colaboração entre agentes deve ser demonstrável por uma troca de informações tipadas e responsabilidades distintas. Não se deve contar cada função ou chamada de modelo como agente sem justificar seu papel. A arquitetura definida adota dois agentes: o Agente 1 organiza subtemas e evidências; o Agente 2 calcula a síntese longitudinal e consulta fontes autorizadas no modo briefing.
 
 Cálculos estatísticos, renderização, validação de acesso e gravações são serviços controlados. Sua execução não depende de o LLM improvisar fórmulas ou comandos. Uma operação determinística produz o mesmo resultado para os mesmos dados e regras; geração de linguagem pode variar. Temperatura baixa não representa garantia universal de determinismo.
 
@@ -388,7 +388,7 @@ As perguntas abaixo são o roteiro de discussão. Cada item em vermelho deve ser
 
 ### 20.2. Decisões de funcionamento do produto
 
-[DEC-10 - Papéis agênticos: dois ou três agentes? Quem organiza subtemas, quem calcula/consulta o histórico e quem conversa com a profissional? Qual colaboração será demonstrada e por que cada agente é necessário?]
+**DEC-10 (decidido):** adotar dois agentes. O Agente 1 organiza subtemas e evidências; o Agente 2 calcula a síntese longitudinal e, no modo briefing, consulta fontes autorizadas. A colaboração será demonstrada pela troca de documentos tipados e validados pelo barramento.
 
 [DEC-11 - Execução: quais modelos e ferramentas de orquestração/rastreamento? Tudo local ou algum serviço externo explicitamente escolhido? Qual comportamento sem internet, sem modelo ou com memória insuficiente?]
 

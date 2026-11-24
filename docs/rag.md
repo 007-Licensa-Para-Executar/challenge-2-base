@@ -6,7 +6,7 @@
   1. **Busca Lexical (BM25):** Para correspondência exata de termos técnicos clínicos e palavras-chave específicas.
   2. **Busca Densa Vetorial (`multilingual-e5-small`):** Para capturar similaridade semântica entre linguagem coloquial de desabafo e terminologia médica.
   3. **Fusão de Ranks (RRF - Reciprocal Rank Fusion):** Para ponderar e unificar os dois rankings de forma não paramétrica e sem viés de escala.
-* **Por que este componente existe?** Elimina os dois maiores riscos de IA em saúde mental: a perda de contexto clínico por vocabulário coloquial e a alucinação de condutas terapêuticas. Apenas documentos com alta relevância comprovada são passados ao Agente 3.
+* **Por que este componente existe?** Elimina os dois maiores riscos de IA em saúde mental: a perda de contexto clínico por vocabulário coloquial e a alucinação de condutas terapêuticas. Apenas documentos com alta relevância comprovada são passados ao modo briefing do Agente 2.
 
 ---
 
@@ -26,7 +26,7 @@ flowchart TD
     RRF --> SCORES["Score Unificado Normalizado (0.0 a 1.0)"]
     SCORES --> CHECK{"Score >= 0.70?"}
 
-    CHECK -->|Sim| RET["Documentos Aprovados entregues ao Agente 3"]
+    CHECK -->|Sim| RET["Documentos Aprovados entregues ao Agente 2"]
     CHECK -->|Não| ABS["Disparo da Abstenção Segura: 'Sem Diretrizes Suficientes'"]
 ```
 

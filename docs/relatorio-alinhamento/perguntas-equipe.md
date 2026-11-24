@@ -30,7 +30,7 @@ As perguntas abaixo são o roteiro de discussão. Cada item em vermelho deve ser
 
 ### 20.2. Decisões de funcionamento do produto
 
-[DEC-10 - Papéis agênticos: dois ou três agentes? Quem organiza subtemas, quem calcula/consulta o histórico e quem conversa com a profissional? Qual colaboração será demonstrada e por que cada agente é necessário?]
+**DEC-10 (decidido):** adotar dois agentes. O Agente 1 organiza subtemas e evidências; o Agente 2 calcula a síntese longitudinal e, no modo briefing, consulta fontes autorizadas. A colaboração será demonstrada pela troca de documentos tipados e validados pelo barramento.
 
 [DEC-11 - Execução: quais modelos e ferramentas de orquestração/rastreamento? Tudo local ou algum serviço externo explicitamente escolhido? Qual comportamento sem internet, sem modelo ou com memória insuficiente?]
 

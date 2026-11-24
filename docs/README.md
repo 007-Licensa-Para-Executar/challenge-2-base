@@ -22,12 +22,11 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 * [**`agente1.md`**](file:///docs/agente1.md): **Agente 1 (Decompositor Temático e Evidências Literais)**.
   - *O que faz:* Recebe o tema da Rede Neural, decompõe em subtemas (`Irmão`, `Pai`), mapeia citações literais exatas com índices de caractere e carimbos de áudio.
   - *Código:* `agents/extractor/service.py` e contratos Pydantic.
-* [**`agente2.md`**](file:///docs/agente2.md): **Agente 2 (Correlacionador Longitudinal e Padrões)**.
-  - *O que faz:* Cruza dados históricos de 7 a 30 dias do paciente, detecta correlações temporais, gatilhos de sofrimento e fatores protetivos de florescimento.
-  - *Código:* `agents/correlator/service.py`.
-* [**`agente3.md`**](file:///docs/agente3.md): **Agente 3 (Copiloto Clínico e RAG de Diretrizes TCC)**.
-  - *O que faz:* Consulta acervos de literatura clínica autorizada, sugere perguntas investigativas para a sessão com citações mandatórias `[Doc_ID]` e política de abstenção segura.
-  - *Código:* `agents/copilot/service.py`.
+* [**`agente2.md`**](file:///docs/agente2.md): **Agente 2 (Analista Longitudinal e Copiloto)**.
+  - *O que faz:* Produz síntese longitudinal, rascunho de evolução ou briefing citado, conforme o modo escolhido pela psicóloga.
+  - *Código:* `agents/correlator/service.py`, `agents/correlator/retrieval.py` e `agents/correlator/contracts.py`.
+* [**`comunicacao.md`**](file:///docs/comunicacao.md): **Comunicação entre Agentes**.
+  - *O que faz:* Define contratos, barramento em caixa preta, estados dos documentos e orquestração.
 
 ---
 
@@ -52,9 +51,9 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 ---
 
 ### 4. Interface e Operações
-* [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
-  - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
-  - *Código:* `app/dashboard.py`.
+* [**`impactbench-dashboard-spec.md`**](impactbench-dashboard-spec.md): **Especificação da Interface do Psicólogo**.
+  - *O que faz:* Define a experiência `/explore`, os seis macrotemas, subtemas, evidências literais, tarefas e o briefing citado pelo Agente 2.
+  - *Estado:* Especificação visual ainda não implementada; não existe dashboard ativo no repositório.
 * [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
   - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.
   - *Código:* `mlops/pipeline.py`, `mlops/tracker.py` e [`mlops.md`](mlops.md).

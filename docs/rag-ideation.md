@@ -2,7 +2,7 @@
 
 ## 1. Visão Geral do Subsistema de RAG
 
-O subsistema de **Geração Aumentada por Recuperação (RAG)** capacita o **Agente 3 (Copiloto Clínico)** a subsidiar o psicólogo com embasamento teórico estrito, conectando os subtemas identificados nos diários às melhores práticas documentadas na literatura de psicologia clínica.
+O subsistema de **Geração Aumentada por Recuperação (RAG)** capacita o **Agente 2 (Analista/Copiloto)**, no modo briefing, a subsidiar o psicólogo com embasamento teórico estrito, conectando os subtemas identificados nos diários às melhores práticas documentadas na literatura de psicologia clínica.
 
 O princípio fundacional do nosso RAG é a **explicabilidade e ancoragem documental**: a IA nunca gera conselhos de "senso comum" ou da "memória paramétrica" do modelo; cada sugestão apresentada ao terapeuta deve ser formalmente rastreável até um capítulo, protocolo ou diretriz da base autorizada.
 
@@ -30,7 +30,7 @@ Para contornar as limitações de vocabulário da busca lexical e as imprecisõe
        │                                     │
        ├─ (Abaixo do limiar)                 └─ (Acima do limiar)
        ▼                                                ▼
-[ Abstenção Segura ]                         [ Injeção no Prompt do Agente 3 ]
+[ Abstenção Segura ]                         [ Injeção no Prompt do Agente 2 ]
 ("Sem diretrizes autorizadas")                          │
                                                         ▼
                                              [ Síntese Clínica Citada com [Doc_ID] ]
@@ -53,7 +53,7 @@ Em contextos clínicos de saúde mental, a alucinação de diretrizes representa
 
 ---
 
-## 4. Prompt de Síntese Citada (Agente 3)
+## 4. Prompt de Síntese Citada (Agente 2)
 
 ```markdown
 Você é o Copiloto Clínico de Apoio ao Terapeuta. Sua função exclusiva é correlacionar o relato estruturado do paciente com as diretrizes clínicas recuperadas abaixo.

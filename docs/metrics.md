@@ -22,9 +22,9 @@ O sistema adota uma matriz de avaliação em dois níveis complementares:
 - **Precisão de Ancoragem Literal (Span Fidelity):** Percentual de caracteres do trecho extraído que coincidem estritamente com o texto bruto do paciente (alvo: $100\%$, zero alucinação de citações).
 - **Interseção sobre União (IoU) de Spans:** Mede se o recorte textual selecionado cobre o evento psicológico central sem truncar o sentido da frase.
 
-### C. Recuperação de Diretrizes e RAG (Agente 3)
+### C. Recuperação de Diretrizes e RAG (Agente 2)
 - **HitRate@3 e Recall@3:** Proporção de consultas onde pelo menos um protocolo clínico relevante foi resgatado entre os 3 primeiros documentos retornados ($\ge 85\%$).
-- **Taxa de Citação Verificável:** $100\%$ das asserções geradas pelo Agente 3 devem possuir um identificador de documento correspondente na base de literatura.
+- **Taxa de Citação Verificável:** $100\%$ das hipóteses geradas pelo Agente 2 no modo briefing devem possuir um identificador de documento correspondente na base de literatura.
 - **Taxa de Abstenção Correta:** Quando testado com perguntas desconexas ou fora do domínio clínico, o sistema deve abster-se em $100\%$ dos casos.
 
 ### D. Eficiência Computacional e Infraestrutura

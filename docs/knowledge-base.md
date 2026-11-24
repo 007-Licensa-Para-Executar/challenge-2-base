@@ -30,7 +30,7 @@ Para atender ao **Requisito 2 (Ter uma base de conhecimento)**, o sistema estabe
 - **Imutabilidade:** Nenhuma entrada do paciente ou consulta clínica tem permissão de sobrescrever esses arquivos em tempo de execução.
 
 ### Acervo 2: Literatura Clínica e Diretrizes Terapêuticas (RAG)
-- **Finalidade:** Servir de âncora conceitual para o **Agente 3 (Copiloto Clínico)**, fornecendo embasamento teórico para sugestões de perguntas reflexivas na sessão.
+- **Finalidade:** Servir de âncora conceitual para o **Agente 2 (Analista/Copiloto)** no modo briefing, fornecendo embasamento teórico para sugestões de perguntas reflexivas na sessão.
 - **Fontes Autorizadas e Proveniência Obrigatória:**
   Cada documento ingerido na base vetorial deve possuir ficha catalográfica estrita:
   1. `doc_id`: Identificador único (ex: `TCC-BECK-CH04-CRENCAS`).

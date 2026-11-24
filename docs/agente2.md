@@ -3,7 +3,7 @@
 ## 1. Identificação e Propósito do Agente
 * **Arquivos no Código:** `agents/correlator/service.py`, `agents/correlator/prompt.py`, `agents/correlator/contracts.py`, `agents/correlator/retrieval.py`
 * **Contratos de Saída (documentos):** `LongitudinalSynthesis` (modo síntese), `RascunhoEvolucao` (modo rascunho), `BriefingCopiloto` (modo briefing)
-* **Objetivo Primário:** Este agente é a fusão dos antigos Agente 2 (Correlacionador) e Agente 3 (Copiloto RAG). Ele opera em três modos, escolhidos pela psicóloga:
+* **Objetivo Primário:** Este agente agrega os registros extraídos pelo Agente 1 e opera em três modos, escolhidos pela psicóloga:
   * **Síntese:** analisa os relatos de uma janela (7, 14 ou 30 dias), lendo o texto original de cada um. Os números (frequências, polaridade, progressão) são calculados pelo código. O modelo redige correlações, fatores de proteção e pontos de pauta, e cada correlação aponta para os registros que a sustentam.
   * **Rascunho:** monta a estrutura de uma evolução de prontuário a partir da síntese validada. O modelo só escreve frases de ligação. O texto fica como "não validado" até a psicóloga aprovar.
   * **Briefing:** prepara hipóteses investigativas para a consulta, ancoradas em trechos de uma base autorizada (normas e técnicas). Se nenhum trecho atingir score 0,70, o agente se abstém.

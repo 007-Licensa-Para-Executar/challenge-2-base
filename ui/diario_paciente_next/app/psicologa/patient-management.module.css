@@ -361,6 +361,7 @@
 
 .patientProfile {
   display: grid;
+  position: relative;
   min-width: 0;
   gap: 16px;
   margin-bottom: 22px;
@@ -376,6 +377,13 @@
   min-width: 0;
   align-items: center;
   gap: 15px;
+}
+
+.patientProfileHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .largeAvatar {
@@ -425,7 +433,7 @@
 }
 
 .editPatientProfileButton {
-  margin-left: auto;
+  margin-left: 0;
   min-height: 40px;
   padding: 8px 11px;
   border: 1px solid rgba(49, 92, 80, 0.16);
@@ -436,6 +444,11 @@
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
+}
+
+.editPatientProfileButton:focus-visible {
+  outline: 3px solid rgba(49, 92, 80, 0.2);
+  outline-offset: 2px;
 }
 
 .dashboard {
@@ -1933,6 +1946,18 @@
   .patientProfileHeader {
     align-items: flex-start;
     gap: 11px;
+    flex-wrap: wrap;
+  }
+
+  .patientProfileHeaderActions {
+    flex: 1 0 100%;
+    align-items: stretch;
+    flex-direction: column;
+    margin-left: 0;
+  }
+
+  .patientProfileHeaderActions > button {
+    width: 100%;
   }
 
   .largeAvatar {
@@ -2058,5 +2083,201 @@
 
   .patientChatComposer {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+.externalSupervisors {
+  margin-top: 0;
+}
+
+.externalSupervisorsTrigger {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #8f252a;
+  border-radius: 12px;
+  background: #a83237;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.externalSupervisorsTrigger:hover {
+  background: #8f252a;
+}
+
+.externalSupervisorsTrigger:active {
+  transform: translateY(1px);
+}
+
+.externalSupervisorsTrigger:focus-visible,
+.externalSupervisorsClose:focus-visible {
+  outline: 3px solid rgba(168, 50, 55, 0.28);
+  outline-offset: 2px;
+}
+
+.externalSupervisorsPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  max-height: 72vh;
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(38, 51, 47, 0.12);
+}
+
+.externalSupervisorsHeader,
+.externalSupervisorTitle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.externalSupervisorsHeader h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 18px;
+}
+
+.externalSupervisorsHeader p {
+  margin: 5px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+}
+
+.externalSupervisorsClose {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.externalSupervisorsClose:hover {
+  background: #f5f7f5;
+}
+
+.externalSupervisorsPanel .searchBox {
+  margin-top: 16px;
+}
+
+.externalSupervisorsCount,
+.externalSupervisorsEmpty {
+  margin: 14px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.externalSupervisorList {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.externalSupervisorCard {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 14px;
+  background: #fbfcfb;
+}
+
+.externalSupervisorTitle h3 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 16px;
+}
+
+.externalSupervisorCategory {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.externalSupervisorExperience {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f8e9e9;
+  color: #80252a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.externalSupervisorExpertise {
+  margin: 14px 0 0;
+}
+
+.externalSupervisorExpertise div + div {
+  margin-top: 8px;
+}
+
+.externalSupervisorExpertise dt {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.externalSupervisorExpertise dd {
+  margin: 3px 0 0;
+  color: var(--cor-texto);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.externalSupervisorContact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(49, 92, 80, 0.12);
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+}
+
+.externalSupervisorContact a {
+  color: var(--cor-primaria);
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .externalSupervisorsTrigger {
+    width: 100%;
+  }
+
+  .externalSupervisorsPanel {
+    padding: 15px;
+  }
+
+  .externalSupervisorsHeader,
+  .externalSupervisorTitle {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .externalSupervisorsClose,
+  .externalSupervisorExperience {
+    align-self: flex-start;
   }
 }

@@ -41,6 +41,10 @@ export default async function DiarioPage() {
     sub_emotion_symbol: String(r.sub_emotion_symbol),
     confidence: Number(r.confidence || 1.0),
     is_risk_emotion: Boolean(r.is_risk_emotion),
+    input_type: String(r.input_type || "text"),
+    audio_name: r.audio_name ? String(r.audio_name) : "",
+    audio_duration: r.audio_duration ? String(r.audio_duration) : "",
+    audio_data: r.audio_data ? String(r.audio_data) : "",
     created_at: Number(r.created_at),
   }));
 

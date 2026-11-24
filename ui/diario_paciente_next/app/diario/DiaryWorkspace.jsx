@@ -24,6 +24,8 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
 
   // Analisa o sentimento automaticamente com debounce quando o paciente digita
   useEffect(() => {
+    if (emocaoAtual?.manual) return;
+
     const trimmed = texto.trim();
     if (trimmed.length < 15) {
       if (emocaoAtual && !emocaoAtual.manual) {
@@ -42,7 +44,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
         });
         if (res.ok) {
           const dados = await res.json();
-          setEmocaoAtual({ ...dados, manual: false });
+          setEmocaoAtual((prev) => (prev?.manual ? prev : { ...dados, manual: false }));
         }
       } catch {
         // Silêncio em caso de falha de conexão na digitação
@@ -52,7 +54,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [texto]);
+  }, [texto, emocaoAtual]);
 
   async function handleSalvar(e) {
     e.preventDefault();
@@ -121,8 +123,10 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
             <button
               type="button"
               className="logout-button"
-              onClick={() => {
-                document.cookie = "diario_sessao=; Path=/; Max-Age=0";
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+                } catch {}
                 window.location.href = "/";
               }}
             >

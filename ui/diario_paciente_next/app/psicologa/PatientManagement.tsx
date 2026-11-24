@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import PatientDashboard from "./PatientDashboard";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
@@ -401,6 +402,9 @@ export default function PatientManagement() {
               </span>
             </button>
           </div>
+          <Link className={styles.impactBenchLink} href="/psicologa/impactbench">
+            Painel clínico
+          </Link>
         </header>
 
         <PsychologistProfileEditor

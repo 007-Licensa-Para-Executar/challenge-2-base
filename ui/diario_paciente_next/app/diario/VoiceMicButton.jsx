@@ -20,6 +20,7 @@ export default function VoiceMicButton({
   const timerRef = useRef(null);
   const recognitionRef = useRef(null);
   const baseTextRef = useRef("");
+  const elapsedRef = useRef(0);
 
   // Formata o cronômetro em MM:SS
   function formatClock(totalSeconds) {
@@ -80,7 +81,7 @@ export default function VoiceMicButton({
 
       recorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: mimeType });
-        const durationFormatted = formatClock(elapsed);
+        const durationFormatted = formatClock(elapsedRef.current);
         const name = `audio_${new Date().toLocaleTimeString("pt-BR").replace(/:/g, "-")}.webm`;
 
         // Converte para base64 para persistência
@@ -128,8 +129,10 @@ export default function VoiceMicButton({
 
       // Cronômetro
       let secs = 0;
+      elapsedRef.current = 0;
       timerRef.current = setInterval(() => {
         secs += 1;
+        elapsedRef.current = secs;
         setElapsed(secs);
         if (secs >= 600) {
           handleStop();

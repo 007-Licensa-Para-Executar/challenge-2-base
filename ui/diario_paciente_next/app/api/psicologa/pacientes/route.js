@@ -1,10 +1,10 @@
-import { listarPacientesDoPortal } from "../../auth/_database";
+import { listarPacientesDoPortal } from "../../auth/_database.js";
+import { getDemoPatientSummary } from "../../../lib/demoPatient.js";
 
 export const runtime = "nodejs";
 
-// Lista local para desenvolvimento. Produção deve proteger esta leitura com login profissional.
-export async function GET() {
-  if (process.env.NODE_ENV === "production") {
+export async function GET(request) {
+  if (process.env.NODE_ENV === "production" || process.env.REQUIRE_PSICOLOGA_AUTH === "true") {
     return Response.json(
       { message: "A lista de pacientes requer autenticação profissional." },
       { status: 403, headers: { "Cache-Control": "no-store" } },
@@ -12,7 +12,13 @@ export async function GET() {
   }
 
   try {
-    const patients = listarPacientesDoPortal();
+    const patients = listarPacientesDoPortal().map((p) => ({
+      ...p,
+      isDemo: false,
+    }));
+    if (new URL(request.url).searchParams.get("includeDemo") === "true") {
+      patients.push(getDemoPatientSummary());
+    }
     return Response.json(
       { patients },
       { headers: { "Cache-Control": "no-store" } },

@@ -10,9 +10,14 @@ export default function LoginPage() {
       title="Acesse seu diário"
       description="Entre para continuar seu momento de cuidado e reflexão."
       footer={
-        <p>
-          Ainda não tem acesso? <Link href="/cadastro">Cadastre-se</Link>
-        </p>
+        <>
+          <p>
+            Ainda não tem acesso? <Link href="/cadastro">Cadastre-se</Link>
+          </p>
+          <p style={{ marginTop: "6px", fontSize: "12px" }}>
+            <Link href="/psicologa">Área Profissional · Painel da Psicóloga</Link>
+          </p>
+        </>
       }
     >
       <AuthForm mode="login" />

@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import PatientDashboard from "./PatientDashboard";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
+import PatientChatbot from "./PatientChatbot";
+import PatientProfileEditor from "./PatientProfileEditor";
 import ReportUpload from "./ReportUpload";
+import PsychologistProfileEditor, {
+  getPsychologistInitials,
+  type PsychologistProfile,
+} from "./PsychologistProfileEditor";
 import type {
+  EditablePatientProfile,
   PatientHistoryItem,
   PortalPatient,
   PortalPatientRecord,
@@ -16,6 +23,18 @@ import { DASHBOARD_THEMES } from "./types";
 import styles from "./patient-management.module.css";
 
 const patientUpdateKey = "meu-diario:cadastro-atualizado";
+const defaultPsychologistProfile: PsychologistProfile = {
+  name: "Dra. Marina",
+  age: null,
+  profession: "Psicóloga",
+  specialty: "",
+  insurancePlans: "",
+  resume: "",
+  professionalExperiences: "",
+  experienceYears: null,
+  photoUrl: null,
+  updatedAt: 0,
+};
 
 function formatRegistrationDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -34,8 +53,34 @@ function isPortalPatientRecord(value: unknown): value is PortalPatientRecord {
     typeof record.name === "string" &&
     typeof record.email === "string" &&
     typeof record.createdAt === "string" &&
-    !Number.isNaN(Date.parse(record.createdAt))
+    !Number.isNaN(Date.parse(record.createdAt)) &&
+    typeof record.address === "string" &&
+    (record.age === null ||
+      (typeof record.age === "number" && Number.isSafeInteger(record.age) && record.age >= 0)) &&
+    (record.treatmentDurationMonths === null ||
+      (typeof record.treatmentDurationMonths === "number" &&
+        Number.isSafeInteger(record.treatmentDurationMonths) && record.treatmentDurationMonths >= 0)) &&
+    typeof record.psychiatricTreatment === "boolean"
   );
+}
+
+function getPatientInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const initials = words.length > 1
+    ? `${words[0][0]}${words[words.length - 1][0]}`
+    : words[0]?.slice(0, 2) || "P";
+  return initials.toLocaleUpperCase("pt-BR");
+}
+
+function formatTreatmentDuration(months: number | null) {
+  if (months === null) return "Não informado";
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  const parts = [
+    years ? `${years} ${years === 1 ? "ano" : "anos"}` : "",
+    remainingMonths ? `${remainingMonths} ${remainingMonths === 1 ? "mês" : "meses"}` : "",
+  ].filter(Boolean);
+  return parts.join(" e ") || "0 meses";
 }
 
 function toPortalPatient(record: PortalPatientRecord): PortalPatient {
@@ -52,6 +97,10 @@ function toPortalPatient(record: PortalPatientRecord): PortalPatient {
     portalUserId: record.id,
     fullName: record.name,
     email: record.email,
+    address: record.address,
+    age: record.age,
+    treatmentDurationMonths: record.treatmentDurationMonths,
+    psychiatricTreatment: record.psychiatricTreatment,
     initials: initials.toLocaleUpperCase("pt-BR"),
     registeredAt: record.createdAt,
     source: "portal_cadastro",
@@ -67,6 +116,9 @@ function toPortalPatient(record: PortalPatientRecord): PortalPatient {
 // A lista vem do mesmo banco que recebe os cadastros do portal.
 export default function PatientManagement() {
   const [patients, setPatients] = useState<PortalPatient[]>([]);
+  const [psychologistProfile, setPsychologistProfile] = useState(defaultPsychologistProfile);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const [isPatientProfileEditorOpen, setIsPatientProfileEditorOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +126,36 @@ export default function PatientManagement() {
   const [retryCount, setRetryCount] = useState(0);
   const uploadTimers = useRef<Map<string, number>>(new Map());
   const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? null;
+  const professionalSummaryFacts = [
+    psychologistProfile.age !== null ? `${psychologistProfile.age} anos` : "",
+    psychologistProfile.specialty,
+    psychologistProfile.experienceYears !== null
+      ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(psychologistProfile.experienceYears)} anos de experiência`
+      : "",
+  ].filter(Boolean);
+  const hasProfessionalSummary = Boolean(
+    professionalSummaryFacts.length || psychologistProfile.insurancePlans || psychologistProfile.resume || psychologistProfile.professionalExperiences,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshPsychologistProfile() {
+      try {
+        const response = await fetch("/api/psicologa/perfil", { cache: "no-store" });
+        if (!response.ok) throw new Error("Não foi possível carregar o perfil profissional.");
+        const payload = await response.json();
+        if (isMounted && payload?.profile) setPsychologistProfile(payload.profile);
+      } catch (error) {
+        console.error("Falha ao carregar o perfil profissional:", error);
+      }
+    }
+
+    void refreshPsychologistProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -259,6 +341,24 @@ export default function PatientManagement() {
     );
   }
 
+  function handlePatientProfileSave(updatedProfile: EditablePatientProfile) {
+    setPatients((currentPatients) =>
+      currentPatients.map((patient) =>
+        patient.id === updatedProfile.id
+          ? {
+              ...patient,
+              fullName: updatedProfile.name,
+              initials: getPatientInitials(updatedProfile.name),
+              address: updatedProfile.address,
+              age: updatedProfile.age,
+              treatmentDurationMonths: updatedProfile.treatmentDurationMonths,
+              psychiatricTreatment: updatedProfile.psychiatricTreatment,
+            }
+          : patient,
+      ),
+    );
+  }
+
   return (
     <div className={styles.workspace}>
       <PatientList
@@ -280,31 +380,127 @@ export default function PatientManagement() {
             <p>Acompanhe registros e relatórios em um só lugar.</p>
           </div>
           <div className={styles.professionalBadge}>
-            <span className={styles.professionalAvatar} aria-hidden="true">MM</span>
-            <span><strong>Dra. Marina</strong><small>Psicóloga</small></span>
+            <button
+              className={styles.professionalProfileButton}
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`Editar perfil de ${psychologistProfile.name}`}
+              onClick={() => setIsProfileEditorOpen(true)}
+            >
+              {psychologistProfile.photoUrl ? (
+                <img className={styles.professionalAvatar} src={psychologistProfile.photoUrl} alt="" />
+              ) : (
+                <span className={styles.professionalAvatar} aria-hidden="true">
+                  {getPsychologistInitials(psychologistProfile.name)}
+                </span>
+              )}
+              <span>
+                <strong>{psychologistProfile.name}</strong>
+                <small>{psychologistProfile.profession || "Profissional"}</small>
+              </span>
+            </button>
           </div>
         </header>
 
+        <PsychologistProfileEditor
+          open={isProfileEditorOpen}
+          profile={psychologistProfile}
+          onClose={() => setIsProfileEditorOpen(false)}
+          onSave={setPsychologistProfile}
+        />
+
+        {hasProfessionalSummary ? (
+          <section className={`${styles.card} ${styles.professionalSummary}`} aria-labelledby="professional-summary-title">
+            <div className={styles.professionalSummaryHeading}>
+              <h2 id="professional-summary-title">Perfil profissional</h2>
+              <button type="button" onClick={() => setIsProfileEditorOpen(true)}>
+                Editar perfil
+              </button>
+            </div>
+            {professionalSummaryFacts.length ? (
+              <ul className={styles.professionalSummaryFacts}>
+                {professionalSummaryFacts.map((fact) => <li key={fact}>{fact}</li>)}
+              </ul>
+            ) : null}
+            {psychologistProfile.insurancePlans || psychologistProfile.resume || psychologistProfile.professionalExperiences ? (
+              <div className={styles.professionalSummarySections}>
+                {psychologistProfile.insurancePlans ? (
+                  <div>
+                    <h3>Convênios atendidos</h3>
+                    <p>{psychologistProfile.insurancePlans}</p>
+                  </div>
+                ) : null}
+                {psychologistProfile.resume ? (
+                  <div>
+                    <h3>Currículo</h3>
+                    <p>{psychologistProfile.resume}</p>
+                  </div>
+                ) : null}
+                {psychologistProfile.professionalExperiences ? (
+                  <div>
+                    <h3>Experiências profissionais</h3>
+                    <p>{psychologistProfile.professionalExperiences}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {selectedPatient ? (
           <>
+            <PatientProfileEditor
+              open={isPatientProfileEditorOpen}
+              patient={selectedPatient}
+              onClose={() => setIsPatientProfileEditorOpen(false)}
+              onSave={handlePatientProfileSave}
+            />
             <section className={styles.patientProfile} aria-labelledby="patient-name">
-              <span className={styles.largeAvatar} aria-hidden="true">{selectedPatient.initials}</span>
-              <div className={styles.profileDetails}>
-                <div className={styles.profileTitleRow}>
-                  <h2 id="patient-name">{selectedPatient.fullName}</h2>
-                  <span
-                    className={`${styles.profileStatus} ${selectedPatient.linkStatus === "vinculado" ? styles.linked : styles.pending}`}
-                  >
-                    <span className={styles.statusDot} aria-hidden="true" />
-                    {selectedPatient.linkStatus === "vinculado" ? "Vinculado" : "Aguardando vínculo"}
-                  </span>
+              <div className={styles.patientProfileHeader}>
+                <span className={styles.largeAvatar} aria-hidden="true">{selectedPatient.initials}</span>
+                <div className={styles.profileDetails}>
+                  <div className={styles.profileTitleRow}>
+                    <h2 id="patient-name">{selectedPatient.fullName}</h2>
+                    <span
+                      className={`${styles.profileStatus} ${selectedPatient.linkStatus === "vinculado" ? styles.linked : styles.pending}`}
+                    >
+                      <span className={styles.statusDot} aria-hidden="true" />
+                      {selectedPatient.linkStatus === "vinculado" ? "Vinculado" : "Aguardando vínculo"}
+                    </span>
+                  </div>
+                  <p>{selectedPatient.email}</p>
+                  <p className={styles.registeredDate}>
+                    Cadastro pelo portal em {formatRegistrationDate(selectedPatient.registeredAt)}
+                  </p>
                 </div>
-                <p>{selectedPatient.email}</p>
-                <p className={styles.registeredDate}>
-                  Cadastro pelo portal em {formatRegistrationDate(selectedPatient.registeredAt)}
-                </p>
+                <button
+                  className={styles.editPatientProfileButton}
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setIsPatientProfileEditorOpen(true)}
+                >
+                  Editar perfil
+                </button>
               </div>
-              <span className={styles.portalTag}>Cadastro do portal</span>
+              <h3 className={styles.patientCareHeading}>Dados do paciente</h3>
+              <dl className={styles.patientCareGrid}>
+                <div className={styles.patientAddress}>
+                  <dt>Endereço</dt>
+                  <dd>{selectedPatient.address || "Não informado"}</dd>
+                </div>
+                <div>
+                  <dt>Idade</dt>
+                  <dd>{selectedPatient.age === null ? "Não informada" : `${selectedPatient.age} anos`}</dd>
+                </div>
+                <div>
+                  <dt>Tempo de tratamento comigo</dt>
+                  <dd>{formatTreatmentDuration(selectedPatient.treatmentDurationMonths)}</dd>
+                </div>
+                <div>
+                  <dt>Acompanhamento psiquiátrico</dt>
+                  <dd>{selectedPatient.psychiatricTreatment ? "Sim" : "Não"}</dd>
+                </div>
+              </dl>
             </section>
 
             <PatientDashboard patient={selectedPatient} />
@@ -318,6 +514,11 @@ export default function PatientManagement() {
               />
               <PatientHistory history={selectedPatient.history} />
             </div>
+            <PatientChatbot
+              key={selectedPatient.id}
+              patientId={selectedPatient.id}
+              patientName={selectedPatient.fullName}
+            />
           </>
         ) : (
           <section className={`${styles.card} ${styles.noPatient}`} aria-live="polite">

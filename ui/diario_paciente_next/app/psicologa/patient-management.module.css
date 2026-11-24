@@ -316,15 +316,35 @@
   background: #ffffff;
 }
 
+.professionalProfileButton {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.professionalProfileButton:focus-visible {
+  border-radius: 12px;
+  outline: 3px solid var(--cor-secundaria);
+  outline-offset: 3px;
+}
+
 .professionalAvatar {
   width: 38px;
   height: 38px;
   background: #f4eadb;
   color: #765022;
   font-size: 12px;
+  object-fit: cover;
 }
 
-.professionalBadge > span:last-child {
+.professionalProfileButton > span:last-child {
   display: grid;
   gap: 1px;
 }
@@ -340,16 +360,22 @@
 }
 
 .patientProfile {
-  display: flex;
+  display: grid;
   min-width: 0;
-  align-items: center;
-  gap: 15px;
+  gap: 16px;
   margin-bottom: 22px;
   padding: 18px 20px;
   border: 1px solid rgba(49, 92, 80, 0.14);
   border-radius: 20px;
   background: linear-gradient(110deg, #ffffff 0%, #f0f5f1 100%);
   box-shadow: 0 10px 30px rgba(38, 51, 47, 0.04);
+}
+
+.patientProfileHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
 }
 
 .largeAvatar {
@@ -359,6 +385,7 @@
 }
 
 .profileDetails {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -397,12 +424,15 @@
   font-size: 12px;
 }
 
-.portalTag {
+.editPatientProfileButton {
   margin-left: auto;
+  min-height: 40px;
   padding: 8px 11px;
   border: 1px solid rgba(49, 92, 80, 0.16);
   border-radius: 11px;
+  background: #ffffff;
   color: var(--cor-primaria);
+  cursor: pointer;
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
@@ -875,6 +905,345 @@
   font-size: 12px;
 }
 
+.profileDialog {
+  width: min(700px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(49, 92, 80, 0.18);
+  border-radius: 22px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  box-shadow: 0 24px 80px rgba(25, 42, 34, 0.22);
+}
+
+.profileDialog::backdrop {
+  background: rgba(29, 42, 36, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.profileEditor {
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  padding: 26px;
+}
+
+.profileEditorHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.profileEditorHeading h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: -0.04em;
+}
+
+.profileEditorHeading > div > p:last-child {
+  margin: 7px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.profileCloseButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.profilePhotoField {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid rgba(49, 92, 80, 0.13);
+  border-radius: 15px;
+  background: #fbfcfa;
+}
+
+.profilePhotoPreview,
+.profilePhotoPlaceholder {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #e2ece6;
+  color: var(--cor-primaria);
+  font-size: 17px;
+  font-weight: 750;
+  object-fit: cover;
+}
+
+.profilePhotoField .profileField {
+  min-width: 0;
+}
+
+.profileFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.profileField {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.profileField b {
+  color: var(--cor-erro);
+}
+
+.profileField input,
+.profileField textarea {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cbd5ce;
+  border-radius: 11px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 13px;
+}
+
+.profileField input[type="file"] {
+  min-height: 0;
+  padding: 7px;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.profileField textarea {
+  min-height: 106px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.profileField input:focus-visible,
+.profileField textarea:focus-visible {
+  border-color: var(--cor-primaria);
+  outline: 3px solid rgba(49, 92, 80, 0.18);
+}
+
+.profileField small {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.profileFieldWide {
+  grid-column: 1 / -1;
+}
+
+.profileEditorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(49, 92, 80, 0.13);
+}
+
+.profileCancelButton,
+.profileSaveButton {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.profileCancelButton {
+  border: 1px solid #cbd5ce;
+  background: #ffffff;
+  color: var(--cor-texto);
+}
+
+.profileSaveButton {
+  border: 1px solid var(--cor-primaria);
+  background: var(--cor-primaria);
+  color: #ffffff;
+}
+
+.profileSaveButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.professionalSummary {
+  display: grid;
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+.professionalSummaryHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.professionalSummaryHeading h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.professionalSummaryHeading button {
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--cor-primaria);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.professionalSummaryFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.professionalSummaryFacts li {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eaf1ed;
+  color: var(--cor-primaria);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.professionalSummarySections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.professionalSummarySections h3 {
+  margin: 0 0 5px;
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.professionalSummarySections p {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.patientCareHeading {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.patientCareGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(49, 92, 80, 0.12);
+}
+
+.patientCareGrid > div {
+  min-width: 0;
+}
+
+.patientCareGrid dt {
+  margin-bottom: 5px;
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+}
+
+.patientCareGrid dd {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.patientAddress {
+  grid-column: 1 / -1;
+}
+
+.profileCheckboxField {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 12px;
+  background: #f7f9f7;
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.profileCheckboxField input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: var(--cor-primaria);
+}
+
+.profileCheckboxField > span {
+  display: grid;
+  gap: 4px;
+}
+
+.profileCheckboxField strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.profileCheckboxField small {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .reportList {
   display: grid;
   gap: 9px;
@@ -1129,6 +1498,283 @@
   border: 0;
 }
 
+.patientChatLauncher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(49, 92, 80, 0.14);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(38, 51, 47, 0.035);
+}
+
+.patientChatLauncherCopy h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.patientChatLauncherCopy p {
+  margin: 5px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.patientChatLauncherButton {
+  min-width: 132px;
+}
+
+.patientChatDialog {
+  position: fixed;
+  inset: auto 16px 16px auto;
+  width: min(440px, calc(100vw - 32px));
+  height: min(700px, calc(100dvh - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(49, 92, 80, 0.18);
+  border-radius: 22px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  box-shadow: 0 24px 80px rgba(26, 42, 35, 0.22);
+}
+
+.patientChatDialog[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.patientChatDialog::backdrop {
+  background: rgba(38, 51, 47, 0.34);
+  backdrop-filter: blur(2px);
+}
+
+.patientChatHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(49, 92, 80, 0.12);
+  background: linear-gradient(110deg, #ffffff 0%, #f0f5f1 100%);
+}
+
+.patientChatEyebrow {
+  margin: 0 0 5px;
+  color: var(--cor-texto-suave);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.patientChatHeader h2 {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.patientChatContext {
+  margin: 5px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+}
+
+.patientChatCloseButton {
+  min-height: 40px;
+  flex: 0 0 auto;
+  padding: 0 11px;
+  border: 1px solid rgba(49, 92, 80, 0.18);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.patientChatMessages {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background: #f7f9f6;
+  overscroll-behavior: contain;
+}
+
+.patientChatEmpty {
+  display: grid;
+  width: min(100%, 300px);
+  align-self: center;
+  justify-self: center;
+  gap: 8px;
+  margin: auto;
+  padding: 22px 18px;
+  border: 1px dashed rgba(49, 92, 80, 0.24);
+  border-radius: 16px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.patientChatEmpty strong {
+  color: var(--cor-texto);
+  font-size: 14px;
+}
+
+.patientChatEmpty p,
+.patientChatEmpty span {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.patientChatBubble {
+  display: grid;
+  max-width: 88%;
+  gap: 5px;
+  padding: 10px 13px;
+  border: 1px solid rgba(49, 92, 80, 0.1);
+  border-radius: 15px;
+}
+
+.patientChatBubbleUser {
+  justify-self: end;
+  border-bottom-right-radius: 5px;
+  background: #e5f0e9;
+}
+
+.patientChatBubbleAssistant {
+  justify-self: start;
+  border-bottom-left-radius: 5px;
+  background: #ffffff;
+}
+
+.patientChatMessageAuthor {
+  color: var(--cor-primaria);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.patientChatBubble p {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.patientChatLoading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+}
+
+.patientChatSpinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(49, 92, 80, 0.2);
+  border-top-color: var(--cor-primaria);
+  border-radius: 50%;
+  animation: patientChatSpin 700ms linear infinite;
+}
+
+@keyframes patientChatSpin {
+  to { transform: rotate(360deg); }
+}
+
+.patientChatComposer {
+  display: grid;
+  gap: 7px;
+  padding: 13px 16px 14px;
+  border-top: 1px solid rgba(49, 92, 80, 0.12);
+  background: #ffffff;
+}
+
+.patientChatInputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+}
+
+.patientChatInput {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  max-height: 120px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.patientChatInput:focus {
+  border-color: var(--cor-primaria);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(49, 92, 80, 0.14);
+}
+
+.patientChatInput::placeholder {
+  color: var(--cor-texto-suave);
+}
+
+.patientChatInput:disabled {
+  background: #f1f3ef;
+}
+
+.patientChatSendButton {
+  min-height: 46px;
+  flex: 0 0 auto;
+  padding: 0 15px;
+  border: 1px solid var(--cor-primaria);
+  border-radius: 11px;
+  background: var(--cor-primaria);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.patientChatSendButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.patientChatError {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--cor-fundo-erro);
+  color: var(--cor-erro);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.patientChatHint {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+}
+
 /* Em tablet, a lista sobe para o topo; em telas estreitas, os cartões viram uma coluna. */
 @media (max-width: 1120px) {
   .workspace {
@@ -1238,9 +1884,55 @@
     font-size: 9px;
   }
 
-  .patientProfile {
+  .profileEditor {
+    padding: 20px 16px 16px;
+  }
+
+  .profileEditorHeading h2 {
+    font-size: 21px;
+  }
+
+  .profileFormGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .professionalSummarySections {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .patientCareGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profileFieldWide {
+    grid-column: auto;
+  }
+
+  .profilePhotoField {
     align-items: flex-start;
+    gap: 11px;
+    padding: 11px;
+  }
+
+  .profilePhotoPreview,
+  .profilePhotoPlaceholder {
+    width: 56px;
+    height: 56px;
+  }
+
+  .profileEditorActions > button {
+    flex: 1;
+    padding: 0 10px;
+  }
+
+  .patientProfile {
     padding: 14px;
+  }
+
+  .patientProfileHeader {
+    align-items: flex-start;
+    gap: 11px;
   }
 
   .largeAvatar {
@@ -1253,8 +1945,9 @@
     font-size: 18px;
   }
 
-  .portalTag {
-    display: none;
+  .editPatientProfileButton {
+    padding: 7px 9px;
+    font-size: 11px;
   }
 
   .sectionHeading {
@@ -1321,5 +2014,49 @@
 @media (prefers-reduced-motion: reduce) {
   .patientButton {
     transition: none;
+  }
+
+  .patientChatSpinner {
+    animation: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .patientChatLauncher {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 15px;
+  }
+
+  .patientChatLauncherButton {
+    width: 100%;
+  }
+
+  .patientChatDialog {
+    inset: auto 0 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: min(84dvh, 720px);
+    max-height: calc(100dvh - 8px);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .patientChatHeader {
+    padding: 15px 16px;
+  }
+
+  .patientChatHeader h2 {
+    font-size: 16px;
+  }
+
+  .patientChatMessages {
+    padding: 14px;
+  }
+
+  .patientChatComposer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 }

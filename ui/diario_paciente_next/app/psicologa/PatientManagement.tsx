@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import PatientDashboard from "./PatientDashboard";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
+import PatientChatbot from "./PatientChatbot";
 import PatientProfileEditor from "./PatientProfileEditor";
 import ReportUpload from "./ReportUpload";
 import PsychologistProfileEditor, {
@@ -513,6 +514,11 @@ export default function PatientManagement() {
               />
               <PatientHistory history={selectedPatient.history} />
             </div>
+            <PatientChatbot
+              key={selectedPatient.id}
+              patientId={selectedPatient.id}
+              patientName={selectedPatient.fullName}
+            />
           </>
         ) : (
           <section className={`${styles.card} ${styles.noPatient}`} aria-live="polite">

@@ -360,16 +360,22 @@
 }
 
 .patientProfile {
-  display: flex;
+  display: grid;
   min-width: 0;
-  align-items: center;
-  gap: 15px;
+  gap: 16px;
   margin-bottom: 22px;
   padding: 18px 20px;
   border: 1px solid rgba(49, 92, 80, 0.14);
   border-radius: 20px;
   background: linear-gradient(110deg, #ffffff 0%, #f0f5f1 100%);
   box-shadow: 0 10px 30px rgba(38, 51, 47, 0.04);
+}
+
+.patientProfileHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
 }
 
 .largeAvatar {
@@ -379,6 +385,7 @@
 }
 
 .profileDetails {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -417,12 +424,15 @@
   font-size: 12px;
 }
 
-.portalTag {
+.editPatientProfileButton {
   margin-left: auto;
+  min-height: 40px;
   padding: 8px 11px;
   border: 1px solid rgba(49, 92, 80, 0.16);
   border-radius: 11px;
+  background: #ffffff;
   color: var(--cor-primaria);
+  cursor: pointer;
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
@@ -1158,6 +1168,82 @@
   white-space: pre-wrap;
 }
 
+.patientCareHeading {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.patientCareGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(49, 92, 80, 0.12);
+}
+
+.patientCareGrid > div {
+  min-width: 0;
+}
+
+.patientCareGrid dt {
+  margin-bottom: 5px;
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+}
+
+.patientCareGrid dd {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.patientAddress {
+  grid-column: 1 / -1;
+}
+
+.profileCheckboxField {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(49, 92, 80, 0.15);
+  border-radius: 12px;
+  background: #f7f9f7;
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.profileCheckboxField input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: var(--cor-primaria);
+}
+
+.profileCheckboxField > span {
+  display: grid;
+  gap: 4px;
+}
+
+.profileCheckboxField strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.profileCheckboxField small {
+  color: var(--cor-texto-suave);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .reportList {
   display: grid;
   gap: 9px;
@@ -1538,6 +1624,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .patientCareGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .profileFieldWide {
     grid-column: auto;
   }
@@ -1560,8 +1650,12 @@
   }
 
   .patientProfile {
-    align-items: flex-start;
     padding: 14px;
+  }
+
+  .patientProfileHeader {
+    align-items: flex-start;
+    gap: 11px;
   }
 
   .largeAvatar {
@@ -1574,8 +1668,9 @@
     font-size: 18px;
   }
 
-  .portalTag {
-    display: none;
+  .editPatientProfileButton {
+    padding: 7px 9px;
+    font-size: 11px;
   }
 
   .sectionHeading {

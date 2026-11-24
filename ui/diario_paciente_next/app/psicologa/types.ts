@@ -29,6 +29,19 @@ export interface PortalPatientRecord {
   name: string;
   email: string;
   createdAt: string;
+  address: string;
+  age: number | null;
+  treatmentDurationMonths: number | null;
+  psychiatricTreatment: boolean;
+}
+
+export interface EditablePatientProfile {
+  id: string;
+  name: string;
+  address: string;
+  age: number | null;
+  treatmentDurationMonths: number | null;
+  psychiatricTreatment: boolean;
 }
 
 export interface UploadedReport {
@@ -55,6 +68,10 @@ export interface PortalPatient {
   portalUserId: string;
   fullName: string;
   email: string;
+  address: string;
+  age: number | null;
+  treatmentDurationMonths: number | null;
+  psychiatricTreatment: boolean;
   initials: string;
   registeredAt: string;
   source: "portal_cadastro";

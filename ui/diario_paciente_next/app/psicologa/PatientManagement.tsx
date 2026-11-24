@@ -6,6 +6,7 @@ import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
 import PatientChatbot from "./PatientChatbot";
 import PatientProfileEditor from "./PatientProfileEditor";
+import ExternalSupervisors from "./ExternalSupervisors";
 import ReportUpload from "./ReportUpload";
 import PsychologistProfileEditor, {
   getPsychologistInitials,
@@ -473,14 +474,21 @@ export default function PatientManagement() {
                     Cadastro pelo portal em {formatRegistrationDate(selectedPatient.registeredAt)}
                   </p>
                 </div>
-                <button
-                  className={styles.editPatientProfileButton}
-                  type="button"
-                  aria-haspopup="dialog"
-                  onClick={() => setIsPatientProfileEditorOpen(true)}
-                >
-                  Editar perfil
-                </button>
+                <div className={styles.patientProfileHeaderActions}>
+                  <button
+                    className={styles.editPatientProfileButton}
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setIsPatientProfileEditorOpen(true)}
+                  >
+                    Editar perfil
+                  </button>
+                  <ExternalSupervisors
+                    key={selectedPatient.id}
+                    patientId={selectedPatient.id}
+                    patientName={selectedPatient.fullName}
+                  />
+                </div>
               </div>
               <h3 className={styles.patientCareHeading}>Dados do paciente</h3>
               <dl className={styles.patientCareGrid}>

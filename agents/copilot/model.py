@@ -28,9 +28,12 @@ class OllamaGenerator:
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("Timeout deve ser positivo e finito")
         self.model = model
+        self.timeout = timeout
         self.client = ollama.Client(host=host, timeout=timeout, trust_env=False, follow_redirects=False)
 
-    def generate(self, query: Query, evidence: list[Evidence]) -> DraftAnswer:
+    def generate(
+        self, query: Query, evidence: list[Evidence], *, instructions: str | None = None,
+    ) -> DraftAnswer:
         """Valida escopo e referências. Isso não comprova suporte semântico da paráfrase."""
         try:
             query = Query.model_validate(query.model_dump(warnings=False))
@@ -57,7 +60,7 @@ class OllamaGenerator:
             response = self.client.chat(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": instructions or SYSTEM_PROMPT},
                     {"role": "user", "content": build_prompt(query, evidence)},
                 ],
                 format=DraftAnswer.model_json_schema(),

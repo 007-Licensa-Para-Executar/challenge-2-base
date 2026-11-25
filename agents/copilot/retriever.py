@@ -84,6 +84,37 @@ def _tokens(text: str) -> list[str]:
     return [w for w in re.findall(r"\w+", normalized) if len(w) > 1 and w not in _STOPWORDS]
 
 
+# Reporting words of a question, not the subject being asked about.
+_QUESTION_WORDS = {
+    "aconteceu", "aparece", "apareceu", "aparecer", "descrita", "descritas", "descrito",
+    "descritos", "descreveu", "dita", "dito", "escreveu", "escrito", "experiencia", "falado",
+    "falou", "houve", "mencionada", "mencionado", "mencionados", "onde", "porque", "quem",
+    "registrada", "registrado", "registrados", "registrou", "relatada", "relatado", "relatados",
+    "relatou",
+}
+
+
+def _question_terms(question: str, patient_id: str = "") -> set[str]:
+    labels = {token for token in _tokens(patient_id.replace("_", " ")) if token != "patient"}
+    return set(_tokens(question)) - _QUESTION_WORDS - labels
+
+
+def supported_evidence(question: str, evidence: list[Evidence], patient_id: str = "") -> list[Evidence]:
+    """Keep a quote only when it covers a strict majority of the question terms."""
+    required = _question_terms(question, patient_id)
+    if not required or not evidence:
+        return []
+    needed = len(required) // 2 + 1
+    found = [(item, required & set(_tokens(item.quote))) for item in evidence]
+    anchor: set[str] = set()
+    for _item, have in found:
+        if len(have) >= needed:
+            anchor |= have
+    if len(anchor) < needed:
+        return []
+    return [item for item, have in found if have & anchor]
+
+
 def chunk_record(record: DiaryRecord, chunk_chars: int) -> list[Evidence]:
     """Nonoverlapping literal spans; prefer a whitespace boundary near the limit."""
     result = []

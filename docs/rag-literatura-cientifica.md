@@ -57,6 +57,59 @@ O BM25 não recupera um trecho que não compartilha vocabulário com a pergunta.
 
 O recall do benchmark é a cobertura das passagens anotadas, não do corpus. O filtro de dois termos pode descartar um trecho certo que use outras palavras. A checagem de quantidade não olha o trecho vizinho.
 
+## Protótipo no painel
+
+A rota `POST /api/psicologa/literatura` chama esta biblioteca. Ela só existe no modo de desenvolvimento. Em produção, e quando `REQUIRE_PSICOLOGA_AUTH=true`, a resposta é 403. O painel da psicóloga não tem sessão própria. O cookie `diario_sessao` autentica o paciente e não autoriza esta consulta. Não há autenticação improvisada.
+
+O navegador envia a pergunta e o corte. Não envia caminho de banco nem relato clínico. O processo Python é o do `.venv` desta worktree, com o módulo fixo `agents.copilot.literature_http`.
+
+O ambiente local usa o lockfile do projeto, sem o extra de embeddings:
+
+```bash
+uv sync --locked --python 3.12
+```
+
+A base experimental fica em `data/literature_local.sqlite3`, fora do Git. Para reconstruí-la, confira o PDF e o texto de PT-001 e PT-002 com o manifesto e grave só esses dois, pela mesma porta de licença da biblioteca:
+
+```bash
+PYTHONPATH=. .venv/bin/python - <<'PY'
+import hashlib
+import json
+from pathlib import Path
+from agents.copilot.literature import (
+    LITERATURE_MANIFEST, LiteratureStore, build_document, read_document,
+)
+root = Path(".").resolve()
+target = root / "data" / "literature_local.sqlite3"
+manifest = json.loads(LITERATURE_MANIFEST.read_text(encoding="utf-8"))
+store = LiteratureStore(target)
+body = 0
+for item in manifest["documents"]:
+    if item["document_id"] not in {"PT-001", "PT-002"}:
+        continue
+    if item.get("ingestion_approved") is not True:
+        raise SystemExit(item["document_id"])
+    pdf = root / item["file_path"]
+    file_hash = hashlib.sha256(pdf.read_bytes()).hexdigest()
+    text = read_document(pdf)
+    text_hash = hashlib.sha256(text.encode()).hexdigest()
+    if file_hash != item["sha256"] or text_hash != item["text_sha256"]:
+        raise SystemExit(f"hash divergente em {item['document_id']}")
+    document = build_document(
+        document_id=item["document_id"], title=item["title"], authors=item["authors"],
+        original_text=text, year=item["publication_year"], doi=item["doi"],
+        url=item["source_url"], license=item["license"], synthetic=False,
+    )
+    store.save(document)
+    body += sum(len(section.chunk_ids) for section in document.sections if section.role == "body")
+if body != 136:
+    raise SystemExit(f"corpo inesperado: {body}")
+print(target)
+PY
+```
+
+PT-003 e PT-004 permanecem fora. O manifesto não é alterado. Aponte `LITERATURE_DB_PATH` para `data/literature_local.sqlite3` e suba o Next em `127.0.0.1`, a partir de `ui/diario_paciente_next`. O pacote pede Node.js 22.13 ou mais novo. Nesta máquina, `nvm install 22` trouxe o 22.23.5 a partir de nodejs.org e o padrão do nvm continuou em 20.19.2. O `node:sqlite` abre sem flag e emite aviso de recurso experimental.
+
 ## Agente 2
 
 A integração ainda não existe. O Agente 2 não deve enviar o relato do paciente. A camada de integração, quando for autorizada, traduz o tema para uma pergunta genérica, escolhe o `db_path` persistente e lê `sources` somente se `evidence_sufficient` for verdadeiro.

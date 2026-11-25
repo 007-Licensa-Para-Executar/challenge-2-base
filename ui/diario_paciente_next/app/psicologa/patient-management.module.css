@@ -2305,3 +2305,75 @@
     align-self: flex-start;
   }
 }
+
+.literatureSearch {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.literatureSearch p,
+.literatureSearch h2 {
+  margin: 0;
+}
+
+.literatureNote,
+.literatureStatus {
+  color: var(--cor-texto-suave);
+  font-size: 14px;
+}
+
+.literatureForm {
+  display: grid;
+  gap: 10px;
+}
+
+.literatureForm textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid rgba(49, 92, 80, 0.2);
+  border-radius: 12px;
+  color: var(--cor-texto);
+  font: inherit;
+  resize: vertical;
+}
+
+.literatureForm button {
+  justify-self: start;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--cor-primaria);
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+}
+
+.literatureForm button:disabled {
+  opacity: 0.65;
+}
+
+.literatureError {
+  color: #8d3b32;
+  font-size: 14px;
+}
+
+.literatureQuote {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid rgba(49, 92, 80, 0.35);
+  color: var(--cor-texto);
+}
+
+.literatureSource {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(49, 92, 80, 0.12);
+}
+
+.literatureSource a {
+  color: var(--cor-primaria);
+}

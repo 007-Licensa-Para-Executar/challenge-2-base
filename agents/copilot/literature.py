@@ -58,7 +58,7 @@ _EN_MARKERS = frozenset({
     "the", "their", "these", "this", "those", "to", "which", "with", "without",
 })
 PDF_TEXT_TIMEOUT = 30
-_PDF_LITERAL = re.compile(rb"\((?:\\.|[^\\)])*\)")  
+_PDF_LITERAL = re.compile(rb"\((?:\\.|[^\\)])*\)")
 
 LITERATURE_GENERATION_TIMEOUT = 150
 UNVERIFIED_NOTICE = (

@@ -1,6 +1,6 @@
 """Implementação da Rede Neural Perceptron Multicamadas (MLP) em PyTorch para
 
-classificação dos 8 macrotemas clínicos + classe indeterminada.
+classificação dos 6 temas clínicos definidos em data/taxonomy.py.
 """
 
 from __future__ import annotations
@@ -12,17 +12,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-THEME_CLASSES: list[str] = [
-    "familia",
-    "trabalho",
-    "relacionamentos",
-    "estudos",
-    "saude_sono",
-    "financas",
-    "luto",
-    "autoestima",
-    "outros_indeterminado",
-]
+from data.taxonomy import CLASSES
+
+THEME_CLASSES: list[str] = list(CLASSES)
 
 
 class RMSNorm(nn.Module):
@@ -41,18 +33,18 @@ class RMSNorm(nn.Module):
 class ClinicalThemeMLP(nn.Module):
     """Multi-Layer Perceptron (MLP) para classificação temática de diários em saúde mental.
 
-    Arquitetura:
-      Entrada (1024) -> Linear(1024, 128) -> Norm(BatchNorm | LayerNorm | RMSNorm) -> ReLU -> Dropout(0.3)
-                     -> Linear(128, 64)   -> ReLU        -> Dropout(0.2)
-                     -> Linear(64, 9)     -> Logits (Softmax para inferência)
+    Arquitetura padrão (SBERT 384D -> 6 classes):
+      Entrada (384) -> Linear(384, 128) -> Norm(BatchNorm | LayerNorm | RMSNorm) -> ReLU -> Dropout(0.3)
+                    -> Linear(128, 64)  -> ReLU -> Dropout(0.2)
+                    -> Linear(64, 6)    -> Logits (Softmax calibrada para inferência)
     """
 
     def __init__(
         self,
-        input_dim: int = 128,
+        input_dim: int = 384,
         hidden_dim1: int = 128,
         hidden_dim2: int = 64,
-        num_classes: int = 9,
+        num_classes: int = len(THEME_CLASSES),
         dropout_rate: float = 0.3,
         vocab_size: int | None = None,
         embedding_dim: int | None = None,
@@ -180,14 +172,14 @@ class ClinicalThemeMLP(nn.Module):
         """Prediz classe com regra operacional de abstenção.
 
         Se a probabilidade máxima for inferior ao limiar de corte (`threshold`),
-        retorna a classe de fallback `outros_indeterminado` (índice 8).
+        retorna a classe de fallback `outros` (último índice).
         """
         if not 0.0 <= threshold <= 1.0:
             raise ValueError("threshold deve estar entre 0 e 1")
         probs = self.predict_proba(x)
         max_probs, preds = torch.max(probs, dim=-1)
 
-        fallback_idx = self.num_classes - 1  # 8: outros_indeterminado
+        fallback_idx = self.num_classes - 1  # outros
         preds = torch.where(
             max_probs < threshold, torch.tensor(fallback_idx, device=x.device), preds
         )
@@ -221,7 +213,7 @@ class ClinicalSequentialClassifier(nn.Module):
         vocab_size: int = 5000,
         embed_dim: int = 128,
         hidden_dim: int = 128,
-        num_classes: int = 9,
+        num_classes: int = len(THEME_CLASSES),
         num_layers: int = 1,
         bidirectional: bool = True,
         recurrent_type: Literal["lstm", "gru", "rnn"] = "lstm",

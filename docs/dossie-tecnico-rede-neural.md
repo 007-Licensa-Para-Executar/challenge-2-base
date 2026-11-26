@@ -16,7 +16,7 @@ Ao receber o diário de um paciente, o pipeline converte o relato em embeddings 
 flowchart TD
     subgraph INP["1. Camada de Entrada e Embeddings Semânticos (SBERT)"]
         RAW["Diário do Paciente (Texto em Português)"] --> PRE["Normalização de Texto e Prefixo (ex: 'query: ' para E5)"]
-        PRE --> SBERT["SBERTEmbedder Congelado (paraphrase-multilingual-MiniLM-L12-v2)"]
+        PRE --> SBERT["SBERTEmbedder Congelado (intfloat/multilingual-e5-small)"]
         SBERT --> EMB["Vetor Denso Contínuo 384D & Normalização L2"]
     end
 
@@ -136,7 +136,7 @@ Isso está expressamente transcrito em código no [`models/numpy_mlp.py`](file:/
 Abordagens esparsas baseadas em **TF-IDF** dependem de sobreposição lexical exata: se o paciente escreve *"não me sinto suficiente no estágio"* e o conjunto de treino continha *"tenho vergonha da minha incapacidade"*, o vetor TF-IDF trata as expressões como dimensões ortogonais sem proximidade semântica.
 
 Com a adoção do **SBERT (`SBERTEmbedder` em `models/sbert_embedder.py`)** usando `sentence-transformers`:
-1. **Codificação Contextual Multilíngue:** O modelo padrão `paraphrase-multilingual-MiniLM-L12-v2` (e a opção `intfloat/multilingual-e5-small` com prefixo `"query: "`) projeta o diário inteiro em um vetor denso contínuo de **384 dimensões** que captura sinônimos, contexto frasal e nuances emocionais em português.
+1. **Codificação Contextual Multilíngue:** O modelo padrão `intfloat/multilingual-e5-small` (com prefixo `"query: "` e janela de 512 tokens; também suportando `paraphrase-multilingual-MiniLM-L12-v2`) projeta o diário inteiro em um vetor denso contínuo de **384 dimensões** que captura sinônimos, contexto frasal e nuances emocionais em português.
 2. **Encoder Congelado (Zero Data Leakage):** O SBERT é utilizado estritamente com pesos pré-treinados e congelados (`fit()` é *no-op*). Ele apenas transforma o texto em vetor; quem aprende as fronteiras de decisão entre os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) é o MLP treinado pelo grupo.
 3. **Normalização na Hiperesfera Unitária:** Os embeddings são normalizados pela norma $\ell_2$:
    $$\mathbf{v}_{\text{doc}} = \frac{\text{SBERT}(d)}{\|\text{SBERT}(d)\|_2}$$

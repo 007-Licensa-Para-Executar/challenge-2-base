@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
+from data.taxonomy import CLASS_LABELS_PT, CLASSES
+
 from .contracts import Agent1Output, EvidenceSpan
 
 
@@ -218,9 +220,19 @@ class SubtopicWheelTracker:
             )
             macro_to_subs[stat["macro_tema"]].append(node)
 
-        # 4. Constrói os nós dos 8 macrotemas padrão
+        # 4. Constrói os nós do anel interno (usa taxonomia de 6 classes quando aplicável)
+        legacy_codes = {code for code, _ in self.DEFAULT_MACROTHEMES}
+        uses_legacy_only = bool(macro_to_subs) and all(
+            code in legacy_codes and code not in CLASSES for code in macro_to_subs
+        )
+        theme_specs = (
+            self.DEFAULT_MACROTHEMES
+            if uses_legacy_only
+            else [(c, CLASS_LABELS_PT[c]) for c in CLASSES]
+        )
+
         macro_nodes: list[MacrotopicNode] = []
-        for macro_code, macro_label in self.DEFAULT_MACROTHEMES:
+        for macro_code, macro_label in theme_specs:
             subs = macro_to_subs.get(macro_code, [])
             total_peso = sum(s.peso_total for s in subs)
             total_mencoes = sum(s.mencoes for s in subs)

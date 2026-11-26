@@ -14,6 +14,11 @@ MAX_INPUT_BYTES = 2400
 
 
 class MacroTema(str, Enum):
+    AUTOPERCEPCAO = "autopercepcao"
+    VINCULOS = "vinculos"
+    DESEMPENHO = "desempenho"
+    FISICO = "fisico"
+    RUPTURAS = "rupturas"
     TRABALHO = "trabalho"
     FAMILIA = "familia"
     RELACIONAMENTOS = "relacionamentos"
@@ -29,6 +34,11 @@ class MacroTema(str, Enum):
 
 
 class Tema(str, Enum):
+    AUTOPERCEPCAO = "autopercepcao"
+    VINCULOS = "vinculos"
+    DESEMPENHO = "desempenho"
+    FISICO = "fisico"
+    RUPTURAS = "rupturas"
     TRABALHO = "trabalho"
     FAMILIA = "familia"
     RELACIONAMENTOS = "relacionamentos"

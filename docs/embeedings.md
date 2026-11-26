@@ -12,21 +12,21 @@ A representação vetorial no sistema atua em dois subsistemas com requisitos co
 
 Abordagens esparsas baseadas em contagem de palavras (como TF-IDF) foram **substituídas** por embeddings densos de sentença (**SBERT** via `sentence-transformers`), superando a limitação de vocabulário exato:
 
-| Característica | `paraphrase-multilingual-MiniLM-L12-v2` (Padrão da Rede Neural) | `intfloat/multilingual-e5-small` (Alternativa SBERT & RAG) |
+| Característica | `intfloat/multilingual-e5-small` (Padrão da Rede Neural & RAG) | `paraphrase-multilingual-MiniLM-L12-v2` (Alternativa SBERT) |
 | :--- | :--- | :--- |
-| **Tipo de Representação** | Densa (Sentence-BERT / Transformer) | Densa (Dense Embedding Transformer) |
+| **Tipo de Representação** | Densa (Dense Embedding Transformer) | Densa (Sentence-BERT / Transformer) |
 | **Dimensão do Vetor** | 384 dimensões | 384 dimensões |
-| **Contexto Máximo** | 128 tokens (configurável) | 512 tokens |
-| **Prefixo de Texto** | Não exige | Exige `"query: "` / `"passage: "` (aplicado automaticamente pelo `SBERTEmbedder`) |
-| **Suporte ao Português** | Muito Bom (alinhamento semântico multilíngue) | Excelente (treinado em 100+ línguas) |
-| **Aplicação no Projeto** | **Entrada padrão da Rede Neural MLP (`SBERTEmbedder`)** | Alternativa para a Rede Neural (`--sbert-model`) e indexação no Banco Vetorial / RAG |
+| **Contexto Máximo** | 512 tokens | 128 tokens (configurável) |
+| **Prefixo de Texto** | Exige `"query: "` / `"passage: "` (aplicado automaticamente pelo `SBERTEmbedder`) | Não exige |
+| **Suporte ao Português** | Excelente (treinado em 100+ línguas) | Muito Bom (alinhamento semântico multilíngue) |
+| **Aplicação no Projeto** | **Entrada padrão da Rede Neural MLP (`SBERTEmbedder`) e indexação no Banco Vetorial / RAG** | Alternativa leve para a Rede Neural (`--sbert-model`) |
 
 ---
 
 ## 3. Decisão Arquitetural e Segregação de Papéis
 
 ### A. Para a Rede Neural de Classificação Temática (`models/sbert_embedder.py`)
-- **Abordagem Adotada:** Embeddings densos de sentença via **`SBERTEmbedder`** (`sentence-transformers`), utilizando por padrão o modelo congelado **`paraphrase-multilingual-MiniLM-L12-v2`** (384 dimensões, normalização L2).
+- **Abordagem Adotada:** Embeddings densos de sentença via **`SBERTEmbedder`** (`sentence-transformers`), utilizando por padrão o modelo congelado **`intfloat/multilingual-e5-small`** (384 dimensões, janela de 512 tokens e normalização L2).
 - **Por que SBERT ao invés de TF-IDF:**
   1. **Compreensão Semântica:** Relatos psicológicos usam metáforas, gírias e paráfrases. O SBERT aproxima expressões diferentes com o mesmo significado clínico, enquanto o TF-IDF dependia de coincidência exata de n-gramas.
   2. **Zero Vazamento de Dados (*No Data Leakage*):** O encoder SBERT é utilizado com pesos pré-treinados e **congelados** (`fit()` é *no-op*). Ele apenas projeta o texto em um vetor de 384 dimensões; quem aprende as fronteiras de decisão entre os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e gera os **percentuais (`%`)** após receber o diário é a Rede Neural MLP (`ClinicalThemeMLP` / `NumpyClinicalMLP`).

@@ -18,9 +18,9 @@ class NumpyClinicalMLP:
 
     def __init__(
         self,
-        in_dim: int = 1024,
+        in_dim: int = 384,
         h1: int = 64,
-        out_dim: int = 9,
+        out_dim: int = 6,
         lr: float = 0.01,
         random_state: int = 42,
     ) -> None:
@@ -171,7 +171,7 @@ class NumpyClinicalMLP:
         preds = np.argmax(probs, axis=1)
         confidences = np.max(probs, axis=1)
 
-        # Salvaguarda: se confiança < threshold, classifica como outros_indeterminado (última classe)
+        # Salvaguarda: se confiança < threshold, classifica como outros (última classe)
         fallback_idx = self.out_dim - 1
         preds[confidences < threshold] = fallback_idx
         return preds, confidences

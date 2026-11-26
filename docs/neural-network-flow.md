@@ -16,7 +16,7 @@ flowchart TD
 
     subgraph Preprocessamento["2. Embeddings Semânticos com SBERT"]
         B["Limpeza Básica de Espaços e Prefixo (ex: 'query: ' em E5)"]
-        C["SBERTEmbedder Congelado (paraphrase-multilingual-MiniLM-L12-v2)"]
+        C["SBERTEmbedder Congelado (intfloat/multilingual-e5-small)"]
         D["Representação Densa Contextual (384 dimensões)"]
         E["Normalização L2 na Hiperesfera Unitária"]
         B --> C --> D --> E
@@ -115,7 +115,7 @@ flowchart TD
 ## 3. Detalhamento Matemático dos Blocos
 
 ### 3.1. Embeddings Densos com SBERT (`models/sbert_embedder.py`)
-1. **Encoder Pré-Treinado Congelado:** Utiliza `SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")` por padrão (ou `intfloat/multilingual-e5-small` com prefixo `"query: "`), substituindo completamente o modelo esparso TF-IDF.
+1. **Encoder Pré-Treinado Congelado:** Utiliza `SentenceTransformer("intfloat/multilingual-e5-small")` por padrão com prefixo `"query: "` (ou `paraphrase-multilingual-MiniLM-L12-v2`), substituindo completamente o modelo esparso TF-IDF.
 2. **Sem Vazamento de Dados:** Como o encoder não tem pesos ajustados no dataset do projeto, `fit()` é *no-op* e não vaza informações entre treino, validação e teste.
 3. **Normalização $L_2$:** Cada diário é convertido em um vetor denso contínuo de $d = 384$ dimensões normalizado na hiperesfera unitária:
    $$e = \frac{\text{SBERT}(\text{texto})}{\|\text{SBERT}(\text{texto})\|_2 + \epsilon}$$

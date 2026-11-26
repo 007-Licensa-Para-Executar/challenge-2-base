@@ -1,9 +1,10 @@
-"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas."""
+"""Módulo de modelos de Deep Learning para classificação clínica de temas."""
 
 from typing import TYPE_CHECKING
 
 from models.embedder import ClinicalTextEmbedder
 from models.numpy_mlp import NumpyClinicalMLP
+from models.sbert_embedder import SBERTEmbedder
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 if TYPE_CHECKING:
@@ -36,5 +37,6 @@ __all__ = [
     "DiaryTopicBreakdown",
     "DiaryTopicSegment",
     "NumpyClinicalMLP",
+    "SBERTEmbedder",
     "TopicDistribution",
 ]

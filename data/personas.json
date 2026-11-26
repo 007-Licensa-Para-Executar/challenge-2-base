@@ -10,7 +10,7 @@
       "amabilidade": "media",
       "neuroticismo": "alto"
     },
-    "temas_frequentes": ["estudos", "autoestima", "saude_sono"],
+    "temas_frequentes": ["desempenho", "autopercepcao", "fisico"],
     "estilo_linguagem": "Uso de gírias jovens, frases fragmentadas, desespero por prazos"
   },
   {
@@ -24,7 +24,7 @@
       "amabilidade": "alta",
       "neuroticismo": "alto"
     },
-    "temas_frequentes": ["familia", "financas"],
+    "temas_frequentes": ["vinculos", "desempenho"],
     "estilo_linguagem": "Tom exausto, relatos de atritos com parentes que não ajudam"
   },
   {
@@ -38,7 +38,7 @@
       "amabilidade": "baixa",
       "neuroticismo": "alto"
     },
-    "temas_frequentes": ["trabalho", "saude_sono"],
+    "temas_frequentes": ["desempenho", "fisico"],
     "estilo_linguagem": "Vocabulário corporativo, menção a dores de estômago e taquicardia"
   },
   {
@@ -52,7 +52,7 @@
       "amabilidade": "alta",
       "neuroticismo": "alto"
     },
-    "temas_frequentes": ["luto", "relacionamentos"],
+    "temas_frequentes": ["rupturas", "vinculos"],
     "estilo_linguagem": "Frases lentas, referências a saudades, fotos antigas e silêncio"
   }
 ]

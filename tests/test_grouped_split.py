@@ -29,7 +29,7 @@ def test_legacy_known_variants_are_not_split_apart():
 
     bases = _OFFLINE_TEMPLATES["persona_universitario"]["estudos"]
     rows = [
-        {"id": str(i), "macro_tema": "estudos", "texto": prefix + base}
+        {"id": str(i), "macro_tema": "desempenho", "texto": prefix + base}
         for i, (base, prefix) in enumerate((b, p) for b in bases for p in ("", "Introdução "))
     ]
     splits = stratified_split_dataset(rows)
@@ -37,17 +37,20 @@ def test_legacy_known_variants_are_not_split_apart():
 
 
 def test_rejects_insufficient_source_families_and_conflicting_labels():
-    with pytest.raises(ValueError, match="3 independent"):
-        stratified_split_dataset([{"texto": "same text", "macro_tema": "a"}] * 10)
-    with pytest.raises(ValueError, match="conflicting"):
+    with pytest.raises(ValueError, match="Famílias insuficientes"):
+        stratified_split_dataset([{"texto": "same text", "macro_tema": "desempenho"}] * 10)
+    with pytest.raises(ValueError, match="rótulos conflitantes"):
         stratified_split_dataset(
-            [{"texto": "same text", "macro_tema": "a"}, {"texto": "same text", "macro_tema": "b"}]
+            [
+                {"texto": "same text", "macro_tema": "desempenho"},
+                {"texto": "same text", "macro_tema": "vinculos"},
+            ]
         )
 
 
 def test_explicit_family_links_and_identical_texts_are_both_respected():
     rows = [
-        {"texto": f"Family number {g} variation {v}", "macro_tema": "a", "group_id": str(g)}
+        {"texto": f"Family number {g} variation {v}", "macro_tema": "desempenho", "group_id": str(g)}
         for g in range(6)
         for v in range(2)
     ]

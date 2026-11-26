@@ -241,6 +241,22 @@ _SAFEGUARD_TEMPLATES: list[str] = [
     "Dia sem grandes acontecimentos, o clima ameno permitiu caminhar no parque no fim da tarde.",
     "Apenas registrando a rotina: café pela manhã, leitura breve e almoço simples em casa.",
     "Não aconteceu nada fora do habitual hoje, mantive o dia calmo e preparei o jantar mais cedo.",
+    "Passei no mercado para comprar frutas, arroz e café e depois reguei as plantas da varanda.",
+    "Assisti a um documentário sobre astronomia antes de desligar a televisão e descansar.",
+    "Limpei a mesa da cozinha, troquei a lâmpada do corredor e separei roupas para doação.",
+    "Hoje o trânsito estava tranquilo e aproveitei para ouvir um podcast sobre história no caminho.",
+    "Misturei os ingredientes de uma receita simples de bolo de cenoura para o lanche da tarde.",
+    "Aproveitei o sábado para lavar o quintal, passear com o cachorro e ouvir música instrumental.",
+    "Fui ao correio enviar uma encomenda, depois passei na farmácia comprar protetor solar e voltei a pé.",
+    "Troquei os lençóis da cama, coloquei a roupa na máquina de lavar e preparei um suco de laranja.",
+    "Assisti à previsão do tempo na televisão e separei um guarda-chuva antes de sair de casa.",
+    "Limpei a caixa de entrada de e-mails promocionais e atualizei a lista de compras da geladeira.",
+    "Hoje almocei arroz, feijão e salada de tomate, depois li vinte páginas de um romance policial.",
+    "Reguei o jardim no fim da tarde, conferi a correspondência na portaria e fiz um chá de camomila.",
+    "Comprei ração para o cachorro, varri a garagem e deixei as chaves penduradas na entrada.",
+    "Fiz uma lista dos filmes que quero assistir no próximo mês e reservei um livro na biblioteca.",
+    "Está tudo bem tranquilo por aqui hoje, aproveitei o feriado para descansar em paz sem preocupações.",
+    "Tive um dia sereno e leve, sem conflitos nem aborrecimentos para anotar no diário.",
 ]
 
 _INTROS: tuple[str, ...] = (
@@ -345,7 +361,7 @@ def _is_valid_report(text: str) -> bool:
 def generate_single_report_ollama(
     persona: dict[str, Any],
     theme: str,
-    client: "httpx.Client",
+    client: httpx.Client,
     model: str = "qwen2.5:3b",
 ) -> str:
     """Gera um relato pelo endpoint local do Ollama, reutilizando um cliente HTTP."""

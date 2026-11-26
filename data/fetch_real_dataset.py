@@ -47,6 +47,8 @@ THEME_RULES: dict[str, list[str]] = {
         r"\bmorte\b",
         r"\bfunera",
         r"\bvelório|\bvelorio",
+        r"\bente querido",
+        r"\bperda recente",
         r"\bperdi (meu|minha) (pai|mãe|mae|avô|avó|avo|irmã|irmão|filh|marido|esposa|melhor amig)",
         r"\bperda (de|do|da) (um |uma )?(ente|pessoa|pai|mãe|filh)",
         r"\bsaudade d[oae] (quem|meu|minha|ele|ela)\b",
@@ -76,6 +78,9 @@ THEME_RULES: dict[str, list[str]] = {
         r"\bcônjuge|\bconjuge",
         r"\bciúme|\bciume",
         r"\bsolid[ãa]o",
+        r"\bsolit[aá]ri[oa]\b",
+        r"\bisolad[oa]\b",
+        r"\bme sentindo muito s[oó]\b",
         r"\bsozinh",
     ],
     "autopercepcao": [  # autoestima, identidade, imagem corporal, sensação de incapacidade
@@ -90,11 +95,17 @@ THEME_RULES: dict[str, list[str]] = {
         r"\bincapaz",
         r"\bfracass",
         r"\binút[ei]l|\binutil",
+        r"\binutilidade",
         r"\bfeio\b|\bfeia\b",
         r"\bgord[oa]\b|\bmagr[oa]\b",
-        r"\bvergonha de mim",
+        r"\bvergonha\b",
+        r"\bculpa\b|\bculpad[oa]\b",
+        r"\bdecepcionad[oa] comigo",
+        r"\bbom o suficiente",
         r"\bvalor próprio|\bvalor proprio",
         r"\bidentidade",
+        r"\bquem sou\b",
+        r"\bsem prop[oó]sito|\bsem rumo\b|\bsem dire[çc][ãa]o",
         r"\bfraude\b",
         r"\bburro\b|\bburra\b",
         r"\bnão me sinto suficiente|\bnao me sinto suficiente",
@@ -105,12 +116,13 @@ THEME_RULES: dict[str, list[str]] = {
         r"\binsônia|\binsonia",
         r"\bpesadel",
         r"\bsonh",
-        r"\bansiedad",
+        r"\bansiedad|\bansios[oa]\b",
         r"\bpânico|\bpanico",
         r"\bdeprim|\bdepress",
         r"\bfadiga",
         r"\bcansa[çc]o",
         r"\bexaust",
+        r"\bestresse\b",
         r"\bdoen[çc]",
         r"\bm[eé]dic",
         r"\bremédio|\bremedio",
@@ -122,7 +134,6 @@ THEME_RULES: dict[str, list[str]] = {
         r"\btaquicardia",
         r"\bgastrite|\bestômago|\bestomago",
         r"\bpress[ãa]o arterial",
-        r"\bcorpo\b",
         r"\bapetite\b",
     ],
     "desempenho": [  # trabalho, estudos e finanças em geral
@@ -134,6 +145,10 @@ THEME_RULES: dict[str, list[str]] = {
         r"\bdemiss",
         r"\bprodutividade",
         r"\bmetas?\b",
+        r"\bobjetivos\b",
+        r"\bresponsabilidades\b",
+        r"\bprocrastin",
+        r"\bconcentra[çc][ãa]o|\bmotiva[çc][ãa]o|\bmem[oó]ria\b",
         r"\bprazo",
         r"\bcliente",
         r"\best[aá]gio",
@@ -171,8 +186,8 @@ _PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\(?\b\d{2}\)?\s?9?\d{4}-?\d{4}\b"), "[TELEFONE]"),
 ]
 
-# Formato Llama-2: o relato do paciente fica entre <</SYS>> e [/INST].
-_EXTRACT_RE = re.compile(r"<</SYS>>\s*(.*?)\s*\[/INST\]", re.DOTALL)
+# Formato Llama-2: o relato do paciente fica entre <</SYS> (ou <</SYS>>) e [/INST].
+_EXTRACT_RE = re.compile(r"<</SYS>>?\s*(.*?)\s*\[/INST\]", re.DOTALL)
 
 
 def scrub_pii(text: str) -> str:
@@ -258,6 +273,7 @@ def build_real_dataset(
     seed: int = 42,
     output_path: str = "data/real_diaries.json",
     cache_path: Path | None = DEFAULT_CACHE_PATH,
+    include_outros: bool = False,
 ) -> list[dict[str, Any]]:
     """Gera o dataset real balanceado por classe e salva em JSON."""
     texts = extract_patient_texts(load_parquet_bytes(cache_path=cache_path))
@@ -269,17 +285,28 @@ def build_real_dataset(
         label, strength = classify_text(text)
         by_class[label].append((text, strength))
 
+    target_classes = CLASSES if include_outros else tuple(c for c in CLASSES if c != SAFEGUARD_CLASS)
     records: list[dict[str, Any]] = []
-    for cls in CLASSES:
+    for cls in target_classes:
         pool = by_class.get(cls, [])
         if len(pool) < target_samples_per_class:
             logger.warning(
                 "Classe %s: %d relatos disponíveis, abaixo do alvo de %d",
                 cls, len(pool), target_samples_per_class,
             )
-        # Evidência forte primeiro; a ordem do shuffle é mantida dentro de cada empate.
-        pool.sort(key=lambda item: -item[1])
-        for idx, (text, strength) in enumerate(pool[:target_samples_per_class], start=1):
+        # Mistura evidência forte (>=2) e moderada (==1) para manter diversidade lexical.
+        strong = [item for item in pool if item[1] >= 2]
+        moderate = [item for item in pool if item[1] < 2]
+        selected = strong[: target_samples_per_class // 2] + moderate
+        if len(selected) < target_samples_per_class:
+            selected = strong + moderate
+        else:
+            remaining = target_samples_per_class - len(strong[: target_samples_per_class // 2])
+            if len(moderate) < remaining:
+                selected = strong[: target_samples_per_class - len(moderate)] + moderate
+            else:
+                selected = strong[: target_samples_per_class // 2] + moderate[:remaining]
+        for idx, (text, strength) in enumerate(selected[:target_samples_per_class], start=1):
             records.append(
                 {
                     "id": f"real_{cls}_{idx:03d}",
@@ -316,6 +343,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42, help="Semente pseudoaleatória")
     parser.add_argument("--cache", default=str(DEFAULT_CACHE_PATH), help="Cache local do parquet")
     parser.add_argument(
+        "--include-outros",
+        action="store_true",
+        help="Inclui relatos sem correspondência de regra como classe 'outros'",
+    )
+    parser.add_argument(
         "--reclassify", metavar="JSON", default=None,
         help="Reclassifica um JSON real existente pelo texto, sem baixar nada",
     )
@@ -333,6 +365,7 @@ def main() -> None:
         seed=args.seed,
         output_path=args.output,
         cache_path=Path(args.cache) if args.cache else None,
+        include_outros=args.include_outros,
     )
 
 

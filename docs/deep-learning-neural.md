@@ -35,7 +35,7 @@ A rede utiliza representações densas de sentença geradas por **SBERT** (subst
 [ Diário do Paciente (Entrada Textual) ]
         │
         ▼
-[ Vetorização Semântica: SBERTEmbedder (paraphrase-multilingual-MiniLM-L12-v2, dim=384, normalizado L2) ]
+[ Vetorização Semântica: SBERTEmbedder (intfloat/multilingual-e5-small, dim=384, normalizado L2) ]
         │
         ▼
 ┌────────────────────────────────────────────────────────┐

@@ -27,7 +27,7 @@
 [ Diário do Paciente (Texto em Português) ]
         │
         ▼
-[ SBERTEmbedder (sentence-transformers congelado: paraphrase-multilingual-MiniLM-L12-v2) ]
+[ SBERTEmbedder (sentence-transformers congelado: intfloat/multilingual-e5-small) ]
 [ Saída: Embedding denso contínuo de 384 dimensões, normalizado L2 ]
         │
         ▼
@@ -125,7 +125,7 @@ class ClinicalThemeMLP(nn.Module):
 
 ## 4. Extração de Embeddings com SBERT (`models/sbert_embedder.py`) e Treinamento (`models/train.py`)
 
-O `SBERTEmbedder` utiliza `sentence-transformers` (modelo padrão `paraphrase-multilingual-MiniLM-L12-v2`, com 384 dimensões; também suporta `intfloat/multilingual-e5-small` com prefixo `"query: "`). Como o encoder é **pré-treinado e congelado**, `fit()` é um *no-op* e não há vazamento de dados entre treino, validação e teste.
+O `SBERTEmbedder` utiliza `sentence-transformers` (modelo padrão `intfloat/multilingual-e5-small`, com 384 dimensões, 512 tokens e prefixo `"query: "`; também suporta `paraphrase-multilingual-MiniLM-L12-v2`). Como o encoder é **pré-treinado e congelado**, `fit()` é um *no-op* e não há vazamento de dados entre treino, validação e teste.
 
 ```python
 import joblib
@@ -150,7 +150,7 @@ def train_theme_classifier(
     theme_to_idx = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
 
     # 2. Extração de Embeddings Densos com SBERT (384 dimensões, normalizados L2)
-    embedder = SBERTEmbedder(model_name="paraphrase-multilingual-MiniLM-L12-v2", normalize_default=True)
+    embedder = SBERTEmbedder(model_name="intfloat/multilingual-e5-small", normalize_default=True)
     X_train = embedder.fit_transform([r["texto"] for r in train_rows])
     X_val = embedder.transform([r["texto"] for r in val_rows])
     X_test = embedder.transform([r["texto"] for r in test_rows])

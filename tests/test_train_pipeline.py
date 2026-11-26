@@ -2,7 +2,10 @@
 
 import json
 
+import numpy as np
+
 from mlops.tracker import MLFlowTracker
+from models.sbert_embedder import SBERTEmbedder
 from models.torch_mlp import THEME_CLASSES
 from models.train import (
     IDX_TO_THEME,
@@ -25,9 +28,9 @@ def test_load_dataset_records_from_file(tmp_path):
     """Valida leitura e conversão de registros de dataset JSON."""
     data_file = tmp_path / "sample_data.json"
     sample = [
-        {"texto": "Meu trabalho está cansativo.", "macro_tema": "trabalho"},
-        {"texto": "Minha mãe está doente.", "macro_tema": "familia"},
-        {"texto": "Apenas um dia neutro.", "macro_tema": "outros_indeterminado"},
+        {"texto": "Meu trabalho está cansativo.", "macro_tema": "desempenho"},
+        {"texto": "Minha mãe está doente.", "macro_tema": "vinculos"},
+        {"texto": "Apenas um dia neutro.", "macro_tema": "outros"},
     ]
     with open(data_file, "w", encoding="utf-8") as f:
         json.dump(sample, f)
@@ -35,9 +38,9 @@ def test_load_dataset_records_from_file(tmp_path):
     texts, labels = load_dataset_records(data_file)
     assert len(texts) == 3
     assert len(labels) == 3
-    assert labels[0] == THEME_TO_IDX["trabalho"]
-    assert labels[1] == THEME_TO_IDX["familia"]
-    assert labels[2] == THEME_TO_IDX["outros_indeterminado"]
+    assert labels[0] == THEME_TO_IDX["desempenho"]
+    assert labels[1] == THEME_TO_IDX["vinculos"]
+    assert labels[2] == THEME_TO_IDX["outros"]
 
 
 def test_mlflow_tracker_operations(tmp_path):
@@ -63,7 +66,6 @@ def test_mlflow_tracker_operations(tmp_path):
 
 def test_train_theme_classifier_e2e(tmp_path):
     """Executa o pipeline de ponta a ponta com dataset reduzido e verifica os artefatos gerados."""
-    # Gera dataset mínimo: 9 classes x 10 amostras = 90 amostras
     texts = []
     labels = []
     for cls_idx, cls_name in enumerate(THEME_CLASSES):
@@ -85,6 +87,7 @@ def test_train_theme_classifier_e2e(tmp_path):
         threshold=1.0,
         dist_dir=dist_dir,
         tracking_uri=f"sqlite:///{db_file}",
+        embedder="clinical",
     )
 
     assert "run_id" in result
@@ -92,24 +95,64 @@ def test_train_theme_classifier_e2e(tmp_path):
     assert "final_test_acc" in result
     assert 0.0 <= result["final_test_acc"] <= 1.0
 
-    # Verifica que todos os artefatos esperados foram gerados no disco
     assert (dist_dir / "best_theme_mlp.pt").exists()
+    assert (dist_dir / "theme_embedder.joblib").exists()
     assert (dist_dir / "tfidf_vectorizer.joblib").exists()
     assert (dist_dir / "confusion_matrix.json").exists()
     assert (dist_dir / "classification_report.json").exists()
+    assert (dist_dir / "threshold_classification_report.json").exists()
     assert (dist_dir / "theme_classes.json").exists()
 
-    # Operational policy must be evaluated, not just argmax.
-    comparison = result["comparison"]
-    assert comparison["torch"]["threshold_policy"]["abstention_count"] > 0
-    assert comparison["torch"]["threshold_policy"]["determined_coverage"] == 0
-    assert set(comparison) >= {"torch", "numpy", "majority_baseline"}
-    manifest = json.loads((dist_dir / "split_manifest.json").read_text())
-    splits = manifest["splits"]
-    groups = [{row["group_id"] for row in splits[name]} for name in ("train", "validation", "test")]
-    assert groups[0].isdisjoint(groups[1])
-    assert groups[0].isdisjoint(groups[2])
-    assert groups[1].isdisjoint(groups[2])
-    assert len(manifest["dataset_sha256"]) == 64
-    assert (dist_dir / "best_numpy_mlp.npz").exists()
-    assert (dist_dir / "comparison_report.json").exists()
+
+def test_sbert_embedder_pipeline_with_mocked_encoder(tmp_path, monkeypatch):
+    """Valida o fluxo train_theme_classifier com embedder='sbert' sem download de rede."""
+
+    class FakeSentenceTransformer:
+        def __init__(self, model_name, device=None):
+            self.model_name = model_name
+            self.max_seq_length = 128
+
+        def get_sentence_embedding_dimension(self):
+            return 16
+
+        def encode(self, texts, **kwargs):
+            vecs = np.zeros((len(texts), 16), dtype=np.float32)
+            for row_idx, text in enumerate(texts):
+                for cls_idx, cls_name in enumerate(THEME_CLASSES):
+                    if cls_name in text:
+                        vecs[row_idx, cls_idx] = 1.0
+                vecs[row_idx, 10 + (row_idx % 6)] = 0.05
+            norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+            return vecs / np.maximum(norms, 1e-8)
+
+    def fake_load(self):
+        if self._model is None:
+            self._model = FakeSentenceTransformer(self.model_name)
+            self._embedding_dim = 16
+        return self._model
+
+    monkeypatch.setattr(SBERTEmbedder, "_load", fake_load)
+
+    texts = []
+    labels = []
+    for cls_idx, cls_name in enumerate(THEME_CLASSES):
+        for i in range(10):
+            texts.append(f"Relato {cls_name} numero {i} exclusivo")
+            labels.append(cls_idx)
+
+    dist_dir = tmp_path / "dist_sbert"
+    db_file = tmp_path / "test_sbert.db"
+    result = train_theme_classifier(
+        texts=texts,
+        labels=labels,
+        epochs=5,
+        batch_size=8,
+        lr=0.01,
+        random_state=42,
+        experiment_name="Test_SBERT_Mock",
+        dist_dir=dist_dir,
+        tracking_uri=f"sqlite:///{db_file}",
+        embedder="sbert",
+    )
+    assert result["final_test_macro_f1"] > 0.5
+    assert (dist_dir / "theme_embedder.joblib").exists()

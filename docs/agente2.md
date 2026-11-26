@@ -3,7 +3,7 @@
 ## 1. Identificação e Propósito do Agente
 * **Arquivo no Código:** `agents/correlator/service.py` e `agents/correlator/prompt.py`
 * **Contrato de Dados:** `agents/correlator/contracts.py`
-* **Objetivo Primário:** Agregar e analisar múltiplos registros históricos do mesmo paciente produzidos pelo **Agente 1** ao longo de uma janela temporal (7, 14 ou 30 dias). Identificar correlações entre subtemas e valências emocionais (ex: *"Sempre que o subtema 'Irmão' é mencionado, a polaridade cai para -0.7 e surge correlação com insônia no tema 'Saúde & Sono'"*), mapear trajetórias longitudinais e destacar fatores protetivos (recursos positivos) versus fatores de estresse recorrentes.
+* **Objetivo Primário:** Agregar e analisar múltiplos registros históricos do mesmo paciente produzidos pelo **Agente 1** ao longo de uma janela temporal (7, 14 ou 30 dias). Identificar correlações entre subtemas e valências emocionais (ex: *"Sempre que o subtema 'Irmão' em 'Vínculos' é mencionado, a polaridade cai para -0.7 e surge correlação com insônia no tema 'Físico'"*), mapear trajetórias longitudinais e destacar fatores protetivos (recursos positivos) versus fatores de estresse recorrentes.
 * **Por que este componente existe?** Atende diretamente à **Constraint 1 (Pelo menos 2 agentes que trabalhem juntos)** e à **Constraint 7 (Explicabilidade)**. O psicólogo não tem tempo de ler dezenas de relatos isolados antes da consulta. O Agente 2 sintetiza as dinâmicas temporais no estilo do MIT ImpactBench, permitindo que a sessão de terapia comece com foco cirúrgico nos padrões da semana.
 
 ---
@@ -235,7 +235,7 @@ def test_collaboration_pipeline_agent1_to_agent2(monkeypatch):
         entry_id=uuid4(),
         patient_id="PAC-01",
         created_at=datetime(2026, 11, 1, 10, 0, tzinfo=UTC),
-        macro_tema_validado=MacroTema.FAMILIA,
+        macro_tema_validado=MacroTema.VINCULOS,
         confianca_macro_tema=0.95,
         subtemas=[SubTemaItem(nome="Irmão", descricao="Briga pelo carro", evidencias=[
             EvidenceSpan(quote_text="irmão pegou o carro", start_char=0, end_char=19)
@@ -250,7 +250,7 @@ def test_collaboration_pipeline_agent1_to_agent2(monkeypatch):
         entry_id=uuid4(),
         patient_id="PAC-01",
         created_at=datetime(2026, 11, 3, 22, 0, tzinfo=UTC),
-        macro_tema_validado=MacroTema.SAUDE_SONO,
+        macro_tema_validado=MacroTema.FISICO,
         confianca_macro_tema=0.88,
         subtemas=[SubTemaItem(nome="Insônia", descricao="Dificuldade para dormir", evidencias=[
             EvidenceSpan(quote_text="fiquei acordado a noite toda", start_char=0, end_char=28)

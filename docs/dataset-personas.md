@@ -1,13 +1,30 @@
 # Guia de Engenharia de Dados: Síntese de Personas e Relatos Clínicos (PsychAdapter & Ulster)
 
 ## 1. Identificação e Propósito
-* **Arquivo no Código:** `data/synthetic_generator.py` e `data/personas.json`
-* **Objetivo Primário:** Produzir datasets sintéticos de alta fidelidade psicológica para o treinamento da Rede Neural MLP (classificador dos 8 macrotemas) e para os testes automatizados da suíte de agentes, sem violar leis de privacidade (LGPD) ou o sigilo médico.
+* **Arquivo no Código:** `data/synthetic_generator.py`, `data/taxonomy.py` e `data/personas.json`
+* **Objetivo Primário:** Produzir datasets sintéticos de alta fidelidade psicológica para o treinamento da Rede Neural MLP (classificador dos **6 temas**: `autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e para os testes automatizados da suíte de agentes, sem violar leis de privacidade (LGPD) ou o sigilo médico.
 * **Por que este componente existe?** Cumpre com rigor a **Constraint 7 (Ética e Explicabilidade)** e a **Constraint 8 (Resources com até 2 anos)**. O uso de relatos de pacientes reais sem consentimento institucional e aprovação de comitê de ética (CEP/CONEP) é ilegal. Adotando a metodologia do [**PsychAdapter**](https://github.com/humanlab/psychadapter) (*npj Artificial Intelligence / Nature Portfolio, 2024/2025*) e as diretrizes de simulação da [**Universidade de Ulster**](https://pure.ulster.ac.uk/en/publications/using-large-language-models-in-simulated-mental-health-assessment/) (2024–2026), sintetizamos personas com perfis controlados de traços de personalidade e queixas clínicas.
 
 ---
 
-## 2. Metodologia: O Framework das 4 Personas Clínicas Centrais
+## 2. Taxonomia Única de 6 Temas (`data/taxonomy.py`)
+
+Todos os scripts de ingestão (`data/fetch_real_dataset.py`), geração sintética (`data/synthetic_generator.py`), divisão estratificada (`data/split.py`) e treino da rede neural (`models/train.py`) compartilham exclusivamente as **6 classes**:
+
+| Chave | Rótulo | Escopo Semântico |
+| :--- | :--- | :--- |
+| `autopercepcao` | **Autopercepção** | Autoestima, identidade, imagem corporal e sensação de incapacidade ou inadequação |
+| `vinculos` | **Vínculos** | Relacionamentos amorosos, amizades, família, términos, traições e separações |
+| `desempenho` | **Desempenho** | Trabalho, estudos e finanças (cobranças, metas, provas, dívidas) |
+| `fisico` | **Físico** | Saúde física e mental em sintomas, sono, tratamento médico, dores e sonhos |
+| `rupturas` | **Rupturas** | Perdas por morte e luto |
+| `outros` | **Outros** | Sem tema clínico claro, relato neutro ou classe de salvaguarda por abstenção |
+
+*(Rótulos legados de versões anteriores são convertidos automaticamente para essas 6 classes por `remap_legacy_label` em `data/taxonomy.py`.)*
+
+---
+
+## 3. Metodologia: O Framework das 4 Personas Clínicas Centrais
 
 O gerador parametriza a linguagem utilizando o modelo **Big Five (OCEAN)** cruzado com arquétipos de sofrimento frequentes na clínica:
 
@@ -15,140 +32,80 @@ O gerador parametriza a linguagem utilizando o modelo **Big Five (OCEAN)** cruza
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                      MATRIZ DE PERSONAS SINTÉTICAS (OCEAN)                      │
 ├───────────────┬────────────────────────────┬────────────────────────────────────┤
-│ Arquétipo     │ Traços Big Five Dominantes │ Macrotemas e Dinâmica Expressiva   │
+│ Arquétipo     │ Traços Big Five Dominantes │ Temas Frequentes e Dinâmica        │
 ├───────────────┼────────────────────────────┼────────────────────────────────────┤
-│ 1. Universitário│ Alto Neuroticismo,         │ 'estudos', 'autoestima', 'sono'    │
-│    Ansioso    │ Baixa Conscienciosidade    │ Relatos com autocrítica, pânico de │
-│               │                            │ prazos e insônia na madrugada.     │
+│ 1. Universitário│ Alto Neuroticismo,         │ 'desempenho', 'autopercepcao',     │
+│    Ansioso    │ Baixa Conscienciosidade    │ 'fisico' — autocrítica, prazos e   │
+│               │                            │ insônia na madrugada.              │
 ├───────────────┼────────────────────────────┼────────────────────────────────────┤
-│ 2. Cuidador   │ Alta Amabilidade,          │ 'familia', 'financas'              │
-│    Familiar   │ Alto Neuroticismo          │ Sentimento de sobrecarga, disputas │
-│               │                            │ com irmãos e cansaço domiciliar.   │
+│ 2. Cuidador   │ Alta Amabilidade,          │ 'vinculos', 'desempenho'           │
+│    Familiar   │ Alto Neuroticismo          │ Sobrecarga, atritos com parentes e │
+│               │                            │ pressões financeiras/domésticas.   │
 ├───────────────┼────────────────────────────┼────────────────────────────────────┤
-│ 3. Executivo  │ Alta Conscienciosidade,    │ 'trabalho', 'saude_sono'           │
-│    Burnout    │ Baixa Extroversão          │ Taquicardia, cinismo no trabalho,  │
-│               │                            │ cobrança de chefia e exaustão.     │
+│ 3. Executivo  │ Alta Conscienciosidade,    │ 'desempenho', 'fisico'             │
+│    Burnout    │ Baixa Extroversão          │ Taquicardia, exaustão, cobrança de │
+│               │                            │ chefia e sobrecarga laboral.       │
 ├───────────────┼────────────────────────────┼────────────────────────────────────┤
-│ 4. Luto e     │ Baixa Extroversão,         │ 'luto', 'relacionamentos'          │
-│    Isolamento │ Alto Neuroticismo          │ Sensação de vazio, anedonia,       │
-│               │                            │ lembrança de datas e separação.    │
+│ 4. Luto e     │ Baixa Extroversão,         │ 'rupturas', 'vinculos'             │
+│    Isolamento │ Alto Neuroticismo          │ Saudade, perda de ente querido,    │
+│               │                            │ silêncio e afastamento afetivo.    │
 └───────────────┴────────────────────────────┴────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Implementação do Gerador Sintético (`data/synthetic_generator.py`)
+## 4. Estrutura do Gerador Sintético (`data/synthetic_generator.py`)
+
+O módulo `data/synthetic_generator.py` importa diretamente `CLASSES`, `CLASS_DESCRIPTIONS` e `SAFEGUARD_CLASS` de `data/taxonomy.py` e gera exemplos sintéticos tanto em modo **offline** (a partir de templates mapeados via `LEGACY_TO_NEW`) quanto via **Ollama** (`--ollama`), atribuindo `group_id` por família de template para evitar vazamento no split:
 
 ```python
-import json
-import random
-import httpx
-from typing import List, Dict
+from data.taxonomy import CLASS_DESCRIPTIONS, CLASSES, SAFEGUARD_CLASS
 
-PERSONAS_DEFINITIONS = [
+CLINICAL_CLASSES: list[str] = [c for c in CLASSES if c != SAFEGUARD_CLASS]
+
+DEFAULT_PERSONAS = [
     {
         "id": "persona_universitario",
         "nome": "Lucas, 21 anos, estudante de engenharia",
         "tracos": "Alto neuroticismo, autocrítica severa, procrastinador",
-        "temas_frequentes": ["estudos", "autoestima", "saude_sono"],
-        "estilo_linguagem": "Uso de gírias jovens, frases fragmentadas, desespero por prazos"
+        "temas_frequentes": ["desempenho", "autopercepcao", "fisico"],
+        "estilo_linguagem": "Uso de gírias jovens, frases fragmentadas, desespero por prazos",
     },
     {
         "id": "persona_cuidador",
         "nome": "Mariana, 38 anos, cuida da mãe idosa",
         "tracos": "Alta amabilidade, sobrecarregada, culpa constante",
-        "temas_frequentes": ["familia", "financas"],
-        "estilo_linguagem": "Tom exausto, relatos de atritos com parentes que não ajudam"
+        "temas_frequentes": ["vinculos", "desempenho"],
+        "estilo_linguagem": "Tom exausto, relatos de atritos com parentes que não ajudam",
     },
     {
         "id": "persona_burnout",
         "nome": "Roberto, 44 anos, gerente de projetos",
         "tracos": "Perfeccionista, alta conscienciosidade, irritável",
-        "temas_frequentes": ["trabalho", "saude_sono"],
-        "estilo_linguagem": "Vocabulário corporativo, menção a dores de estômago e taquicardia"
+        "temas_frequentes": ["desempenho", "fisico"],
+        "estilo_linguagem": "Vocabulário corporativo, menção a dores de estômago e taquicardia",
     },
     {
         "id": "persona_luto",
         "nome": "Clara, 29 anos, perdeu o pai recentemente",
         "tracos": "Introspectiva, triste, desapegada da rotina",
-        "temas_frequentes": ["luto", "relacionamentos"],
-        "estilo_linguagem": "Frases lentas, referências a saudades, fotos antigas e silêncio"
-    }
+        "temas_frequentes": ["rupturas", "vinculos"],
+        "estilo_linguagem": "Frases lentas, referências a saudades, fotos antigas e silêncio",
+    },
 ]
-
-GENERATOR_PROMPT = """Você é um simulador de diários íntimos de saúde mental baseado no framework PsychAdapter.
-Sua tarefa é redigir um desabafo autêntico em português de 1 a 3 parágrafos, como se fosse a persona descrita abaixo.
-
-PERSONA:
-Nome/Perfil: {nome}
-Traços Psicológicos: {tracos}
-Estilo de Escrita: {estilo_linguagem}
-Tema Central Obrigatório: {tema}
-
-DIRETRIZES:
-1. Soe como um ser humano real escrevendo no calor do momento (pode ter desabafos crus, pontuação informal, pausas).
-2. Não adicione cabeçalhos, metadados ou introduções. Retorne EXCLUSIVAMENTE o texto do diário.
-"""
-
-def generate_synthetic_dataset(
-    output_path: str = "data/synthetic/synthetic_diaries.json",
-    samples_per_theme: int = 40,
-    ollama_url: str = "http://localhost:11434",
-    model: str = "qwen2.5:3b"
-):
-    themes = [
-        "familia", "trabalho", "relacionamentos", "estudos",
-        "saude_sono", "financas", "luto", "autoestima"
-    ]
-    
-    dataset = []
-    client = httpx.Client(timeout=30.0)
-
-    for theme in themes:
-        print(f"Gerando relatos para o tema: {theme}...")
-        for i in range(samples_per_theme):
-            persona = random.choice(PERSONAS_DEFINITIONS)
-            prompt = GENERATOR_PROMPT.format(
-                nome=persona["nome"],
-                tracos=persona["tracos"],
-                estilo_linguagem=persona["estilo_linguagem"],
-                tema=theme
-            )
-            
-            resp = client.post(
-                f"{ollama_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "options": {"temperature": 0.85}
-                }
-            )
-            text_content = resp.json()["message"]["content"].strip()
-            
-            dataset.append({
-                "id": f"syn_{theme}_{i+1:03d}",
-                "persona_id": persona["id"],
-                "macro_tema": theme,
-                "texto": text_content,
-                "modalidade": "texto"
-            })
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(dataset, f, ensure_ascii=False, indent=2)
-    print(f"Dataset sintético gerado com sucesso em {output_path} ({len(dataset)} registros)!")
 ```
 
 ---
 
-## 4. Divisão e Estratégia de Holdout para MLOps
+## 5. Divisão e Estratégia de Holdout para MLOps
 
-O arquivo gerado é estruturado com um script de divisão determinística (`data/split.py`):
-- **Treino (70%):** Utilizado pelo `models/train.py` para ajuste dos pesos da Rede Neural MLP.
-- **Validação (15%):** Utilizado para Early Stopping e controle de overfitting no MLflow.
-- **Holdout Test Cego (15%):** Conjunto intocado, utilizado exclusivamente na avaliação final para atestar a generalização do modelo.
+O arquivo gerado é dividido de forma determinística por família de origem (`data/split.py`), respeitando as **6 classes** e sem compartilhar `group_id` entre conjuntos:
+- **Treino (~70%):** Utilizado pelo `models/train.py` para ajuste dos pesos da Rede Neural MLP sobre os embeddings SBERT (`SBERTEmbedder`).
+- **Validação (~15%):** Utilizado para seleção de checkpoint (melhor Macro-F1) e calibração por *Temperature Scaling*.
+- **Holdout Test Cego (~15%):** Conjunto intocado, utilizado exclusivamente na avaliação final para atestar a generalização do modelo.
 
 ---
 
-## 5. Referências Científicas
+## 6. Referências Científicas
 1. **PsychAdapter (Nature Portfolio / npj AI & arXiv 2024/2025):** [https://github.com/humanlab/psychadapter](https://github.com/humanlab/psychadapter).
 2. **Ulster University (2024–2026):** *Using Large Language Models in Simulated Mental Health Assessment* (Mallon, Ennis et al.).

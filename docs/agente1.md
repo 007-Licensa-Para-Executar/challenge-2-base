@@ -3,7 +3,7 @@
 ## 1. Identificação e Propósito do Agente
 * **Arquivo no Código:** `agents/extractor/service.py` e `agents/extractor/prompt.py`
 * **Contrato de Dados:** `agents/extractor/contracts.py`
-* **Objetivo Primário:** Receber o relato bruto do paciente (texto ou transcrição de áudio) junto com a classificação macrotemática produzida pela Rede Neural MLP (ex: `familia`), realizar a compreensão semântica profunda do texto, extrair os **subtemas específicos** (ex: `Irmão`, `Pai`), mapear as **evidências literais exatas** (spans com posições de início/fim e carimbos de tempo em áudio) e identificar a tonalidade afetiva e eventuais marcadores sintáticos de risco à vida.
+* **Objetivo Primário:** Receber o relato bruto do paciente (texto ou transcrição de áudio) junto com a classificação e os percentuais (`%`) produzidos pela Rede Neural MLP com SBERT (ex: `vinculos`), realizar a compreensão semântica profunda do texto, extrair os **subtemas específicos** (ex: `Irmão`, `Pai`), mapear as **evidências literais exatas** (spans com posições de início/fim e carimbos de tempo em áudio) e identificar a tonalidade afetiva e eventuais marcadores sintáticos de risco à vida.
 * **Por que este componente existe?** Para garantir **100% de explicabilidade**. O psicólogo nunca verá uma categoria solta na tela; ao clicar no subtema gerado pelo Agente 1, ele acessa o trecho literal exato que o paciente escreveu ou falou, eliminando alucinações.
 
 ---
@@ -12,8 +12,8 @@
 
 ```mermaid
 flowchart LR
-    A["Relato Bruto (Texto / Áudio)"] --> B["Rede Neural MLP"]
-    B -->|"Macrotema Padrão: 'familia' (Confiança: 91%)"| C["Agente 1 (LLM Local / Ollama)"]
+    A["Relato Bruto (Texto / Áudio)"] --> B["Rede Neural MLP (SBERT)"]
+    B -->|"Tema: 'vinculos' (84.5%) + % dos 6 Temas"| C["Agente 1 (LLM Local / Ollama)"]
     A --> C
     C -->|Executa Decomposição & Span Matching| D["Validação Pydantic (ExtractionEnvelope)"]
     D --> E[("Persistência: SQLite & Vetorizador")]
@@ -33,16 +33,12 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 class MacroTema(str, Enum):
-    TRABALHO = "trabalho"
-    FAMILIA = "familia"
-    RELACIONAMENTOS = "relacionamentos"
-    ESTUDOS = "estudos"
-    SAUDE_SONO = "saude_sono"
-    FINANCAS = "financas"
-    LUTO = "luto"
-    AUTOESTIMA = "autoestima"
+    AUTOPERCEPCAO = "autopercepcao"
+    VINCULOS = "vinculos"
+    DESEMPENHO = "desempenho"
+    FISICO = "fisico"
+    RUPTURAS = "rupturas"
     OUTROS = "outros"
-    NAO_IDENTIFICADO = "nao_identificado"
 
 class Sentimento(str, Enum):
     ALEGRIA = "alegria"
@@ -100,8 +96,8 @@ Sua missão é ler o relato íntimo do diário de um paciente e, sabendo o MACRO
 DIRETRIZES FUNDAMENTAIS:
 1. RASTREABILIDADE TOTAL: Toda citação ('quote_text') deve ser COPIADA EXATAMENTE do texto do paciente. Não altere conjugação verbal, pontuação ou sinônimos.
 2. SUBTEMAS CLÍNICOS RELEVANTES:
-   - Se o macrotema for 'familia', identifique pessoas ou tópicos centrais (ex: 'Irmão', 'Pai', 'Mãe', 'Finanças Familiares').
-   - Se for 'trabalho', identifique gatilhos (ex: 'Chefe', 'Carga Horária', 'Medo de Demissão').
+   - Se o macrotema for 'vinculos', identifique pessoas ou dinâmicas relacionais (ex: 'Irmão', 'Pai', 'Término', 'Amizades').
+   - Se for 'desempenho', identifique gatilhos (ex: 'Chefe', 'Carga Horária', 'Provas', 'Dívidas').
    - Não crie subtemas genéricos demais como 'Coisas Ruins' ou 'Problemas'.
 3. AVALIAÇÃO DE SENTIMENTO: Rotule a emoção dominante (alegria, tristeza, raiva, medo, preocupacao, frustracao, calma) e a polaridade numérica contínua (-1.0 para muito negativo, +1.0 para muito positivo).
 4. SINALIZADOR DE RISCO: Avalie se há menção explícita de ideação de autolesão ou desesperança crítica ('presente', 'nao_identificado' ou 'indeterminado').
@@ -237,10 +233,10 @@ def test_agent1_successful_parsing():
         res = service.process(
             patient_id="PAC-123",
             text=SAMPLE_TEXT,
-            macro_tema="familia",
+            macro_tema="vinculos",
             confidence=0.92
         )
-        assert res.macro_tema_validado == "familia"
+        assert res.macro_tema_validado == "vinculos"
         assert res.subtemas[0].nome == "Irmão"
         assert res.sentimento_predominante == "raiva"
         assert res.score_polaridade < 0

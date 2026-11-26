@@ -10,12 +10,12 @@ O sistema adota uma matriz de avaliação em dois níveis complementares:
 
 ## 2. Métricas Técnicas de Machine Learning e Agentes
 
-### A. Rede Neural de Classificação dos 8 Macrotemas
-- **Macro-F1 Score:** Métrica de decisão principal ($\ge 0.80$), assegurando que classes com menos exemplos (ex: Luto, Finanças) tenham peso igual às classes mais frequentes (ex: Trabalho, Família).
+### A. Rede Neural de Classificação dos 6 Temas
+- **Macro-F1 Score:** Métrica de decisão principal ($\ge 0.80$), assegurando que classes com menos exemplos (ex: `rupturas`, `fisico`) tenham peso igual às classes mais frequentes (ex: `desempenho`, `vinculos`).
 - **Precisão e Recall por Classe:**
   $$\text{Macro-F1} = \frac{1}{C} \sum_{c=1}^{C} \frac{2 \cdot \text{Precision}_c \cdot \text{Recall}_c}{\text{Precision}_c + \text{Recall}_c}$$
-- **Top-2 Accuracy:** Proporção de vezes em que o tema correto esteve entre as duas maiores probabilidades da rede ($\ge 92\%$).
-- **Matriz de Confusão:** Monitoramento contínuo para detectar zonas de sobreposição semântica (ex: confusão entre *Relacionamentos* e *Família*).
+- **Calibração (ECE) e Percentuais (`%`):** Monitoramento do *Expected Calibration Error* antes e após *Temperature Scaling* para garantir que os percentuais (`%`) emitidos pela rede sobre embeddings **SBERT** reflitam a confiança real nas 6 classes (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`).
+- **Matriz de Confusão:** Monitoramento contínuo para detectar zonas de sobreposição semântica (ex: confusão entre *Vínculos* e *Rupturas*, ou entre *Autopercepção* e *Desempenho*).
 
 ### B. Extração de Subtemas e Evidências Literais (Agente 1)
 - **Taxa de Validade de Esquema (Schema Compliance):** $100\%$ de conformidade com os modelos Pydantic sem erro de parsing JSON.

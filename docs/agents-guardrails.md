@@ -16,7 +16,7 @@ sequenceDiagram
     actor Psicologo as Psicólogo (Dashboard)
 
     Paciente->>DL: Envia relato do diário (Texto/Áudio transcrito)
-    DL-->>Ag1: Emite classificação do Macrotema Padrão (ex: "Família")
+    DL-->>Ag1: Emite classificação e percentuais (%) dos 6 Temas (ex: "Vínculos")
     Ag1->>Ag1: Extrai Subtemas ("Irmão", "Pai") e Trechos Literais Exatos
     Ag1->>Store: Persiste Metadados Estruturados e Spans de Evidência
     
@@ -38,10 +38,10 @@ sequenceDiagram
 * **Papel:** Transformar a entrada não estruturada e a previsão macrotemática da Rede Neural em representações clínicas granulares ancoradas em evidências do texto.
 * **Entradas:** 
   - Texto higienizado do diário (máx. 2.400 caracteres UTF-8).
-  - Predição da Rede Neural (Macrotema vencedor entre os 8 temas padrão + score de confiança).
+  - Predição da Rede Neural com SBERT (tema identificado entre os 6 temas — `autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros` — e respectivos percentuais `%` / confiança).
   - Metadados de mídia (carimbos de tempo de áudio, se originário de fala).
 * **Tarefas Internas:**
-  1. **Decomposição em Subtemas:** Identificar quais entidades, relações ou tópicos específicos compõem o macrotema (ex: se o Macrotema é `Familia`, identificar subtemas como `Pai`, `Irmão`, `Conflito financeiro familiar`).
+  1. **Decomposição em Subtemas:** Identificar quais entidades, relações ou tópicos específicos compõem o tema (ex: se o tema é `vinculos`, identificar subtemas como `Pai`, `Irmão`, `Término`).
   2. **Ancoragem Literal (Ground Truth Spans):** Para cada subtema, recortar o trecho literal exato proferido pelo paciente (com índices de caractere `start_char` e `end_char`, e carimbos `audio_start_sec` e `audio_end_sec`), viabilizando a auditoria pelo terapeuta.
   3. **Identificação de Sentimentos:** Rotular emoções primárias (Alegria, Tristeza, Raiva, Medo, Preocupação, Frustração, Calma, Não Identificado) e polaridade contínua.
   4. **Verificação Descritiva de Indício de Risco:** Rastrear padrões sintáticos de desesperança sem emitir diagnósticos.
@@ -86,16 +86,12 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 class MacroTema(str, Enum):
-    TRABALHO = "trabalho"
-    FAMILIA = "familia"
-    RELACIONAMENTOS = "relacionamentos"
-    ESTUDOS = "estudos"
-    SAUDE_SONO = "saude_sono"
-    FINANCAS = "financas"
-    LUTO = "luto"
-    AUTOESTIMA = "autoestima"
+    AUTOPERCEPCAO = "autopercepcao"
+    VINCULOS = "vinculos"
+    DESEMPENHO = "desempenho"
+    FISICO = "fisico"
+    RUPTURAS = "rupturas"
     OUTROS = "outros"
-    NAO_IDENTIFICADO = "nao_identificado"
 
 class Sentimento(str, Enum):
     ALEGRIA = "alegria"

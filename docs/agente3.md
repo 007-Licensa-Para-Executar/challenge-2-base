@@ -3,7 +3,7 @@
 ## 1. Identificação e Propósito do Agente
 * **Arquivo no Código:** `agents/copilot/service.py` e `agents/copilot/prompt.py`
 * **Contrato de Dados:** `agents/copilot/contracts.py`
-* **Objetivo Primário:** Apoiar o psicólogo humano na preparação da consulta. Quando o terapeuta seleciona um subtema no Dashboard (ex: `Irmão` no tema `Família`) ou analisa uma correlação gerada pelo **Agente 2**, o Agente 3 consulta a **Base de Conhecimento Clínico Autorizada** (protocolos de TCC de Beck, técnicas de regulação emocional e psicoeducação) e gera uma síntese estruturada contendo:
+* **Objetivo Primário:** Apoiar o psicólogo humano na preparação da consulta. Quando o terapeuta seleciona um subtema no Dashboard (ex: `Irmão` no tema `Vínculos`) ou analisa uma correlação gerada pelo **Agente 2**, o Agente 3 consulta a **Base de Conhecimento Clínico Autorizada** (protocolos de TCC de Beck, técnicas de regulação emocional e psicoeducação) e gera uma síntese estruturada contendo:
   1. **Hipóteses Cognitivas Baseadas na Literatura** (ex: crenças intermediárias ativadas).
   2. **Sugestões de Perguntas Investigativas Abertas** para o terapeuta formular ao paciente na sessão.
   3. **Citações Mandatórias da Fonte** `[Doc_ID, Seção/Página]`.
@@ -235,7 +235,7 @@ def test_copilot_generates_grounded_questions(monkeypatch):
 
     briefing = copilot.generate_briefing(
         subtema="Irmão",
-        macrotema="familia",
+        macrotema="vinculos",
         quote_text="Meu irmão pegou meu carro de novo"
     )
 

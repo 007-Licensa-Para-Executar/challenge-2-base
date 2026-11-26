@@ -4,7 +4,7 @@
 * **Arquivo no Código:** `app/dashboard.py`
 * **Tecnologia Adotada:** **Streamlit** (nativo em Python, reativo, com suporte nativo a `st.dialog` para modais pop-up, áudio em HTML5 e gráficos interativos).
 * **Objetivo Primário:** Materializar a experiência analítica do **MIT ImpactBench (`impactbench.media.mit.edu/explore`)** para o psicólogo clínico:
-  1. Visualização panorâmica dos **8 Temas Padrão** organizados por valência e volume.
+  1. Visualização panorâmica dos **6 Temas Clínicos** (`Autopercepção`, `Vínculos`, `Desempenho`, `Físico`, `Rupturas`, `Outros`) com os percentuais (`%`) atribuídos pela Rede Neural (SBERT + MLP).
   2. Expansão interativa em **Subtemas Específicos** gerados pelo **Agente 1**.
   3. Abertura do **Modal Pop-up de Evidência Literal** ao clicar em qualquer subtema, exibindo as **palavras literais exatas** do paciente, o **player de áudio recortado no carimbo de tempo** e o subsídio teórico do **Agente 3 (RAG)**.
 * **Por que este componente existe?** Cumpre com brilho a **Constraint 7 (Solução ética e explicável)** e a **Constraint 9 (MVP funcional)**. Torna o sistema tangível, moderno e diretamente utilizável por psicólogos em ambiente de consultório.
@@ -17,15 +17,15 @@
 ┌────────────────────────────────────────────────────────┐
 │ 1. TELA PRINCIPAL (/explore)                           │
 │    • Termômetro de Afeto Semanal (Positivo/Negativo)   │
-│    • Grid dos 8 Cards Temáticos Clínicos               │
+│    • Grid dos 6 Cards Temáticos Clínicos               │
 └────────────────────────────────────────────────────────┘
                            │
-       (Psicólogo clica no Card "FAMÍLIA")
+       (Psicólogo clica no Card "VÍNCULOS")
                            │
                            ▼
 ┌────────────────────────────────────────────────────────┐
 │ 2. ESTADO EXPANDIDO                                    │
-│    • Destaque visual no tema "FAMÍLIA" (Confiança 91%) │
+│    • Destaque visual no tema "VÍNCULOS" (91%)          │
 │    • Bandeja de Pílulas de Subtemas:                   │
 │      [ Irmão (2) ]  [ Pai (1) ]  [ Herança (1) ]       │
 └────────────────────────────────────────────────────────┘
@@ -107,33 +107,31 @@ with col1:
 with col2:
     st.metric(label="Valência Afetiva", value="Predomínio Negativo", delta="-0.58 polaridade", delta_color="inverse")
 with col3:
-    st.metric(label="Área Crítica", value="Família", delta="91% confiança neural")
+    st.metric(label="Área Crítica", value="Vínculos", delta="91% confiança neural")
 with col4:
     st.metric(label="Indicador de Risco Textual", value="Não Identificado", delta="Estável", delta_color="normal")
 
 st.divider()
 
-# 3. Definição dos Dados dos 8 Temas Padrão
+# 3. Definição dos Dados dos 6 Temas Clínicos (data/taxonomy.py)
 temas_info = {
-    "familia": {"nome": "👨‍👩‍👧 Família", "qtd": 3, "conf": 0.91, "sent": "Raiva/Frustração", "subtemas": ["Irmão", "Pai", "Cobrança Materna"]},
-    "trabalho": {"nome": "💼 Trabalho", "qtd": 2, "conf": 0.84, "sent": "Preocupação", "subtemas": ["Chefe", "Prazos", "Sobrecarga"]},
-    "relacionamentos": {"nome": "🤝 Relacionamentos", "qtd": 1, "conf": 0.62, "sent": "Neutro", "subtemas": ["Amigo Distante"]},
-    "estudos": {"nome": "📚 Estudos", "qtd": 1, "conf": 0.45, "sent": "Calma", "subtemas": ["TCC"]},
-    "saude_sono": {"nome": "🌙 Saúde & Sono", "qtd": 4, "conf": 0.78, "sent": "Insônia", "subtemas": ["Noites em Claro", "Fadiga"]},
-    "financas": {"nome": "💰 Finanças", "qtd": 0, "conf": 0.30, "sent": "Sem registros", "subtemas": []},
-    "luto": {"nome": "🕊️ Luto", "qtd": 0, "conf": 0.12, "sent": "Sem registros", "subtemas": []},
-    "autoestima": {"nome": "🪞 Autoestima", "qtd": 2, "conf": 0.68, "sent": "Tristeza", "subtemas": ["Autocrítica", "Corpo"]}
+    "autopercepcao": {"nome": "🪞 Autopercepção", "qtd": 2, "conf": 0.68, "sent": "Tristeza", "subtemas": ["Autocrítica", "Imagem Corporal"]},
+    "vinculos": {"nome": "🤝 Vínculos", "qtd": 4, "conf": 0.91, "sent": "Raiva/Frustração", "subtemas": ["Irmão", "Pai", "Amizades"]},
+    "desempenho": {"nome": "💼 Desempenho", "qtd": 3, "conf": 0.84, "sent": "Preocupação", "subtemas": ["Chefe", "Prazos", "Dívidas"]},
+    "fisico": {"nome": "🌙 Físico", "qtd": 4, "conf": 0.78, "sent": "Insônia", "subtemas": ["Noites em Claro", "Fadiga"]},
+    "rupturas": {"nome": "🕊️ Rupturas", "qtd": 0, "conf": 0.12, "sent": "Sem registros", "subtemas": []},
+    "outros": {"nome": "ℹ️ Outros", "qtd": 0, "conf": 0.08, "sent": "Sem registros", "subtemas": []},
 }
 
-st.subheader("1. Mapa dos 8 Macrotemas Clínicos (Rede Neural MLP)")
-cols_row1 = st.columns(4)
-cols_row2 = st.columns(4)
+st.subheader("1. Mapa dos 6 Temas Clínicos (Rede Neural MLP + SBERT)")
+cols_row1 = st.columns(3)
+cols_row2 = st.columns(3)
 todas_colunas = cols_row1 + cols_row2
 
 if "tema_selecionado" not in st.session_state:
-    st.session_state.tema_selecionado = "familia"
+    st.session_state.tema_selecionado = "vinculos"
 
-# Renderização do Grid dos 8 Cartões
+# Renderização do Grid dos 6 Cartões
 for idx, (chave, info) in enumerate(temas_info.items()):
     col = todas_colunas[idx]
     with col:

@@ -1,6 +1,10 @@
 # MLOps e rede neural: arquitetura e rastreamento
 
-Este documento descreve o pipeline implementado para o **Challenge 2 - Bem-Estar**. Ele cobre o rastreamento reproduzível (`infra: mlops`) e a rede neural treinada pelo grupo (`feature: neural-network`).
+Este documento descreve o pipeline implementado para o **Challenge 2 - Bem-Estar**. Ele cobre o rastreamento reproduzível (`infra: mlops`) executado pelo comando `bem-estar-mlops`.
+
+> [!NOTE]
+> **Separação entre a esteira de sentimento (`bem-estar-mlops`) e a Rede Neural Temática principal (`models/train.py`):**
+> A rede neural temática principal do projeto foi migrada para embeddings densos **SBERT** (`models/sbert_embedder.py`, substituindo o TF-IDF) e classifica os diários entre os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) atribuindo percentuais (`%`), conforme detalhado em [`docs/rede-neural.md`](rede-neural.md) e [`docs/dossie-tecnico-rede-neural.md`](dossie-tecnico-rede-neural.md). O comando legado `bem-estar-mlops` (`mlops/pipeline.py` + `models/neural_net.py`) permanece abaixo exclusivamente para o gate de MLOps sobre `expected.sentimento` nos relatos sintéticos.
 
 Os rótulos de `data/synthetic/` estão com `annotation_status: unreviewed`. O gate abaixo é um critério de engenharia para publicar um artefato. Ele não valida uso clínico nem qualidade da anotação.
 

@@ -18,7 +18,7 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 
 ### 2. Guias de Implementação dos Agentes
 * [**`agente-1-flow.md`**](file:///docs/agente-1-flow.md): **Fluxo de Processamento do Agente 1 (Roda Sunburst e Subtemas)**.
-  - *O que faz:* Diagrama de fluxo de ponta a ponta, integração com a Rede Neural MLP, motor da Roda de Bem-Estar (máx 24 subtemas), dinâmica de rotação e comparativo longitudinal semanal/mensal para psicólogos.
+  - *O que faz:* Diagrama de fluxo de ponta a ponta, integração com a Rede Neural MLP (6 temas com percentuais `%`), motor da Roda de Bem-Estar (máx 24 subtemas), dinâmica de rotação e comparativo longitudinal semanal/mensal para psicólogos.
 * [**`agente1.md`**](file:///docs/agente1.md): **Agente 1 (Decompositor Temático e Evidências Literais)**.
   - *O que faz:* Recebe o tema da Rede Neural, decompõe em subtemas (`Irmão`, `Pai`), mapeia citações literais exatas com índices de caractere e carimbos de áudio.
   - *Código:* `agents/extractor/service.py` e contratos Pydantic.
@@ -33,12 +33,14 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 
 ### 3. Guias de Inteligência Artificial e Dados
 * [**`dossie-tecnico-rede-neural.md`**](file:///docs/dossie-tecnico-rede-neural.md): **Dossiê Técnico e Teórico da Rede Neural (Master Reference)**.
-  - *O que faz:* Formalização matemática completa, dedução do gradiente da Softmax/Cross-Entropy, engenharia de embeddings no `ClinicalTextEmbedder`, dualidade NumPy puro vs PyTorch, otimizadores e regularização.
+  - *O que faz:* Formalização matemática completa, dedução do gradiente da Softmax/Cross-Entropy, embeddings semânticos com SBERT (`SBERTEmbedder`), dualidade NumPy puro vs PyTorch, calibração e saída percentual para os 6 temas.
 * [**`neural-network-flow.md`**](file:///docs/neural-network-flow.md): **Fluxograma e Funcionamento da Rede Neural**.
-  - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência e treino), formulação matemática, comparação MLP vs RNN/LSTM/GRU, normalizações (BatchNorm/LayerNorm/RMSNorm), resolução de gradientes e exemplo real.
-* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 8 Macrotemas Clínicos)**.
-  - *O que faz:* Multi-Layer Perceptron construído e treinado para classificar os 8 temas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`). Implementações completas em PyTorch e em NumPy puro.
-  - *Código:* `models/torch_mlp.py` e `models/train.py`.
+  - *O que faz:* Diagramas de fluxo de ponta a ponta (inferência com SBERT e treino), formulação matemática, cálculo de percentuais (`%`) para os 6 temas, comparação MLP vs RNN/LSTM/GRU, normalizações e resolução de gradientes.
+* [**`rede-neural.md`**](file:///docs/rede-neural.md): **Rede Neural MLP (Classificador dos 6 Temas Clínicos com SBERT)**.
+  - *O que faz:* Multi-Layer Perceptron construído e treinado sobre embeddings SBERT (384d) para identificar e atribuir percentuais (`%`) aos 6 temas (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) após receber o diário. Implementações completas em PyTorch e em NumPy puro.
+  - *Código:* `models/sbert_embedder.py`, `models/torch_mlp.py`, `models/numpy_mlp.py`, `models/train.py` e `models/predictor.py`.
+* [**`embeedings.md`**](file:///docs/embeedings.md): **Estratégia de Representação Vetorial e Embeddings (SBERT)**.
+  - *O que faz:* Justifica a adoção do SBERT (`paraphrase-multilingual-MiniLM-L12-v2` e `multilingual-e5-small`) em substituição ao TF-IDF na rede neural e no RAG.
 * [**`banco-vetorial.md`**](file:///docs/banco-vetorial.md): **Banco Vetorial Local (`sqlite-vec`)**.
   - *O que faz:* Armazenamento relacional e vetorial de 384 dimensões 100% local, criptografado e sem envio de dados para a nuvem.
   - *Código:* `knowledge_base/vector_store.py` e `knowledge_base/schema.sql`.
@@ -53,7 +55,7 @@ Este repositório foi projetado para atender com excelência às **9 Constraints
 
 ### 4. Interface e Operações
 * [**`dashboard-ux.md`**](file:///docs/dashboard-ux.md): **Interface do Psicólogo (Estilo MIT ImpactBench `/explore`)**.
-  - *O que faz:* Dashboard interativo em Streamlit com os 8 cards temáticos, desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
+  - *O que faz:* Dashboard interativo em Streamlit com os 6 cards temáticos (`Autopercepção`, `Vínculos`, `Desempenho`, `Físico`, `Rupturas`, `Outros`), desdobramento em pílulas de subtemas e **Modal Pop-up com Citação Literal e Player de Áudio Recortado**.
   - *Código:* `app/dashboard.py`.
 * [**`mlops-pipeline.md`**](mlops-pipeline.md): **Esteira de MLOps (uv, GitHub Actions e MLflow)**.
   - *O que faz:* descreve a rodada real: SQLite, artefatos ao lado do banco, gate por F1 macro e o Pytest do CI.

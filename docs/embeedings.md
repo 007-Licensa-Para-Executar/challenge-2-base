@@ -1,44 +1,49 @@
-# 05 - Estratégia de Representação Vetorial e Embeddings
+# 05 - Estratégia de Representação Vetorial e Embeddings (SBERT)
 
 ## 1. Visão Geral e Critérios de Projeto
 
-A representação vetorial no sistema atua em dois subsistemas com requisitos distintos:
-1. **Camada de Deep Learning (Rede Neural Própria):** Requer representações adequadas para treinar o classificador dos 8 macrotemas clínicos sem violar a restrição de "construir a rede do zero".
-2. **Camada de Recuperação Semântica (Banco Vetorial & RAG):** Requer modelos de linguagem densos pré-treinados capazes de capturar nuances semânticas e relações conceituais em português brasileiro.
+A representação vetorial no sistema atua em dois subsistemas com requisitos complementares:
+1. **Camada de Deep Learning (Rede Neural Própria):** Converte o diário do paciente em vetores semânticos densos para que a Rede Neural MLP identifique e atribua percentuais (`%`) aos **6 temas clínicos** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`).
+2. **Camada de Recuperação Semântica (Banco Vetorial & RAG):** Indexa diretrizes clínicas e histórico para busca híbrida capaz de capturar nuances semânticas e relações conceituais em português brasileiro.
 
 ---
 
-## 2. Comparativo de Modelos Candidatos
+## 2. Comparativo dos Encoders SBERT Adotados
 
-| Característica | TF-IDF (Term Frequency-Inverse Document Frequency) | multilingual-e5-small (Intfloat) | paraphrase-multilingual-MiniLM-L12-v2 |
-| :--- | :--- | :--- | :--- |
-| **Tipo de Representação** | Esparsa (Sparsely Bag-of-Words/N-grams) | Densa (Dense Embedding Transformer) | Densa (Dense Embedding Transformer) |
-| **Dimensão do Vetor** | 512 a 1.024 (configurável) | 384 dimensões | 384 dimensões |
-| **Contexto Máximo** | Ilimitado (mas sem contexto sintático) | 512 tokens | 128 a 512 tokens |
-| **Suporte ao Português** | Depende de Stemmer (NLTK RSLP) | Excelente (treinado em 100+ línguas) | Muito Bom (alinhamento semântico) |
-| **Custo Computacional** | Quase zero (CPU rápida) | Baixo (~130 MB de parâmetros) | Muito Baixo (~120 MB de parâmetros) |
-| **Aplicação no Projeto** | Entrada para o treino da Rede Neural MLP | Indexação no Banco Vetorial (SQLite-vec / Chroma) | Alternativa leve para ambiente local restrito |
+Abordagens esparsas baseadas em contagem de palavras (como TF-IDF) foram **substituídas** por embeddings densos de sentença (**SBERT** via `sentence-transformers`), superando a limitação de vocabulário exato:
+
+| Característica | `paraphrase-multilingual-MiniLM-L12-v2` (Padrão da Rede Neural) | `intfloat/multilingual-e5-small` (Alternativa SBERT & RAG) |
+| :--- | :--- | :--- |
+| **Tipo de Representação** | Densa (Sentence-BERT / Transformer) | Densa (Dense Embedding Transformer) |
+| **Dimensão do Vetor** | 384 dimensões | 384 dimensões |
+| **Contexto Máximo** | 128 tokens (configurável) | 512 tokens |
+| **Prefixo de Texto** | Não exige | Exige `"query: "` / `"passage: "` (aplicado automaticamente pelo `SBERTEmbedder`) |
+| **Suporte ao Português** | Muito Bom (alinhamento semântico multilíngue) | Excelente (treinado em 100+ línguas) |
+| **Aplicação no Projeto** | **Entrada padrão da Rede Neural MLP (`SBERTEmbedder`)** | Alternativa para a Rede Neural (`--sbert-model`) e indexação no Banco Vetorial / RAG |
 
 ---
 
 ## 3. Decisão Arquitetural e Segregação de Papéis
 
-### A. Para o Treinamento da Rede Neural de Classificação Temática
-- **Abordagem Adotada:** Vetorização híbrida via **TF-IDF com sub-palavras e n-grams de caracteres (1 a 3-grams)** com vocabulário fixado em 1.024 termos clínicos mais frequentes.
-- **Justificativa Ética e de Engenharia:** Permite demonstrar com total clareza matemática que a rede neural (MLP) está efetivamente aprendendo as fronteiras de decisão a partir dos pesos, sem depender de representações "mágicas" de embeddings proprietários.
+### A. Para a Rede Neural de Classificação Temática (`models/sbert_embedder.py`)
+- **Abordagem Adotada:** Embeddings densos de sentença via **`SBERTEmbedder`** (`sentence-transformers`), utilizando por padrão o modelo congelado **`paraphrase-multilingual-MiniLM-L12-v2`** (384 dimensões, normalização L2).
+- **Por que SBERT ao invés de TF-IDF:**
+  1. **Compreensão Semântica:** Relatos psicológicos usam metáforas, gírias e paráfrases. O SBERT aproxima expressões diferentes com o mesmo significado clínico, enquanto o TF-IDF dependia de coincidência exata de n-gramas.
+  2. **Zero Vazamento de Dados (*No Data Leakage*):** O encoder SBERT é utilizado com pesos pré-treinados e **congelados** (`fit()` é *no-op*). Ele apenas projeta o texto em um vetor de 384 dimensões; quem aprende as fronteiras de decisão entre os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e gera os **percentuais (`%`)** após receber o diário é a Rede Neural MLP (`ClinicalThemeMLP` / `NumpyClinicalMLP`).
+  3. **Serialização Enxuta:** O `SBERTEmbedder` salva apenas os metadados de configuração em `dist/theme_embedder.joblib`, recarregando o modelo sob demanda sem duplicar ~470 MB de pesos em disco.
 
 ### B. Para o Banco Vetorial e RAG (Histórico do Paciente e Diretrizes Clínicas)
-- **Modelo Adotado:** `intfloat/multilingual-e5-small`.
+- **Modelo Adotado:** `intfloat/multilingual-e5-small` (384 dimensões).
 - **Prefixo de Instrução:**
   - Para indexação de passagens/diários: `"passage: <texto>"`
   - Para perguntas/buscas do psicólogo: `"query: <texto>"`
-- **Vantagens Clínicas:** Consegue aproximar expressões colloquiais de desabafo (ex: *"sinto um nó na garganta e não consigo sair da cama"*) de conceitos técnicos de depressão e ansiedade somática indexados nas diretrizes clínicas, superando a barreira lexical do vocabulário estrito.
+- **Vantagens Clínicas:** Aproxima expressões coloquiais de desabafo de conceitos técnicos indexados nas diretrizes clínicas, superando a barreira lexical.
 
 ---
 
 ## 4. Estratégia de Chunking e Gestão de Contexto
 
-Para evitar a perda de contexto psicológico decorrente do limite de 512 tokens:
+Para evitar a perda de contexto psicológico em textos extensos:
 1. **Diários Curtos (< 300 palavras):** O relato é indexado como um único chunk integral, preservando a coerência narrativa e a progressão dos afetos.
 2. **Relatos Longos (> 300 palavras):** Divisão com janela deslizante de 250 tokens e **sobreposição (*overlap*) de 50 tokens**, garantindo que conectivos e causas de sofrimento não sejam cortados entre blocos.
-3. **Metadados Anexados ao Vetor:** Todo vetor carrega metadados imutáveis: `patient_id`, `data_registro`, `modalidade` (texto/áudio), `macrotema_previsto` e `subtemas_associados`.
+3. **Metadados Anexados ao Vetor:** Todo vetor carrega metadados estruturados: `patient_id`, `data_registro`, `modalidade` (texto/áudio), `macrotema_previsto` (entre os 6 temas) e `subtemas_associados`.

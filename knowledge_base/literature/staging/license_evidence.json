@@ -1,0 +1,50 @@
+{
+  "checked_at": "2026-11-12T21:20:00+00:00",
+  "documents": {
+    "PT-001": {
+      "status": "confirmed_on_official_page",
+      "license": "CC BY 4.0",
+      "license_source_url": "https://www.scielo.br/j/bioet/a/RGvGPb5FY8PgwHkkjGkRGCd/?lang=pt",
+      "http_status": 200,
+      "doi_on_page": "10.1590/1983-803420253958PT",
+      "attribution_required": true,
+      "quote": "This is an Open Access article distributed under the terms of the Creative Commons Attribution License, which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.",
+      "license_link": "https://creativecommons.org/licenses/by/4.0/",
+      "note": "O pedido dizia Creative Commons Attribution, sem versão. A página do artigo, com o DOI conferido, declara CC BY 4.0 e exige citação. Não há conflito."
+    },
+    "PT-002": {
+      "status": "confirmed_on_official_page",
+      "license": "CC BY 4.0",
+      "license_source_url": "https://www.scielo.br/j/pcp/a/p3TgdLYJJTkLhzYy8K5T7wf/?lang=pt",
+      "supporting_url": "https://www.scielo.br/journal/pcp/about/",
+      "http_status": 200,
+      "doi_on_page": "10.1590/1982-3703003298224",
+      "attribution_required": true,
+      "quote": "Este é um artigo de acesso aberto distribuído sob os termos de uma Licença Creative Commons, com selo e link para https://creativecommons.org/licenses/by/4.0. A página sobre o periódico declara que todo o conteúdo é publicado sob CC BY 4.0, salvo indicação em contrário, exigindo citação da obra original.",
+      "license_link": "https://creativecommons.org/licenses/by/4.0",
+      "note": "O pedido dizia CC BY 4.0. A página do artigo e a página editorial conferem. O artigo não indica licença diferente."
+    },
+    "PT-004": {
+      "status": "human_review_required",
+      "license": null,
+      "license_source_url": "https://pepsic.bvsalud.org/scielo.php?pid=S1808-56872025000101001&script=sci_arttext",
+      "http_status": 403,
+      "attribution_required": null,
+      "quote": null,
+      "also_checked": [
+        {
+          "url": "https://doi.org/10.5935/1808-5687.20250509",
+          "resolved_url": "https://www.rbtc.org.br/detalhe_artigo.asp?id=459",
+          "http_status": 200,
+          "note": "O DOI e o título conferem. A página só mostra a imagem de cabeçalho logo-cc-by.png, sem frase de licença nem link para a Creative Commons."
+        },
+        {
+          "url": "https://www.rbtc.org.br/conteudo.asp?pag=30",
+          "http_status": 200,
+          "note": "A política editorial consultada não contém a frase da licença."
+        }
+      ],
+      "note": "O pedido afirma Creative Commons Attribution. A página indicada ficou bloqueada por verificação de navegador. As páginas acessíveis não trazem a concessão. A licença não foi tratada como inválida; falta revisão humana."
+    }
+  }
+}

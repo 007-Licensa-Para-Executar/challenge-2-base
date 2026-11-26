@@ -1,0 +1,2 @@
+# The frozen SHA-256 is the LF bytes. A CRLF checkout would change the digest.
+knowledge_base/literature/benchmark/validation_directed.jsonl text eol=lf

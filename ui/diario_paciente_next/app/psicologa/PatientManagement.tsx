@@ -6,6 +6,7 @@ import PatientDashboard from "./PatientDashboard";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
 import PatientChatbot from "./PatientChatbot";
+import LiteratureSearch from "./LiteratureSearch";
 import PatientProfileEditor from "./PatientProfileEditor";
 import ExternalSupervisors from "./ExternalSupervisors";
 import ReportUpload from "./ReportUpload";
@@ -406,6 +407,8 @@ export default function PatientManagement() {
             Painel clínico
           </Link>
         </header>
+
+        <LiteratureSearch />
 
         <PsychologistProfileEditor
           open={isProfileEditorOpen}

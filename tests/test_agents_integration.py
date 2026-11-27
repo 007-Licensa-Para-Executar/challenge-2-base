@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -44,6 +45,7 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
     dash = cli.dispatch("dashboard", {"patient": "patient_ana"}, directory=tmp_path)
     assert dash["wheel"]["macrotemas"][0]["macro_tema"] == "vinculos"
     assert len(dash["entries"]) == 1
+    json.dumps(dash, ensure_ascii=False)
     payload = {
         "patient": "patient_ana", "question": "Mostre o trecho", "topic": "Avós",
         "record_id": "ref1", "representation_id": "rep1", "entry_id": str(newer.entry_id),

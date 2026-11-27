@@ -64,7 +64,10 @@ function runPython(module, command, payload, timeoutMs) {
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(stderr.trim() || `dashboard_cli (${command}) retornou código ${code}.`));
+        const message = module === "agents.copilot.integration_cli"
+          ? "O serviço de integração encerrou a operação."
+          : stderr.trim() || `dashboard_cli (${command}) retornou código ${code}.`;
+        reject(new Error(message));
         return;
       }
       try {

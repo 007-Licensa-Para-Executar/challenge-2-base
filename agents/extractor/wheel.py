@@ -48,6 +48,7 @@ class SubtopicNode:
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
+        d["evidencias"] = [span.model_dump(mode="json") for span in self.evidencias]
         if self.primeira_mencao:
             d["primeira_mencao"] = self.primeira_mencao.isoformat()
         if self.ultima_mencao:

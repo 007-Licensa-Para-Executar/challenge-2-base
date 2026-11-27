@@ -92,7 +92,7 @@ class Agent1Service:
                 {"role": "user", "content": user_prompt},
             ],
             "format": Agent1LLMExtraction.model_json_schema(),
-            "options": {"temperature": 0.0, "seed": 42},
+            "options": {"temperature": 0.0, "seed": 42, "num_ctx": 4096, "num_predict": 768},
             "stream": False,
             "think": False,
         }

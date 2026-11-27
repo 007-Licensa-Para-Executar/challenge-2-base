@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DrillDownPanel from "./DrillDownPanel";
 import ImpactBenchSunburst from "./ImpactBenchSunburst";
 import { CopilotRagView, TimelineAndReportsView } from "./SecondaryViews";
@@ -14,7 +14,11 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
   const [days, setDays] = useState("all"); // all | 7 | 14 | 30
   const [valenceFilter, setValenceFilter] = useState("all"); // all | negative | positive
 
-  const [patientData, setPatientData] = useState(null);
+  const [loadedPatientData, setPatientData] = useState(null);
+  const detailRequest = useRef(null);
+  const patientData = loadedPatientData?.patient?.id === selectedPatientId &&
+    loadedPatientData.filters?.days === days &&
+    loadedPatientData.filters?.valence === valenceFilter ? loadedPatientData : null;
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -40,20 +44,23 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
   const loadPatientDetail = useCallback(
     async (pid, daysVal, valenceVal) => {
       if (!pid) return;
+      detailRequest.current?.abort();
+      const request = new AbortController();
+      detailRequest.current = request;
       setLoadingDetail(true);
       setErrorMsg("");
       try {
         const params = new URLSearchParams({ days: daysVal, valence: valenceVal });
         const res = await fetch(`/api/psicologa/paciente/${encodeURIComponent(pid)}?${params}`, {
-          cache: "no-store",
+          cache: "no-store", signal: request.signal,
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Falha ao carregar dados do paciente.");
-        setPatientData(data);
+        if (!request.signal.aborted) setPatientData(data);
       } catch (err) {
-        setErrorMsg(err.message);
+        if (!request.signal.aborted) setErrorMsg(err.message);
       } finally {
-        setLoadingDetail(false);
+        if (!request.signal.aborted) setLoadingDetail(false);
       }
     },
     [],
@@ -79,6 +86,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
     setSelectedSubtopicKey(null);
     setSelectedOccurrence(null);
     void loadPatientDetail(selectedPatientId, days, valenceFilter);
+    return () => detailRequest.current?.abort();
   }, [selectedPatientId, days, valenceFilter, loadPatientDetail]);
 
   const geometry = useMemo(() => {
@@ -212,6 +220,9 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
             {reprocessing ? "Analisando IA..." : "Reprocessar Agente 1"}
           </button>
         )}
+        {patientData?.pending > 0 && (
+          <span role="status">{patientData.pending} diário(s) sem análise de subtemas</span>
+        )}
         <span className={styles.prototypeBadge}>Protótipo · Não é diagnóstico</span>
       </div>
 
@@ -229,7 +240,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
               {loadingDetail && !patientData ? (
                 <div className={styles.loadingStage} role="status">
                   <div className={styles.spinner} />
-                  <p>Executando Rede Neural e Agente 1 sobre os relatos…</p>
+                  <p>Carregando os relatos e as análises salvas…</p>
                 </div>
               ) : (
                 <ImpactBenchSunburst
@@ -250,6 +261,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
 
             <div className={styles.rightColumnWrap}>
               <DrillDownPanel
+                key={`${selectedPatientSummary?.id}:${days}`}
                 patient={selectedPatientSummary}
                 geometry={geometry}
                 wheel={patientData?.wheel}
@@ -285,7 +297,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
 
         {activeNav === "rag" && (
           <main className={styles.secondaryMain}>
-            <CopilotRagView patient={selectedPatientSummary} days={days} />
+            <CopilotRagView key={`${selectedPatientSummary?.id}:${days}`} patient={selectedPatientSummary} days={days} />
           </main>
         )}
       </div>

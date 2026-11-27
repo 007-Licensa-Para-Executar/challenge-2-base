@@ -26,10 +26,23 @@ jobs:
         with:
           version: "0.11.15"
           enable-cache: true
+      - name: Install Poppler on Ubuntu
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: Install Poppler on macOS
+        if: runner.os == 'macOS'
+        run: brew install poppler
+      - name: Show pdftotext version
+        if: runner.os != 'Windows'
+        run: pdftotext -v
+      - name: Confirm pdftotext on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Command pdftotext -ErrorAction Stop | Select-Object -ExpandProperty Source
+          cmd /c "pdftotext -v & exit /b 0"
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check .
-      - name: Prepare model for dashboard integration tests
-        run: uv run python -m models.train --epochs 1 --batch-size 128 --init-strategy gaussian --dist-dir dist
       - run: uv run pytest -q
       - name: Shell entry point
         run: uv run bem-estar --help

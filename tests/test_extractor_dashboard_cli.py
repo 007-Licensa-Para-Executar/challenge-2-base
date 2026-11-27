@@ -3,10 +3,38 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
+
+import joblib
+import pytest
+import torch
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 import agents.extractor.dashboard_cli as cli
+from models.torch_mlp import ClinicalThemeMLP
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def isolated_model(tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    vectorizer = TfidfVectorizer().fit(["familia prova trabalho insônia"])
+    model = ClinicalThemeMLP(input_dim=len(vectorizer.vocabulary_))
+    with torch.no_grad():
+        for parameter in model.parameters():
+            parameter.zero_()
+        model.fc3.bias[0] = 10
+    torch.save(model.state_dict(), dist / "best_theme_mlp.pt")
+    joblib.dump(vectorizer, dist / "theme_embedder.joblib")
+    monkeypatch.chdir(tmp_path)
+    pythonpath = os.environ.get("PYTHONPATH")
+    monkeypatch.setenv("PYTHONPATH", str(ROOT) + (os.pathsep + pythonpath if pythonpath else ""))
+
 
 
 def test_analyze_batch_extracts_neural_themes_and_agent1_subtopics():

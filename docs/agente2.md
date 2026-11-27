@@ -1,5 +1,7 @@
 # Guia de Desenvolvimento: Agente 2 (Analista/Copiloto)
 
+O [contrato da demonstração integrada](contrato-integracao-agentes.md) descreve o fluxo executável de diário, roda e chat, com os passos para rodá-lo localmente.
+
 > Para o caminho executável que usa dados tratados, consulte a [integração da API HTTP interna](api-local-pseudonimizacao.md).
 
 ## 1. Identificação e Propósito do Agente

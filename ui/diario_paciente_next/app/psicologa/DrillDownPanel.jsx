@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getValenceStatus } from "./wheelMath";
 import styles from "./impactbench.module.css";
 
@@ -20,6 +20,16 @@ function formatDateTime(ts) {
 function renderHighlightedText(text, span) {
   const full = String(text || "");
   if (!span) return full;
+
+  const characters = Array.from(full);
+  const literal = characters.slice(span.start_char, span.end_char).join("");
+  if (literal === span.quote_text) {
+    return <>
+      {characters.slice(0, span.start_char).join("")}
+      <mark className={styles.literalHighlight}>{literal}</mark>
+      {characters.slice(span.end_char).join("")}
+    </>;
+  }
 
   let start = Number(span.start_char);
   let end = Number(span.end_char);
@@ -66,6 +76,7 @@ export default function DrillDownPanel({
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Copiloto RAG embutido no 4º painel (detalhe da evidência)
+  const ragRequest = useRef(null);
   const [ragQuestion, setRagQuestion] = useState("");
   const [ragLoading, setRagLoading] = useState(false);
   const [ragResult, setRagResult] = useState(null);
@@ -97,6 +108,13 @@ export default function DrillDownPanel({
     }
   }, [selectedOccurrence?.occurrenceId, selectedOccurrence?.primarySpan?.quote_text, activeSub]);
 
+  useEffect(() => {
+    setRagResult(null);
+    setRagError("");
+    setRagLoading(false);
+    return () => ragRequest.current?.abort();
+  }, [selectedOccurrence?.occurrenceId]);
+
   async function handleSaveEdit(e) {
     e.preventDefault();
     if (!activeSub || !editName.trim() || !onSaveAnnotation) return;
@@ -114,30 +132,42 @@ export default function DrillDownPanel({
     }
   }
 
-  async function runQuickRag(customQuestion, mode = "extractive") {
+  async function runQuickRag(customQuestion, mode = "extractive", showSpan = false) {
     const q = (customQuestion || ragQuestion || "").trim();
     if (!q || !patient?.id) return;
+    ragRequest.current?.abort();
+    const request = new AbortController();
+    ragRequest.current = request;
     setRagQuestion(q);
     setRagLoading(true);
     setRagError("");
     try {
       const res = await fetch("/api/psicologa/rag", {
         method: "POST",
+        signal: request.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patient.id,
-          question: q,
+          question: selectedOccurrence?.entry.representation_id ? `/diarios ${q}` : q,
           days,
           generationMode: mode,
+          ...(showSpan && selectedOccurrence?.entry.representation_id && {
+          topic: selectedOccurrence.originalSubtopicName,
+          entryId: selectedOccurrence.entry.agent1?.entry_id,
+          recordId: selectedOccurrence?.entry.id,
+          representationId: selectedOccurrence?.entry.representation_id,
+          startChar: selectedOccurrence?.primarySpan?.start_char,
+          endChar: selectedOccurrence?.primarySpan?.end_char,
+          }),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Falha ao consultar Copiloto RAG.");
-      setRagResult(data);
+      if (!request.signal.aborted) setRagResult(data);
     } catch (err) {
-      setRagError(err.message);
+      if (!request.signal.aborted) setRagError(err.message);
     } finally {
-      setRagLoading(false);
+      if (!request.signal.aborted) setRagLoading(false);
     }
   }
 
@@ -527,9 +557,9 @@ export default function DrillDownPanel({
               <div className={styles.ragQuickChips}>
                 <button
                   type="button"
-                  onClick={() => runQuickRag(ragQuestion, "extractive")}
+                  onClick={() => runQuickRag("Mostre o trecho selecionado", "extractive", true)}
                 >
-                  Recorrência desse trecho
+                  Mostrar trecho selecionado
                 </button>
                 <button
                   type="button"

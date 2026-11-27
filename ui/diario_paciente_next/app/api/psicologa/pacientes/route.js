@@ -1,3 +1,4 @@
+import { integrationEnabled, integrationPatients, localDemo } from "../../../lib/integrationDemo.js";
 import { listarPacientesDoPortal } from "../../auth/_database.js";
 import { getDemoPatientSummaries } from "../../../lib/demoPatient.js";
 
@@ -11,6 +12,11 @@ export async function GET(request) {
     );
   }
 
+  if (integrationEnabled()) {
+    return localDemo(request)
+      ? Response.json({ patients: integrationPatients() }, { headers: { "Cache-Control": "no-store" } })
+      : Response.json({ message: "Demonstração local." }, { status: 403 });
+  }
   try {
     const patients = listarPacientesDoPortal().map((p) => ({
       ...p,

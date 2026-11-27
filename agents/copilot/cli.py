@@ -16,11 +16,12 @@ from privacy.contracts import DEFAULT_URL, DEMO_DIR
 
 from .contracts import DiaryRecord, Query
 from .ingestion import classify_record
+from .integration import IntegratedStore
 from .model import OllamaGenerator
 from .privacy_flow import map_patient, protect_diary, protect_query
 from .retriever import RetrievalError, Retriever
 from .service import CopilotService
-from .storage import DiaryStore, DuplicateRecordError, ProtectedDiaryStore
+from .storage import DiaryStore, DuplicateRecordError
 
 DEMO = Path(__file__).resolve().parents[2] / "knowledge_base" / "patient_demo" / "diaries.jsonl"
 
@@ -48,7 +49,7 @@ def _matching_record(store, record):
     return None
 
 
-def _extract_subtopics(record: DiaryRecord, args):
+def _extract_subtopics(record: DiaryRecord, args, modalidade="texto"):
     from agents.extractor.config import Settings
     from agents.extractor.service import Agent1Service
 
@@ -64,9 +65,9 @@ def _extract_subtopics(record: DiaryRecord, args):
             patient_id=record.patient_id,
             text=record.analysis_text,
             macro_tema=prediction.primary_theme,
-            confidence=prediction.candidate_score,
+            confidence=prediction.candidate_score, modalidade=modalidade,
         )
-    return output.model_dump(mode="json")
+    return output
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         directory = args.privacy_dir
         store = (
-            ProtectedDiaryStore(args.db or directory / "analytics.sqlite3") if args.privacy
+            IntegratedStore(args.db or directory / "analytics.sqlite3") if args.privacy
             else DiaryStore(args.db or Path("data/copilot_demo.sqlite3"))
         )
         privacy = (
@@ -188,7 +189,6 @@ def main(argv: list[str] | None = None) -> int:
                 record = protect_diary(record, privacy, directory)
             previous = _matching_record(store, record) if privacy else None
             record = previous if previous is not None else _classify(record, args)
-            subtopics = _extract_subtopics(record, args) if args.subtopics else None
             if previous is None:
                 try:
                     store.save(record)
@@ -201,8 +201,10 @@ def main(argv: list[str] | None = None) -> int:
                 "treated_text", "representation_id", "detector_version",
             }
             result = record.model_dump(mode="json", exclude=excluded)
-            if subtopics is not None:
-                result["agent1"] = subtopics
+            if args.subtopics:
+                subtopics = _extract_subtopics(record, args)
+                store.publish(record, subtopics)
+                result["agent1"] = subtopics.model_dump(mode="json")
             _emit(result)
             return 1 if record.classification.status == "error" else 0
         question = "listar"

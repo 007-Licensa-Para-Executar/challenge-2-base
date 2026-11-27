@@ -1,6 +1,12 @@
 // Geometria do Sunburst (2 anéis concêntricos) e gradiente polar estilo MIT ImpactBench.
 
 export const MACRO_THEME_META = {
+  autopercepcao: { label: "Autoestima e Identidade", shortLabel: "IDENTIDADE" },
+  vinculos: { label: "Relacionamentos e Família", shortLabel: "VÍNCULOS" },
+  desempenho: { label: "Trabalho, Estudos e Finanças", shortLabel: "DESEMPENHO" },
+  fisico: { label: "Saúde, Sono e Rotina", shortLabel: "SAÚDE" },
+  rupturas: { label: "Perdas, Luto e Rupturas", shortLabel: "RUPTURAS" },
+  outros: { label: "Outros / Indeterminado", shortLabel: "OUTROS" },
   familia: {
     label: "Família",
     shortLabel: "FAMÍLIA",

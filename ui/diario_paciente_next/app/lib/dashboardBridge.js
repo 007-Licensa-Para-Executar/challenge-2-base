@@ -12,11 +12,19 @@ export function resolvePythonExecutable() {
   return { pythonExec: "python", rootDir };
 }
 
-export async function runDashboardCli(command, payload, timeoutMs = 45000) {
+export function runDashboardCli(command, payload, timeoutMs = 45000) {
+  return runPython("agents.extractor.dashboard_cli", command, payload, timeoutMs);
+}
+
+export function runIntegration(command, payload) {
+  return runPython("agents.copilot.integration_cli", command, payload, 180000);
+}
+
+function runPython(module, command, payload, timeoutMs) {
   const { pythonExec, rootDir } = resolvePythonExecutable();
 
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonExec, ["-m", "agents.extractor.dashboard_cli", command], {
+    const child = spawn(pythonExec, ["-m", module, command], {
       cwd: rootDir,
       env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     });
@@ -34,12 +42,14 @@ export async function runDashboardCli(command, payload, timeoutMs = 45000) {
       reject(new Error(`Timeout ao executar dashboard_cli (${command}) após ${timeoutMs}ms.`));
     }, timeoutMs);
 
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf-8");
+      stdout += chunk;
     });
 
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString("utf-8");
+      stderr += chunk;
     });
 
     child.on("error", (err) => {

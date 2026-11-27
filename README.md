@@ -1,5 +1,7 @@
 # Challenge 2: Bem-Estar - Diário Emocional Inteligente
 
+O [contrato da demonstração integrada](docs/contrato-integracao-agentes.md) descreve o fluxo executável de diário, roda e chat, com os passos para rodá-lo localmente.
+
 Para demonstrar a API HTTP interna antes da classificação e da consulta, siga o
 [guia do modo protegido](docs/api-local-pseudonimizacao.md).
 

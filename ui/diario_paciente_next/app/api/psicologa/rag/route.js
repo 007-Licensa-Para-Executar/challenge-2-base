@@ -1,6 +1,7 @@
+import { integrationEnabled, integrationPatient, localDemo } from "../../../lib/integrationDemo.js";
 import { NextResponse } from "next/server";
 import { listarDiarios } from "../../auth/_backend.js";
-import { runDashboardCli } from "../../../lib/dashboardBridge.js";
+import { runDashboardCli, runIntegration } from "../../../lib/dashboardBridge.js";
 import { getDemoPatientEntries, isDemoPatientId } from "../../../lib/demoPatient.js";
 
 export const runtime = "nodejs";
@@ -22,6 +23,20 @@ export async function POST(request) {
         { message: "Informe paciente e pergunta para consultar o Copiloto RAG." },
         { status: 400 },
       );
+    }
+
+    if (integrationEnabled()) {
+      if (!localDemo(request) || !integrationPatient(patientId)) {
+        return NextResponse.json({ message: "Paciente fora da demonstração." }, { status: 403 });
+      }
+      const result = await runIntegration("chat", {
+        patient: patientId, question, days, generation_mode: generationMode,
+        topic: body.topic, record_id: body.recordId, representation_id: body.representationId,
+        entry_id: body.entryId,
+        start_char: body.startChar, end_char: body.endChar,
+        confirmed: body.confirmed === true,
+      });
+      return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
     }
 
     const rawEntries = isDemoPatientId(patientId)

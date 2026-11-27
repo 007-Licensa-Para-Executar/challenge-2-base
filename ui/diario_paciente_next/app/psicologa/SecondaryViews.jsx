@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getMacroMeta, getValenceStatus } from "./wheelMath";
 import styles from "./impactbench.module.css";
 
@@ -209,37 +209,52 @@ export function CopilotRagView({ patient, days }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
+  const requestRef = useRef(null);
+  useEffect(() => () => requestRef.current?.abort(), []);
+
+  const slashCommands = ["/diarios", "/temas", "/literatura", "/reprocessar"];
   const suggestions = [
     "Quais relatos mencionam estresse ou sobrecarga no trabalho?",
     "Em quais momentos houve dificuldade de sono ou sinais físicos?",
     "Que episódios positivos ou de acolhimento apareceram no período?",
-    "Existem indícios de risco emocional que merecem atenção prioritária?",
+    "/temas",
+    "/literatura limites éticos da IA em psicoterapia",
   ];
 
-  async function submitRag(qText) {
+  async function submitRag(qText, confirmed = false) {
     const q = (qText || question).trim();
     if (!q || !patient?.id) return;
+    requestRef.current?.abort();
+    const request = new AbortController();
+    requestRef.current = request;
     setQuestion(q);
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/psicologa/rag", {
         method: "POST",
+        signal: request.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patient.id,
           question: q,
           days,
           generationMode: mode,
+          confirmed,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Falha ao executar consulta RAG.");
-      setResult(data);
+      if (request.signal.aborted) return;
+      if (data.status === "confirmation" && window.confirm(data.answer)) {
+        await submitRag(`/reprocessar ${data.record_id}`, true);
+      } else {
+        setResult(data);
+      }
     } catch (err) {
-      setError(err.message);
+      if (!request.signal.aborted) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!request.signal.aborted) setLoading(false);
     }
   }
 
@@ -264,6 +279,16 @@ export function CopilotRagView({ patient, days }) {
           Todas as respostas citam trechos literais preservados do diário no recorte de tempo ativo.
           Protótipo de apoio — não emite diagnóstico nem substitui avaliação clínica.
         </p>
+
+        {question.startsWith("/") && !question.includes(" ") && (
+          <div className={styles.ragQuickChips} aria-label="Comandos do copiloto">
+            {slashCommands.filter((command) => command.startsWith(question)).map((command) => (
+              <button key={command} type="button" onClick={() => setQuestion(command + " ")}>
+                {command}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.ragQuickChips}>
           {suggestions.map((s) => (
@@ -303,9 +328,15 @@ export function CopilotRagView({ patient, days }) {
               <span>Modo: {result.generation_mode}</span>
             </div>
             <div className={styles.ragAnswerBanner}>
-              <strong>Síntese fundamentada</strong>
+              <strong>Resposta do copiloto</strong>
               <p>{result.answer}</p>
             </div>
+            {result.sources?.map((source) => (
+              <article key={source.chunk_id} className={styles.ragEvCard}>
+                <blockquote>{source.quote_text}</blockquote>
+                <a href={source.source_url} target="_blank" rel="noreferrer">{source.title}</a>
+              </article>
+            ))}
             {result.evidence?.length > 0 && (
               <div className={styles.ragEvidenceCards}>
                 {result.evidence.map((ev) => (
@@ -314,6 +345,7 @@ export function CopilotRagView({ patient, days }) {
                     <footer>
                       <span>{ev.source_title}</span>
                       <time>{formatDate(ev.recorded_at)}</time>
+                      {ev.representation_id && <span>Diário {ev.record_id} · trecho {ev.start_char}–{ev.end_char}</span>}
                       <span>Relevância {Number(ev.score).toFixed(2)}</span>
                     </footer>
                   </article>

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -44,7 +45,7 @@ def transcribe_local_audio(audio_path: Path) -> dict[str, str | float | int]:
             device="cpu",
             compute_type="int8",
             download_root=str(cache_dir),
-            local_files_only=bool(model_path),
+            local_files_only=bool(model_path) or os.getenv("DIARY_INTEGRATION_DEMO") == "1",
         )
         segments, info = model.transcribe(str(path), language="pt")
         pieces = [segment.text.strip() for segment in segments if segment.text.strip()]

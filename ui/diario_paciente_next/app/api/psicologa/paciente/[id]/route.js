@@ -1,3 +1,4 @@
+import { integrationEnabled, integrationPatient, localDemo } from "../../../../lib/integrationDemo.js";
 import { NextResponse } from "next/server";
 import {
   listarAnotacoesSubtemas,
@@ -9,7 +10,7 @@ import {
   salvarAnotacaoSubtema,
   salvarRelatorioPaciente,
 } from "../../../auth/_backend.js";
-import { runDashboardCli } from "../../../../lib/dashboardBridge.js";
+import { runDashboardCli, runIntegration } from "../../../../lib/dashboardBridge.js";
 import {
   getDemoPatientEntries,
   getDemoPatientSummary,
@@ -241,6 +242,20 @@ export async function GET(request, context) {
     const days = searchParams.get("days") || "all";
     const valence = searchParams.get("valence") || "all";
 
+    if (integrationEnabled()) {
+      const patient = integrationPatient(id);
+      if (!localDemo(request) || !patient) {
+        return NextResponse.json({ message: "Paciente fora da demonstração." }, { status: 403 });
+      }
+      const result = await runIntegration("dashboard", { patient: id, days, valence });
+      if (result.status === "error") {
+        return NextResponse.json({ message: result.answer }, { status: 503 });
+      }
+      return NextResponse.json({
+        ...result, patient, filters: { days, valence }, reports: [], annotations: [],
+        totalEntriesAllPeriods: result.entries.length, summary: { entryCount: result.entries.length },
+      }, { headers: { "Cache-Control": "no-store" } });
+    }
     const payload = await buildPatientDashboardPayload(id, { days, valence });
     if (!payload) {
       return NextResponse.json({ message: "Paciente não encontrado." }, { status: 404 });
@@ -264,6 +279,9 @@ export async function POST(request, context) {
     const { id } = await context.params;
     const body = await request.json().catch(() => ({}));
     const action = body?.action;
+    if (integrationEnabled()) {
+      return NextResponse.json({ message: "Use /reprocessar no chat integrado." }, { status: 400 });
+    }
 
     if (action === "reprocess") {
       const payload = await buildPatientDashboardPayload(id, {

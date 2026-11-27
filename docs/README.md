@@ -1,5 +1,7 @@
 # Índice Mestre de Documentação do Projeto
 
+O [contrato da demonstração integrada](contrato-integracao-agentes.md) descreve o fluxo executável de diário, roda e chat, com os passos para rodá-lo localmente.
+
 Bem-vindo à documentação técnica do **Diário Psicológico Assistido & Copiloto Clínico Multiagente**. 
 
 Este repositório foi projetado para atender com excelência às **9 Constraints do Challenge 2**, fornecendo guias modulares passo a passo para que você abra o documento correspondente e saiba exatamente o que fazer, como codificar, como testar e quais referências científicas seguir.

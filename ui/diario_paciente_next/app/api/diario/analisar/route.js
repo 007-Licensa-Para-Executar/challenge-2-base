@@ -1,3 +1,4 @@
+import { integrationEnabled } from "../../../lib/integrationDemo.js";
 import { NextResponse } from "next/server";
 import { obterPacienteLogado } from "../../auth/_backend";
 import { analisarRelatoComRedeNeural } from "../../../lib/emotionService";
@@ -10,6 +11,8 @@ export async function POST(request) {
       { status: 401 }
     );
   }
+
+  if (integrationEnabled()) return NextResponse.json({ primary_emotion: "neutro" });
 
   try {
     const { text } = await request.json();

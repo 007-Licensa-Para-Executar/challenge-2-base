@@ -1,5 +1,7 @@
 # Guia de Desenvolvimento: Comunicação entre Agentes
 
+O [contrato da demonstração integrada](contrato-integracao-agentes.md) descreve o fluxo executável de diário, roda e chat, com os passos para rodá-lo localmente.
+
 ## 1. Identificação e Propósito
 * **Arquivos no Código:** `agents/bus/documentos.py` (contratos e barramento), `agents/pipeline.py` (orquestrador), `agents/llm.py` (cliente do modelo local)
 * **Objetivo Primário:** definir como os agentes trocam informação. Toda comunicação passa por **documentos** gravados no barramento, nunca por chamadas diretas entre agentes.

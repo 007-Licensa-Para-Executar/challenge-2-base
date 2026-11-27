@@ -1,3 +1,4 @@
+import { integrationEnabled, localDemo, patientAlias } from "../../../lib/integrationDemo.js";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -83,6 +84,9 @@ export async function POST(request) {
     );
   }
 
+  if (integrationEnabled() && (!localDemo(request) || !patientAlias(paciente.email))) {
+    return NextResponse.json({ message: "Conta fora da demonstração local." }, { status: 403 });
+  }
   let tempFilePath = null;
   try {
     const contentType = request.headers.get("content-type") || "";
@@ -143,7 +147,7 @@ export async function POST(request) {
         ? unixPython
         : "python";
     tempFilePath = path.join(os.tmpdir(), `diary-audio-${randomUUID()}${MIME_EXTENSIONS[mimeType]}`);
-    fs.writeFileSync(tempFilePath, audioBuffer);
+    fs.writeFileSync(tempFilePath, audioBuffer, { mode: 0o600 });
 
     const transcription = await runTranscriber(pythonExec, rootDir, tempFilePath);
     if (!transcription.ok) {
@@ -153,7 +157,7 @@ export async function POST(request) {
             ? "A transcrição demorou demais. Tente novamente com uma gravação mais curta."
             : transcription.empty
               ? transcription.message
-              : "Não foi possível transcrever o áudio. Confira sua conexão e tente novamente.",
+              : "Não foi possível transcrever o áudio. Confira se o modelo local está disponível.",
         },
         { status: transcription.empty ? 422 : 503 },
       );

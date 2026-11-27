@@ -11,8 +11,12 @@ class RagMenu:
     def rag(self, proposal, *, natural=False):
         action = self.choose("RAG de pesquisa", [
             "treinar", "preparar", "registrar", "listar", "perguntar", "avaliar", "voltar",
+            *(["chat"] if self.privacy_mode else []),
         ], "voltar")
         if action == "voltar":
+            return
+        if action == "chat":
+            self.integrated_chat()
             return
         db = getattr(self, "rag_db", ROOT / "data" / "copilot_demo.sqlite3")
         protected = self.privacy_mode
@@ -126,6 +130,23 @@ class RagMenu:
         self.rag_result(self.process("agents.copilot", args, text=input_text) if protected
                         else self.process("agents.copilot", args))
 
+    def integrated_chat(self):
+        patient = self.choose("Paciente fictício", ["patient_ana", "patient_bruno"])
+        days = self.choose("Período em dias", ["all", "7", "14", "30"], "all")
+        question = self.ask("Chat (/diarios, /temas, /literatura, /reprocessar): ")
+        payload = {"patient": patient, "days": days, "question": question}
+        result = self.process("agents.copilot.integration_cli", ["chat"], text=json.dumps(payload))
+        try:
+            proposal = json.loads(result.stdout)
+        except ValueError:
+            self.rag_result(result)
+            return
+        if proposal.get("status") == "confirmation" and self.confirm(proposal["answer"]):
+            payload.update(question=f"/reprocessar {proposal['record_id']}", confirmed=True)
+            result = self.process("agents.copilot.integration_cli", ["chat"],
+                                  text=json.dumps(payload))
+        self.rag_result(result)
+
     def rag_result(self, result):
         if result.stderr:
             self.say(result.stderr)
@@ -137,8 +158,10 @@ class RagMenu:
             return
         if isinstance(payload, dict) and "answer" in payload:
             self.say(f"Estado: {payload['status']}\n{payload['answer']}")
-            self.say(f"Registros no período: {payload['eligible_records']}; "
-                     f"temas previstos: {payload['theme_counts']}")
+            self.say(f"Registros no período: {payload.get('eligible_records', '—')}; "
+                     f"temas previstos: {payload.get('theme_counts', {})}")
+            for source in payload.get("sources", []):
+                self.say(f"{source['title']} | {source['source_url']}\n{source['quote_text']}")
             for evidence in payload.get("evidence", []):
                 self.say(f"[{evidence['chunk_id']}] {evidence['patient_id']} | "
                          f"{evidence['recorded_at']} | {evidence['source_title']}\n"

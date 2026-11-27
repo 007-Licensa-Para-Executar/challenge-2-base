@@ -108,6 +108,7 @@ class Query(Contract):
 
 
 class Evidence(Contract):
+    entry_id: UUID4 | None = None
     chunk_id: str
     record_id: str
     patient_id: str

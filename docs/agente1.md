@@ -1,5 +1,7 @@
 # Guia de Desenvolvimento: Agente 1 (Extrator de Evidências)
 
+O [contrato da demonstração integrada](contrato-integracao-agentes.md) descreve o fluxo executável de diário, roda e chat, com os passos para rodá-lo localmente.
+
 ## 1. Identificação e Propósito do Agente
 * **Arquivos no Código:** `agents/extractor/service.py`, `agents/extractor/prompt.py`, `agents/extractor/contracts.py`
 * **Contrato de Saída (documento):** `Agent1Output`, publicado no barramento como `Documento` do tipo `registro_estruturado`

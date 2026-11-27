@@ -94,6 +94,7 @@ class Agent1Service:
             "format": Agent1LLMExtraction.model_json_schema(),
             "options": {"temperature": 0.0, "seed": 42},
             "stream": False,
+            "think": False,
         }
 
         response = self.client.post(f"{self.ollama_url}/api/chat", json=payload)

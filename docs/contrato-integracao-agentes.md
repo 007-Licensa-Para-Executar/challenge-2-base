@@ -33,5 +33,6 @@ O código de busca e as avaliações de literatura vêm da branch do PR #76. O t
 ## Verificação desta branch
 
 - O smoke HTTP local passou com Next.js, API de pseudonimização real e dois pacientes sintéticos. Verificou gravação, recuperação do trecho, remoção de um identificador, isolamento entre pacientes e abstenção em literatura.
-- O teste automatizado da roda e do chat usa uma saída de extração controlada para verificar identidade, revisão e offsets. A demonstração com Ollama e áudio reais exige os modelos locais.
+- A suíte Python local passou com 496 testes e 7 pulados. Também passaram o build Python, o build Next.js e os 5 testes Node. O teste da roda e do chat usa uma extração controlada para verificar identidade, revisão e offsets.
+- O Whisper Tiny transcreveu localmente uma fala sintética em português. O guia usa a mesma interface de transcrição para os modelos Tiny, Base e Small.
 - O treino executado no checkout gerou os artefatos a partir do corpus sintético atual. O macro-F1 de teste com a política de abstenção foi 0,111 em 43 exemplos. A métrica registra a rodada do demonstrador e limita o que podemos inferir sobre a qualidade da rede.

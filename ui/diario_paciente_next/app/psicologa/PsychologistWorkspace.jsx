@@ -297,7 +297,12 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
 
         {activeNav === "rag" && (
           <main className={styles.secondaryMain}>
-            <CopilotRagView key={`${selectedPatientSummary?.id}:${days}`} patient={selectedPatientSummary} days={days} />
+            <CopilotRagView
+              key={`${selectedPatientSummary?.id}:${days}`}
+              patient={selectedPatientSummary}
+              days={days}
+              onReprocessed={() => loadPatientDetail(selectedPatientId, days, valenceFilter)}
+            />
           </main>
         )}
       </div>

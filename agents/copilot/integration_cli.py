@@ -58,7 +58,8 @@ def _route(user_text):
                 {"role": "user", "content": user_text},
             ],
             format=Route.model_json_schema(),
-            options={"temperature": 0},
+            think=False,
+            options={"temperature": 0, "num_ctx": 2048, "num_predict": 180},
         )
         return Route.model_validate_json(result.message.content or "").tool
     except (httpx.HTTPError, ValueError, ConnectionError, ResponseError):

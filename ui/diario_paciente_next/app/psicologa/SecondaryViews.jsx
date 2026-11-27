@@ -202,7 +202,7 @@ export function TimelineAndReportsView({
   );
 }
 
-export function CopilotRagView({ patient, days }) {
+export function CopilotRagView({ patient, days, onReprocessed }) {
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState("extractive");
   const [loading, setLoading] = useState(false);
@@ -250,6 +250,7 @@ export function CopilotRagView({ patient, days }) {
         await submitRag(`/reprocessar ${data.record_id}`, true);
       } else {
         setResult(data);
+        if (confirmed && data.status === "ok") onReprocessed?.();
       }
     } catch (err) {
       if (!request.signal.aborted) setError(err.message);

@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -80,6 +80,40 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
     )["status"] == "ok"
     assert store.analyses(Query(patient_id=patient_id, question="listar"))[0][1].output == replacement
     assert store.analyses(Query(patient_id=patient_id, question="listar"))[0][1].version == "1.0.0"
+    earlier = record.model_copy(update={
+        "record_id": "ref0", "recorded_at": record.recorded_at - timedelta(days=8),
+    })
+    store.save(earlier)
+    store.publish(earlier, output.model_copy(update={"entry_id": uuid4(), "score_polaridade": -0.6}))
+    current = cli.dispatch("dashboard", {"patient": "patient_ana", "days": "7"}, directory=tmp_path)
+    assert current["totalEntriesAllPeriods"] == 2
+    assert [entry["id"] for entry in current["entries"]] == ["ref1"]
+    assert "Avós" in current["longitudinal"]["subtemas_persistentes"]
+    filtered = cli.dispatch(
+        "dashboard", {"patient": "patient_ana", "valence": "negative"}, directory=tmp_path,
+    )
+    assert [entry["id"] for entry in filtered["entries"]] == ["ref0"]
+
+    edited = cli.dispatch("presentation", {
+        "patient": "patient_ana", "action": "annotate_subtopic",
+        "macroTema": "vinculos", "originalName": "Avós", "displayName": "Família",
+    }, directory=tmp_path)
+    assert edited["annotations"][0]["display_name"] == "Família"
+    assert edited["entries"][0]["agent1"]["subtemas"][0]["nome"] == "Avós"
+    report = cli.dispatch("presentation", {
+        "patient": "patient_ana", "action": "add_report", "fileName": "demo.txt",
+        "fileSize": 42,
+    }, directory=tmp_path)["reports"][0]
+    cli.dispatch("presentation", {
+        "patient": "patient_bruno", "action": "remove_report", "reportId": report["id"],
+    }, directory=tmp_path)
+    assert store.presentation(patient_id)["reports"] == [report]
+    assert store.presentation(unrelated) == {"reports": [], "annotations": []}
+    cli.dispatch("presentation", {
+        "patient": "patient_ana", "action": "remove_report", "reportId": report["id"],
+    }, directory=tmp_path)
+    assert store.presentation(patient_id)["reports"] == []
+
     with pytest.raises(ValueError):
         validate_analysis(record, StoredAnalysis(
             record_id="ref1", representation_id="wrong", output=output,
@@ -90,6 +124,7 @@ def test_catalogue_lists_only_callable_slash_commands():
     commands = cli.dispatch("tools", {})["tools"]
     assert {item["command"] for item in commands} == {
         "/diarios", "/temas", "/literatura", "/reprocessar",
+        "/ajuda", "/status", "/modelos", "/historico", "/limpar",
     }
     for item in commands:
         command = item["command"]

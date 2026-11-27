@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./impactbench.module.css";
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(value));
 }
 
-export default function CopilotPrompt({ ref, patient, days, onDaysChange, onReprocessed }) {
+const SERVICE_ERRORS = {
+  service_unavailable: "Ollama local indisponível. Você pode continuar usando Trechos citados.",
+  model_unavailable: "O Qwen configurado está indisponível no Ollama local.",
+  generation_timeout: "O Ollama não respondeu no tempo disponível.",
+  retrieval_unavailable: "Não foi possível recuperar trechos do diário.",
+};
+
+export default function CopilotPrompt({
+  ref, patient, days, onDaysChange, showPeriod, mode, onModeChange,
+  resultsTarget, onOpenHistory, onReprocessed,
+}) {
   const [question, setQuestion] = useState("");
-  const [mode, setMode] = useState("extractive");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [proposal, setProposal] = useState(null);
@@ -57,7 +67,9 @@ export default function CopilotPrompt({ ref, patient, days, onDaysChange, onRepr
       if (!response.ok) throw new Error(data.message || "Falha ao consultar o copiloto.");
       if (data.status === "confirmation") {
         setProposal(data);
-      } else {
+      } else if (data.action === "historico") {
+        onOpenHistory();
+      } else if (data.action !== "limpar") {
         setResult(data);
         if (confirmed && data.status === "ok") onReprocessed();
       }
@@ -84,9 +96,8 @@ export default function CopilotPrompt({ ref, patient, days, onDaysChange, onRepr
   }));
 
   const slashMenu = question.startsWith("/") && !question.includes(" ");
-  return (
-    <section className={styles.copilotDock} aria-label="Copiloto">
-      <div className={styles.copilotResponses} aria-live="polite">
+  const responses = (
+      <div className={resultsTarget ? undefined : styles.copilotResponses} aria-live="polite">
         {loading && <p role="status">Consultando…</p>}
         {error && <p role="alert" className={styles.ragErr}>{error}</p>}
         {proposal && (
@@ -112,12 +123,21 @@ export default function CopilotPrompt({ ref, patient, days, onDaysChange, onRepr
                 {result.status === "ok" ? "Concluído" : result.status === "insufficient_evidence" ? "Evidência insuficiente" : result.status}
               </span>
               {Number.isInteger(result.eligible_records) && <span>Registros elegíveis: {result.eligible_records}</span>}
-              {result.generation_mode && <span>Modo: {result.generation_mode}</span>}
+              {result.generation_mode && <span>
+                {result.generation_mode === "ollama"
+                  ? `Ollama · ${result.model || "Qwen"}`
+                  : "Trechos citados"}
+              </span>}
             </div>
             <div className={styles.ragAnswerBanner}>
               <strong>Resposta do copiloto</strong>
-              <p>{result.answer}</p>
+              <p>{SERVICE_ERRORS[result.error_code] || result.answer}</p>
             </div>
+            {result.tools && (
+              <ul>{result.tools.map(({ command, description }) => (
+                <li key={command}><code>{command}</code> · {description}</li>
+              ))}</ul>
+            )}
             {result.sources?.map((source) => (
               <article key={source.chunk_id} className={styles.ragEvCard}>
                 <blockquote>{source.quote_text}</blockquote>
@@ -142,9 +162,28 @@ export default function CopilotPrompt({ ref, patient, days, onDaysChange, onRepr
           </div>
         )}
       </div>
+  );
+  return (
+    <section className={styles.copilotDock} aria-label="Copiloto">
+      {resultsTarget ? createPortal(
+        <section className={styles.secCard}>
+          <div className={styles.secCardHead}>
+            <div>
+              <span className={styles.provenanceTag}>COPILOTO RAG</span>
+              <h2>Consulta assistida sobre relatos de {patient?.name}</h2>
+            </div>
+          </div>
+          <div className={styles.ragQuickChips}>
+            {["/diarios sobrecarga no trabalho", "/diarios sono", "/temas"].map((example) => (
+              <button key={example} type="button" onClick={() => submit(example)}>{example}</button>
+            ))}
+          </div>
+          {responses}
+        </section>, resultsTarget,
+      ) : responses}
       <div className={styles.copilotControls}>
         <strong>{patient ? `Copiloto · ${patient.name}` : "Selecione um paciente para usar o copiloto"}</strong>
-        <label>
+        {showPeriod && <label>
           Período{" "}
           <select value={days} onChange={(event) => onDaysChange(event.target.value)}>
             <option value="all">Todo o histórico</option>
@@ -152,14 +191,17 @@ export default function CopilotPrompt({ ref, patient, days, onDaysChange, onRepr
             <option value="14">Últimos 14 dias</option>
             <option value="30">Últimos 30 dias</option>
           </select>
-        </label>
-        <label>
-          Resposta{" "}
-          <select value={mode} onChange={(event) => setMode(event.target.value)}>
-            <option value="extractive">Trechos</option>
-            <option value="ollama">Síntese local</option>
-          </select>
-        </label>
+        </label>}
+        <div className={styles.copilotModes} role="group" aria-label="Modo de resposta do diário">
+          <button type="button" aria-pressed={mode === "extractive"}
+            onClick={() => onModeChange("extractive")}>
+            Trechos citados
+          </button>
+          <button type="button" aria-pressed={mode === "ollama"}
+            onClick={() => onModeChange("ollama")}>
+            Ollama · Qwen
+          </button>
+        </div>
       </div>
       {slashMenu && (
         <div className={styles.ragQuickChips} aria-label="Ferramentas do copiloto">

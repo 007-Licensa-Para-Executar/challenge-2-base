@@ -9,7 +9,7 @@ import styles from "./impactbench.module.css";
 
 const CADASTRO_SYNC_KEY = "meu-diario:cadastro-atualizado";
 
-export default function PsychologistWorkspace({ activeNav, selectedPatientId, days, analysisRevision, onShowEvidence }) {
+export default function PsychologistWorkspace({ activeNav, selectedPatientId, days, onDaysChange, analysisRevision, onShowEvidence }) {
   const [patients, setPatients] = useState([]);
   const [valenceFilter, setValenceFilter] = useState("all"); // all | negative | positive
 
@@ -156,9 +156,12 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
         mimeType: file.type,
       }),
     });
-    if (res.ok) {
-      await loadPatientDetail(selectedPatientId, days, valenceFilter);
+    const data = await res.json();
+    if (!res.ok) {
+      setErrorMsg(data.message || "Não foi possível atualizar o relatório.");
+      return;
     }
+    await loadPatientDetail(selectedPatientId, days, valenceFilter);
   }
 
   async function handleRemoveReport(reportId) {
@@ -168,9 +171,12 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "remove_report", reportId }),
     });
-    if (res.ok) {
-      await loadPatientDetail(selectedPatientId, days, valenceFilter);
+    const data = await res.json();
+    if (!res.ok) {
+      setErrorMsg(data.message || "Não foi possível atualizar o relatório.");
+      return;
     }
+    await loadPatientDetail(selectedPatientId, days, valenceFilter);
   }
 
   function handleSelectTheme(macroId) {
@@ -194,6 +200,15 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
   return (
     <div className={`${styles.appShell} ${styles.embeddedShell}`}>
       <div className={styles.embeddedToolbar}>
+        <label className={styles.periodSelectLabel}>
+          Período{" "}
+          <select value={days} onChange={(event) => onDaysChange(event.target.value)}>
+            <option value="all">Todo o histórico</option>
+            <option value="7">Últimos 7 dias</option>
+            <option value="14">Últimos 14 dias</option>
+            <option value="30">Últimos 30 dias</option>
+          </select>
+        </label>
         {selectedPatientSummary && !selectedPatientSummary.isDemo && (
           <button
             type="button"
@@ -235,7 +250,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
                   valenceFilter={valenceFilter}
                   totalSubtemas={patientData?.wheel?.total_subtemas_ativos || 0}
                   maxSubtemas={24}
-                  isDemo={Boolean(selectedPatientSummary?.isDemo)}
+                  isDemo={Boolean(selectedPatientSummary?.isDemo && !selectedPatientSummary?.canEditPresentation)}
                   onSelectTheme={handleSelectTheme}
                   onSelectSubtopic={handleSelectSubtopic}
                   onResetSelection={handleResetWheelSelection}
@@ -253,7 +268,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
                 selectedThemeId={selectedThemeId}
                 selectedSubtopicKey={selectedSubtopicKey}
                 selectedOccurrence={selectedOccurrence}
-                isDemo={Boolean(selectedPatientSummary?.isDemo)}
+                isDemo={Boolean(selectedPatientSummary?.isDemo && !selectedPatientSummary?.canEditPresentation)}
                 onShowEvidence={onShowEvidence}
                 onSelectTheme={handleSelectTheme}
                 onSelectSubtopic={handleSelectSubtopic}
@@ -266,7 +281,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
         )}
 
         {activeNav === "timeline" && (
-          <main className={styles.secondaryMain}>
+          <section className={styles.secondaryMain} aria-label="Linha do tempo e relatórios">
             <TimelineAndReportsView
               patient={selectedPatientSummary}
               entries={patientData?.entries || []}
@@ -276,7 +291,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId, da
               onUploadReport={handleUploadReport}
               onRemoveReport={handleRemoveReport}
             />
-          </main>
+          </section>
         )}
 
       </div>

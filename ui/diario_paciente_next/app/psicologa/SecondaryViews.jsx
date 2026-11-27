@@ -27,7 +27,7 @@ export function TimelineAndReportsView({
 }) {
   const [filterType, setFilterType] = useState("todos");
   const [reportError, setReportError] = useState("");
-  const isDemo = Boolean(patient?.isDemo);
+  const canEditReports = Boolean(patient && (!patient.isDemo || patient.canEditPresentation));
 
   const visibleEntries = (entries || []).filter((e) => {
     if (filterType === "audio") return e.input_type === "audio";
@@ -94,7 +94,7 @@ export function TimelineAndReportsView({
               <span className={styles.provenanceTag}>ARQUIVOS CLÍNICOS</span>
               <h2>Relatórios pós-consulta ({reports.length})</h2>
             </div>
-            {!isDemo && (
+            {canEditReports && (
               <label className={styles.uploadLabelBtn}>
                 Selecionar arquivo
                 <input
@@ -106,8 +106,8 @@ export function TimelineAndReportsView({
               </label>
             )}
           </div>
-          {isDemo && (
-            <p className={styles.mutedText}>Anexos ficam habilitados apenas para pacientes reais cadastrados.</p>
+          {!canEditReports && (
+            <p className={styles.mutedText}>Anexos indisponíveis para este caso de exemplo.</p>
           )}
           {reportError && <p className={styles.ragErr}>{reportError}</p>}
 
@@ -119,7 +119,7 @@ export function TimelineAndReportsView({
                     <strong>{rep.fileName}</strong>
                     <small>{formatDate(rep.uploadedAt)}</small>
                   </div>
-                  {!isDemo && (
+                  {canEditReports && (
                     <button type="button" onClick={() => onRemoveReport(rep.id)}>
                       Remover
                     </button>

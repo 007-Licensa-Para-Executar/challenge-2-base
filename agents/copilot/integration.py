@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
@@ -54,6 +58,74 @@ def validate_analysis(record: DiaryRecord, analysis: StoredAnalysis) -> None:
 
 
 class IntegratedStore(ProtectedDiaryStore):
+    def presentation(self, patient_id: str) -> dict:
+        result = {"reports": [], "annotations": []}
+        if not self.db_path.exists():
+            return result
+        with closing(sqlite3.connect(self.db_path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            if not db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='demo_presentation'"
+            ).fetchone():
+                return result
+            for kind, payload in db.execute(
+                "SELECT kind, doc FROM demo_presentation WHERE patient_id = ? ORDER BY rowid DESC",
+                (patient_id,),
+            ):
+                result[kind].append(json.loads(payload))
+        return result
+
+    def edit_presentation(self, patient_id: str, action: str, payload: dict) -> None:
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(self.db_path)) as db, db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS demo_presentation ("
+                "patient_id TEXT, kind TEXT, item_id TEXT, doc TEXT NOT NULL, "
+                "PRIMARY KEY(patient_id, kind, item_id))"
+            )
+            if action == "remove_report":
+                db.execute(
+                    "DELETE FROM demo_presentation WHERE patient_id = ? AND kind = 'reports' "
+                    "AND item_id = ?", (patient_id, payload["reportId"]),
+                )
+                return
+            now = datetime.now(UTC)
+            if action == "add_report":
+                name = payload["fileName"].strip()
+                if not name or Path(name).suffix.lower() not in {".pdf", ".doc", ".docx", ".txt"}:
+                    raise ValueError("Formato de relatório inválido")
+                key = f"relatorio-{uuid4()}"
+                kind = "reports"
+                doc = {
+                    "id": key, "fileName": name[:180], "fileSize": max(0, int(payload.get("fileSize", 0))),
+                    "mimeType": str(payload.get("mimeType", ""))[:120],
+                    "notes": str(payload.get("notes", ""))[:1000],
+                    "uploadedAt": now.isoformat(), "status": "concluido", "progress": 100,
+                }
+            elif action == "annotate_subtopic":
+                theme = payload["macroTema"]
+                original = payload["originalName"]
+                display = payload["displayName"].strip()
+                if not display or not any(
+                    DISPLAY_THEMES.get(record.classification.primary_theme, "outros") == theme
+                    and analysis and any(item.nome == original for item in analysis.output.subtemas)
+                    for record, analysis in self.analyses(Query(patient_id=patient_id, question="listar"))
+                ):
+                    raise ValueError("Subtema indisponível")
+                key = json.dumps([theme, original], ensure_ascii=False)
+                kind = "annotations"
+                doc = {
+                    "macro_tema": theme, "original_name": original, "display_name": display[:80],
+                    "clinical_note": str(payload.get("clinicalNote", ""))[:600],
+                    "updated_at": int(now.timestamp() * 1000),
+                }
+            else:
+                raise ValueError("Operação de apresentação inválida")
+            db.execute(
+                "INSERT INTO demo_presentation VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(patient_id, kind, item_id) DO UPDATE SET doc = excluded.doc",
+                (patient_id, kind, key, json.dumps(doc, ensure_ascii=False)),
+            )
+
     def publish(self, record: DiaryRecord, output: Agent1Output) -> StoredAnalysis:
         analysis = StoredAnalysis(
             record_id=record.record_id, representation_id=record.representation_id, output=output,

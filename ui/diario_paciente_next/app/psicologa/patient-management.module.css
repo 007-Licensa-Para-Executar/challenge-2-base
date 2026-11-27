@@ -2404,3 +2404,8 @@
     align-self: flex-start;
   }
 }
+
+.copilotPage {
+  margin-bottom: 16px;
+  min-width: 0;
+}

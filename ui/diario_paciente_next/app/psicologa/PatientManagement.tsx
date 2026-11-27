@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
 import ExternalSupervisors from "./ExternalSupervisors";
@@ -102,6 +103,9 @@ export default function PatientManagement({ initialSection }: { initialSection?:
   const [patients, setPatients] = useState<PortalPatient[]>([]);
   const [psychologistProfile, setPsychologistProfile] = useState(defaultPsychologistProfile);
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const router = useRouter();
+  const [chatResults, setChatResults] = useState<HTMLElement | null>(null);
+  const [generationMode, setGenerationMode] = useState("extractive");
   const [days, setDays] = useState("all");
   const [analysisRevision, setAnalysisRevision] = useState(0);
   const copilot = useRef<{ showEvidence(occurrence: unknown): void } | null>(null);
@@ -429,12 +433,15 @@ export default function PatientManagement({ initialSection }: { initialSection?:
                 : "Quando alguém criar um acesso em /cadastro, o cadastro aparecerá nesta lista."}
             </p>
           </section>
-        ) : selectedPatient && activeSection === "rag" ? null : selectedPatient ? (
+        ) : selectedPatient && activeSection === "rag" ? (
+          <section className={styles.copilotPage} ref={setChatResults} aria-label="Respostas do copiloto" />
+        ) : selectedPatient ? (
           <PsychologistWorkspace
             activeNav={activeSection === "explorar" ? "explore" : "timeline"}
-            key={`${selectedPatient.id}:${days}`}
+            key={`workspace:${selectedPatient.id}:${days}`}
             selectedPatientId={selectedPatient.id}
             days={days}
+            onDaysChange={setDays}
             analysisRevision={analysisRevision}
             onShowEvidence={(occurrence: unknown) => copilot.current?.showEvidence(occurrence)}
           />
@@ -449,11 +456,16 @@ export default function PatientManagement({ initialSection }: { initialSection?:
           </section>
         )}
         <CopilotPrompt
-          key={`${selectedPatientId}:${days}`}
+          key={`copilot:${selectedPatientId}:${days}`}
           ref={copilot}
           patient={selectedPatient ? { id: selectedPatient.id, name: selectedPatient.fullName } : null}
           days={days}
           onDaysChange={setDays}
+          showPeriod={activeSection === "gestao" || activeSection === "rag"}
+          mode={generationMode}
+          onModeChange={setGenerationMode}
+          resultsTarget={activeSection === "rag" ? chatResults : null}
+          onOpenHistory={() => router.push("/psicologa?secao=timeline")}
           onReprocessed={() => setAnalysisRevision((revision) => revision + 1)}
         />
       </main>

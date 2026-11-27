@@ -14,7 +14,9 @@ import httpx
 from ollama import Client, ResponseError
 from pydantic import BaseModel, ConfigDict
 
+from agents.extractor.config import Settings
 from agents.extractor.dashboard_cli import _build_wheel
+from app.router import installed_models
 from privacy.client import PrivacyClient, PrivacyError
 from privacy.contracts import DEFAULT_URL, DEMO_DIR
 
@@ -30,6 +32,11 @@ from .service import CopilotService
 
 PATIENTS = {"patient_ana", "patient_bruno"}
 TOOLS = {
+    "ajuda": "Mostrar comandos e exemplos.",
+    "status": "Verificar os serviços locais.",
+    "modelos": "Listar os modelos locais e o modelo de resposta.",
+    "historico": "Abrir a linha do tempo do paciente selecionado.",
+    "limpar": "Limpar a conversa exibida.",
     "diarios": "Localizar trechos sobre o paciente selecionado.",
     "temas": "Contar os temas classificados na janela.",
     "literatura": "Consultar publicações sobre um assunto geral.",
@@ -40,7 +47,10 @@ TOOLS = {
 
 class Route(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    tool: Literal["diarios", "temas", "literatura", "reprocessar", "esclarecer"]
+    tool: Literal[
+        "diarios", "temas", "literatura", "reprocessar", "esclarecer",
+        "ajuda", "status", "modelos", "historico", "limpar",
+    ]
 
 
 def _route(user_text):
@@ -102,10 +112,31 @@ def _analysis(record, store, modality):
     return None
 
 
-def _dashboard(store, query, alias):
-    records = store.analyses(query)
-    outputs = [saved.output.model_dump(mode="json") for _, saved in records if saved]
-    wheel = _build_wheel({"patient_id": query.patient_id, "current_outputs": outputs})["wheel"]
+def _dashboard(store, query, alias, valence="all"):
+    all_records = store.analyses(Query(patient_id=query.patient_id, question="listar"))
+    current, previous = [], []
+    for record, saved in all_records:
+        analysis = saved.output if saved else None
+        positive = analysis and analysis.score_polaridade > 0.1
+        negative = analysis and (
+            analysis.score_polaridade < -0.1 or analysis.indicio_textual_risco == "presente"
+        )
+        if (valence == "positive" and not positive) or (valence == "negative" and not negative):
+            continue
+        if query.start_at is None or query.start_at <= record.recorded_at <= query.end_at:
+            current.append((record, saved))
+        elif saved and query.start_at - (query.end_at - query.start_at) <= (
+            record.recorded_at
+        ) < query.start_at:
+            previous.append(saved.output.model_dump(mode="json"))
+    outputs = [saved.output.model_dump(mode="json") for _, saved in current if saved]
+    days = (query.end_at - query.start_at).days if query.start_at else None
+    data = _build_wheel({
+        "patient_id": query.patient_id, "current_outputs": outputs, "previous_outputs": previous,
+        "periodo": f"Últimos {days} dias" if days else "Todo o histórico",
+        "previous_label": f"{days} dias anteriores" if days else "Sem período anterior",
+    })
+    wheel = data["wheel"]
     grouped = {}
     for macro in wheel["macrotemas"]:
         source = macro["macro_tema"]
@@ -131,10 +162,55 @@ def _dashboard(store, query, alias):
          "representation_id": record.representation_id,
          "input_type": "audio" if saved and saved.output.modalidade == "audio" else "text",
          "polarity_score": saved.output.score_polaridade if saved else None,
+         "theme_confidence": record.classification.candidate_score,
+         "is_risk_emotion": bool(saved and saved.output.indicio_textual_risco == "presente"),
          "agent1": saved.output.model_dump(mode="json") if saved else None}
-        for record, saved in records
+        for record, saved in reversed(current)
     ]
-    return {"entries": entries, "wheel": wheel, "pending": len(records) - len(outputs)}
+    return {
+        "entries": entries, "wheel": wheel, "pending": len(current) - len(outputs),
+        "totalEntriesAllPeriods": len(all_records), **store.presentation(query.patient_id),
+        "longitudinal": data["longitudinal"] if days and (outputs or previous) else None,
+    }
+
+
+def _utility(tool, patient_id, directory):
+    if tool in {"ajuda", "esclarecer"}:
+        return {
+            "status": "ok" if tool == "ajuda" else "clarification",
+            "answer": "Exemplos: /diarios avós, /temas e /literatura IA em psicoterapia. "
+                      "Veja todos os comandos com /.",
+            "tools": dispatch("tools", {})["tools"],
+        }
+    if tool in {"historico", "limpar"}:
+        return {"status": "ok", "action": tool, "answer": ""}
+    if tool in {"status", "modelos"}:
+        try:
+            names = [item["name"] for item in installed_models(
+                Settings(host="http://127.0.0.1:11434", timeout_seconds=3),
+            )]
+            ollama_ok = True
+        except (ValueError, TypeError, httpx.HTTPError):
+            names, ollama_ok = [], False
+        configured = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+        if tool == "modelos":
+            available = ", ".join(sorted(names)) or "nenhum disponível"
+            return {"status": "ok", "answer": (
+                f"Modelos locais: {available}. Modelo de resposta: {configured}"
+                f"{'.' if configured in names else ' (indisponível).'}"
+            )}
+        try:
+            PrivacyClient(directory / "analysis.token", DEFAULT_URL, timeout=3).protect(
+                patient_id=patient_id, text="Teste fictício de disponibilidade.",
+            )
+            privacy = "disponível"
+        except PrivacyError:
+            privacy = "indisponível"
+        return {"status": "ok", "answer": (
+            f"API de privacidade: {privacy}. Ollama: "
+            f"{'disponível' if ollama_ok else 'indisponível'}."
+        )}
+    return None
 
 
 def dispatch(command, payload, *, directory=DEMO_DIR):
@@ -149,8 +225,20 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
     patient_id = map_patient(alias, directory)
     store = IntegratedStore(directory / "analytics.sqlite3")
     query = _query(patient_id, payload)
+    valence = payload.get("valence", "all")
+    if valence not in {"all", "positive", "negative"}:
+        raise ValueError("Filtro inválido")
     if command == "dashboard":
-        return _dashboard(store, query, alias)
+        return _dashboard(store, query, alias, valence)
+    if command == "presentation":
+        store.edit_presentation(patient_id, payload["action"], payload)
+        return _dashboard(store, query, alias, valence)
+    raw = payload.get("question", "").strip()
+    if (
+        command == "chat" and raw.startswith("/") and not payload.get("topic")
+        and (response := _utility(_route(raw), patient_id, directory))
+    ):
+        return response
     client = PrivacyClient(directory / "analysis.token", DEFAULT_URL)
     if command == "ingest":
         text = payload["text"]
@@ -170,15 +258,12 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
                 "treated_text": record.analysis_text}
     if command != "chat":
         raise ValueError("Operação desconhecida")
-    raw = payload["question"].strip()
     treated = protect_query(Query.model_validate({
         **query.model_dump(), "question": raw,
     }), client, directory)
     tool = "diarios" if payload.get("topic") else _route(treated.question)
-    if tool == "esclarecer":
-        return {"status": "clarification", "answer": (
-            "Escolha /diarios, /temas, /literatura ou /reprocessar seguido do ID do diário."
-        )}
+    if response := _utility(tool, patient_id, directory):
+        return response
     if tool == "literatura":
         question = treated.question.removeprefix("/literatura").strip()
         if not question:
@@ -239,7 +324,7 @@ def main():
     try:
         payload = json.load(sys.stdin)
         result = dispatch(sys.argv[1], payload)
-    except (KeyError, ValueError, sqlite3.Error, OSError, PrivacyError):
+    except (KeyError, ValueError, TypeError, OverflowError, sqlite3.Error, OSError, PrivacyError):
         result = {"status": "error", "answer": "Falha operacional no fluxo integrado."}
     sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
 

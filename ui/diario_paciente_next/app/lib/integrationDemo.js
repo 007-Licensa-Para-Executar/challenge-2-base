@@ -17,7 +17,7 @@ export function localDemo(request) {
 export function integrationPatient(id) {
   if (!Object.hasOwn(patients, id)) return null;
   return {
-    id, ...patients[id], isDemo: true, createdAt: "2026-11-27T00:00:00Z",
+    id, ...patients[id], isDemo: true, canEditPresentation: true, createdAt: "2026-11-27T00:00:00Z",
     address: "", age: null, treatmentDurationMonths: null, psychiatricTreatment: false,
   };
 }

@@ -1821,3 +1821,26 @@
 .copilotResponses:empty {
   display: none;
 }
+
+.copilotModes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.copilotModes button {
+  padding: 5px 10px;
+  border: 1px solid rgba(49, 92, 80, 0.24);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.copilotModes button[aria-pressed="true"] {
+  background: #2f594e;
+  color: #fff;
+  border-color: #2f594e;
+}

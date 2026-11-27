@@ -231,6 +231,17 @@ async function buildPatientDashboardPayload(
   };
 }
 
+function demoDashboard(result, patient, days, valence) {
+  if (result.status === "error") {
+    return NextResponse.json({ message: result.answer }, { status: 422 });
+  }
+  return NextResponse.json({
+    ...result, patient, filters: { days, valence },
+    wheel: applyAnnotationsToWheel(result.wheel, result.annotations),
+    summary: { entryCount: result.entries.length },
+  }, { headers: { "Cache-Control": "no-store" } });
+}
+
 export async function GET(request, context) {
   if (process.env.NODE_ENV === "production" || process.env.REQUIRE_PSICOLOGA_AUTH === "true") {
     return NextResponse.json({ message: "Acesso profissional requerido." }, { status: 403 });
@@ -248,13 +259,7 @@ export async function GET(request, context) {
         return NextResponse.json({ message: "Paciente fora da demonstração." }, { status: 403 });
       }
       const result = await runIntegration("dashboard", { patient: id, days, valence });
-      if (result.status === "error") {
-        return NextResponse.json({ message: result.answer }, { status: 503 });
-      }
-      return NextResponse.json({
-        ...result, patient, filters: { days, valence }, reports: [], annotations: [],
-        totalEntriesAllPeriods: result.entries.length, summary: { entryCount: result.entries.length },
-      }, { headers: { "Cache-Control": "no-store" } });
+      return demoDashboard(result, patient, days, valence);
     }
     const payload = await buildPatientDashboardPayload(id, { days, valence });
     if (!payload) {
@@ -280,7 +285,16 @@ export async function POST(request, context) {
     const body = await request.json().catch(() => ({}));
     const action = body?.action;
     if (integrationEnabled()) {
-      return NextResponse.json({ message: "Use /reprocessar no chat integrado." }, { status: 400 });
+      const patient = integrationPatient(id);
+      if (!localDemo(request) || !patient) {
+        return NextResponse.json({ message: "Paciente fora da demonstração." }, { status: 403 });
+      }
+      if (!["annotate_subtopic", "add_report", "remove_report"].includes(action)) {
+        return NextResponse.json({ message: "Ação indisponível na demonstração." }, { status: 400 });
+      }
+      const { days = "all", valence = "all" } = body;
+      const result = await runIntegration("presentation", { ...body, patient: id, days, valence });
+      return demoDashboard(result, patient, days, valence);
     }
 
     if (action === "reprocess") {

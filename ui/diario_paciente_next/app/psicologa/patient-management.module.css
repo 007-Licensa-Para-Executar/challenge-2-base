@@ -302,6 +302,13 @@
   gap: 18px;
 }
 
+.pageHeaderActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
 .sectionNav {
   position: relative;
   display: flex;
@@ -355,10 +362,6 @@
 .sectionNavExternal:focus-visible {
   outline: 3px solid var(--cor-secundaria);
   outline-offset: 2px;
-}
-
-.sectionNav .externalSupervisors {
-  flex: 0 0 auto;
 }
 
 .pageHeader h1 {

@@ -42,3 +42,20 @@ O código de busca e as avaliações de literatura vêm da branch do PR #76. O t
 Com Ana ou Bruno selecionado, use **Explorar Roda** para editar o nome exibido e anotar um subtema. A edição preserva o nome da análise original e suas evidências. Em **Linha do Tempo & Relatórios**, selecione 7, 14 ou 30 dias para comparar com a janela imediatamente anterior. Para testar relatórios, use um PDF, DOC, DOCX ou TXT fictício. O painel registra somente nome, tamanho e tipo do arquivo.
 
 No prompt, `/ajuda` lista as opções, `/status` verifica os serviços locais, `/modelos` informa o modelo de resposta, `/historico` abre a linha do tempo e `/limpar` fecha o resultado atual.
+
+### Roteiro de apresentação
+
+Antes de apresentar, carregue o acervo fictício que já vem com o projeto no mesmo banco que o painel usa. Execute na raiz, com a API de privacidade no ar e os artefatos do treino já gerados.
+
+```bash
+uv run --no-sync python -m agents.copilot seed --privacy --synthetic --classify --model-path dist/rag-demo/best_theme_mlp.pt --vectorizer-path dist/rag-demo/theme_embedder.joblib
+```
+
+O comando pode ser repetido. Ele carrega e classifica os diários que ainda faltam. O contador de análises pendentes informa quantos deles ainda precisam passar pelo Agente 1 para aparecer com subtemas na roda. Escolha **Todo o histórico** para incluir as datas das fixtures.
+
+1. Selecione Ana, digite `/` e execute `/status`.
+2. Em **Trechos citados**, execute `/diarios avós` e mostre as fontes.
+3. Peça “Conte os temas registrados neste período.” ou execute `/temas` e mostre a contagem.
+4. Na roda, abra um subtema e uma ocorrência e clique em **Mostrar trecho selecionado**.
+5. Selecione Bruno e repita `/diarios avós` para mostrar que a busca usa o caso ativo.
+6. Se houver tempo, execute `/literatura agentes conversacionais bem-estar` e identifique a fonte de demonstração. A síntese com **Ollama · Qwen** pode ser feita repetindo a pergunta do passo 2.

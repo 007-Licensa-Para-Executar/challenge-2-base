@@ -121,6 +121,7 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
 
 
 def test_catalogue_lists_only_callable_slash_commands():
+    assert cli._route("Conte os temas registrados neste período.") == "temas"
     commands = cli.dispatch("tools", {})["tools"]
     assert {item["command"] for item in commands} == {
         "/diarios", "/temas", "/literatura", "/reprocessar",

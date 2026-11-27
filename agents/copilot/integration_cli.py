@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sqlite3
 import sys
 from argparse import Namespace
@@ -57,6 +58,11 @@ def _route(user_text):
     if user_text.startswith("/"):
         command = user_text[1:].split(maxsplit=1)[0] if user_text[1:].strip() else ""
         return command if command in TOOLS else "esclarecer"
+    if re.fullmatch(
+        r"conte (?:os )?temas(?: registrados)?(?: (?:neste|no) período)?[.!]?",
+        user_text.strip().casefold(),
+    ):
+        return "temas"
     try:
         result = Client(host="http://127.0.0.1:11434", timeout=15, trust_env=False).chat(
             model=os.getenv("SHELL_ROUTER_MODEL", "qwen3:0.6b"),
@@ -313,7 +319,10 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
     if not question:
         return {"status": "clarification", "answer": "Informe o que deseja buscar nos diários."}
     mode = "ollama" if payload.get("generation_mode") == "ollama" else "extractive"
-    generator = OllamaGenerator(model=os.getenv("OLLAMA_MODEL", "qwen3:4b")) if mode == "ollama" else None
+    generator = (
+        OllamaGenerator(model=os.getenv("OLLAMA_MODEL", "qwen3:4b"), timeout=120)
+        if mode == "ollama" else None
+    )
     result = CopilotService(store, Retriever(), generator).answer(
         treated.model_copy(update={"question": question}), generation_mode=mode,
     )

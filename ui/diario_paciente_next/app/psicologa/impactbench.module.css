@@ -1364,7 +1364,7 @@
   display: grid;
   grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .secCard {

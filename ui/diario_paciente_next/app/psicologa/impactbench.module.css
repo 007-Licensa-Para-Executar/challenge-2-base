@@ -10,9 +10,9 @@
 }
 
 .embeddedShell {
-  height: calc(100dvh - 250px);
-  min-height: 500px;
-  max-height: 780px;
+  height: calc(100dvh - 180px);
+  min-height: 680px;
+  max-height: 900px;
   flex: 1 0 auto;
   overflow: hidden;
   border: 1px solid rgba(49, 92, 80, 0.13);
@@ -564,7 +564,7 @@
   width: auto;
   height: 100%;
   max-width: 100%;
-  max-height: calc(100vh - 175px);
+  max-height: calc(100vh - 100px);
   overflow: visible;
 }
 
@@ -1744,7 +1744,7 @@
   }
 
   .sunburstSvg {
-    max-height: 430px;
+    max-height: min(70vh, 560px);
   }
 
   .rightColumnWrap,

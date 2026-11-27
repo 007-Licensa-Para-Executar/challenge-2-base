@@ -158,7 +158,7 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
       setAudioAttachment(null);
       setAviso(data.entry?.classification_warning
         ? { tipo: "aviso", texto: "Relato salvo. " + data.entry.classification_warning }
-        : { tipo: "sucesso", texto: "Relato salvo e classificado automaticamente pela rede neural e pelo Ollama." });
+        : { tipo: "sucesso", texto: "Relato salvo. Tema, sentimento e emoção estimados automaticamente." });
     } catch {
       setAviso({ tipo: "erro", texto: "Não foi possível conectar ao servidor. Tente novamente." });
     } finally {

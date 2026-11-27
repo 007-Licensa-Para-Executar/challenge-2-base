@@ -5,8 +5,21 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import agents.extractor.dashboard_cli as cli
+
+
+def test_abstained_theme_stays_indeterminate_in_dashboard():
+    dist = SimpleNamespace(
+        primary_theme="outros_indeterminado",
+        confidence=0.31,
+        candidate_theme="trabalho",
+        probabilities={"outros_indeterminado": 0.08, "trabalho": 0.31},
+        ranking=[{"tema": "trabalho", "percentual": 31.0}],
+    )
+
+    assert cli._resolve_macro_theme(dist) == ("outros_indeterminado", 0.31)
 
 
 def test_analyze_batch_extracts_neural_themes_and_agent1_subtopics():

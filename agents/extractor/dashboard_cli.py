@@ -276,17 +276,8 @@ def _modalidade(raw: str | None) -> str:
 
 
 def _resolve_macro_theme(dist: Any) -> tuple[str, float]:
-    macro_str = str(dist.primary_theme)
-    if macro_str == "outros_indeterminado":
-        ranked = [
-            item["tema"]
-            for item in getattr(dist, "ranking", [])
-            if item.get("tema") and item["tema"] != "outros_indeterminado"
-        ]
-        candidate = dist.candidate_theme if dist.candidate_theme != "outros_indeterminado" else (ranked[0] if ranked else None)
-        if candidate and float(dist.probabilities.get(candidate, 0.0)) >= 0.18:
-            macro_str = candidate
-    return macro_str, float(dist.probabilities.get(macro_str, dist.confidence))
+    # Preserve the predictor's abstention; the UI must show the class the MLP accepted.
+    return str(dist.primary_theme), float(dist.confidence)
 
 
 def _analyze_batch(payload: dict[str, Any]) -> dict[str, Any]:
@@ -336,7 +327,7 @@ def _analyze_batch(payload: dict[str, Any]) -> dict[str, Any]:
         macro_str, macro_conf = _resolve_macro_theme(dist)
 
         agent1_out: Agent1Output | None = None
-        analysis_source = "mlp+estrutural"
+        analysis_source = "theme_mlp_primary_v1+estrutural"
 
         if agent1_service is not None:
             try:
@@ -348,7 +339,7 @@ def _analyze_batch(payload: dict[str, Any]) -> dict[str, Any]:
                     modalidade=modal,
                     audio_segments=audio_segments,
                 )
-                analysis_source = f"mlp+agent1_ollama:{selected_ollama_model}"
+                analysis_source = f"theme_mlp_primary_v1+agent1_ollama:{selected_ollama_model}"
             except (httpx.HTTPError, ValueError, RuntimeError):
                 agent1_out = None
 

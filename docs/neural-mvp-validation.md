@@ -1,82 +1,53 @@
-# Validação técnica do Classificador Neural de Temas — Benchmark Histórico
+# Validação Técnica do Classificador Neural de Temas — Taxonomia de 6 Classes & SBERT
 
-> **Nota de alinhamento v2.1:** este relatório registra um benchmark anterior com oito rótulos operacionais e uma classe residual. Ele é evidência técnica histórica, não uma redefinição da taxonomia consolidada e não constitui validação clínica. No relatório v2.1, os resultados devem ser interpretados dentro de seis macrotemas; o mapeamento operacional ainda precisa ser fechado e validado.
-
-Data do benchmark registrado: 11/11/2026. Este documento consolida uma execução anterior do classificador neural com relatos em português, embeddings densos via LSA (TruncatedSVD + TF-IDF sublinear e ponderação IDF) e calibração pós-treinamento por Temperature Scaling (Guo et al., 2017). Os dados e as condições da execução devem ser conferidos no manifesto correspondente antes de reutilização.
+Este documento descreve o protocolo experimental de validação do classificador neural de temas após a consolidação da taxonomia única de **6 classes** em [`data/taxonomy.py`](../data/taxonomy.py) e a substituição da vetorização baseada em TF-IDF pelos embeddings densos de sentença **SBERT** em [`models/sbert_embedder.py`](../models/sbert_embedder.py).
 
 ---
 
 ## 1. Protocolo Experimental e Metodologia
 
-- **Dataset:** 1.260 relatos clínicos em português cobrindo os 8 macrotemas clínicos (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`) e a classe de controle/abstenção (`outros_indeterminado`), com 140 exemplos balanceados por classe.
-- **Partição Estratificada e Agrupada:** Separação estrita por famílias de origem (`group_id`) via [`data/split.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/data/split.py), impedindo vazamento de dados (*data leakage*):
-  - **Treino:** 882 relatos (~70%)
-  - **Validação:** 189 relatos (~15%)
-  - **Teste Independente:** 189 relatos (~15%)
-- **Representação Semântica Contínua:** [`ClinicalTextEmbedder`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/embedder.py) com $d=128$, vocabulário de até 3.000 unigramas e bigramas clínicos em pt-br, inicialização semântica distribucional via LSA (TruncatedSVD sobre a matriz termo-documento TF-IDF sublinear) e projeção normalizada $\ell_2$.
-- **Arquitetura Neural:** [`ClinicalThemeMLP`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/torch_mlp.py) em PyTorch (Linear 128 $\to$ RMSNorm/BatchNorm $\to$ ReLU $\to$ Dropout(0.3) $\to$ Linear 64 $\to$ ReLU $\to$ Dropout(0.2) $\to$ Linear 9) comparada contra [`NumpyClinicalMLP`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/numpy_mlp.py) do zero e `DummyClassifier` (classe majoritária).
-- **Otimização:** AdamW ($lr = 0{,}005$, weight decay $10^{-3}$), gradient clipping com norma máxima 1.0, 35 épocas, batch size 32.
-- **Seleção de Checkpoint:** Selecionado exclusivamente pelo melhor Macro-F1 no conjunto de **validação**.
-- **Calibração de Probabilidades:** Otimização de temperatura escalar $T$ no conjunto de validação minimizando a NLL (*Negative Log-Likelihood*) via L-BFGS, reduzindo o erro de calibração esperado (*Expected Calibration Error* - ECE) no conjunto de teste.
+- **Taxonomia Única (6 Temas Clínicos):** Todos os datasets (real anonimizado em `data/real_diaries.json` e sintético em `data/synthetic/synthetic_diaries.json`), o script de divisão, a rede neural e o preditor operam exclusivamente sobre os **6 temas**:
+  - `autopercepcao` (**Autopercepção**)
+  - `vinculos` (**Vínculos**)
+  - `desempenho` (**Desempenho**)
+  - `fisico` (**Físico**)
+  - `rupturas` (**Rupturas**)
+  - `outros` (**Outros** — sem tema clínico claro, relato neutro ou classe de salvaguarda por abstenção)
+- **Partição Estratificada e Agrupada:** Separação estrita por famílias de origem (`group_id`) via [`data/split.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/data/split.py), impedindo vazamento de dados (*data leakage*) entre treino (~70%), validação (~15%) e teste independente (~15%).
+- **Representação Semântica Contínua (SBERT):** [`SBERTEmbedder`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/sbert_embedder.py) utilizando `sentence-transformers` com o modelo padrão congelado `intfloat/multilingual-e5-small` ($d = 384$, normalização $\ell_2$). Por ser pré-treinado e congelado, não vaza informação entre splits (ao contrário de ajustes de vocabulário locais).
+- **Arquitetura Neural:** [`ClinicalThemeMLP`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/torch_mlp.py) em PyTorch (`Linear(384, 128) -> Norm -> ReLU -> Dropout(0.3) -> Linear(128, 64) -> ReLU -> Dropout(0.2) -> Linear(64, 6)`) comparada contra [`NumpyClinicalMLP`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/numpy_mlp.py) do zero e `DummyClassifier` (classe majoritária).
+- **Saída Percentual e Abstenção:** Ao receber um diário, o classificador identifica o tema e gera percentuais (`%`) para cada uma das 6 classes via Softmax calibrada. Confiança máxima inferior a $\tau = 0.50$ direciona a decisão operacional para `outros`.
+- **Otimização e Calibração:** AdamW ($lr = 0{,}005$, weight decay $10^{-3}$), gradient clipping com norma máxima 1.0, 35 épocas, batch size 32, seleção de checkpoint pelo melhor Macro-F1 de **validação** e calibração pós-treino por **Temperature Scaling** (Guo et al., 2017) minimizando NLL via L-BFGS.
 
 ---
 
-## 2. Resultados Consolidados no Teste Independente
+## 2. Como Executar e Inspecionar a Validação Atualizada
 
-### 2.1. Comparativo Geral (Benchmark Atual vs Baseline e MVP Sintético Inicial)
+Para reproduzir o treinamento e gerar os relatórios oficiais da rodada atual na taxonomia de 6 temas com SBERT:
 
-| Método | Macro-F1 | Acurácia | ECE (Calibração) | Abstenções ($\tau=0{,}50$) | Cobertura |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **PyTorch MLP (Calibrado, $\tau=0{,}50$)** | **0,8094** | **80,95%** | **0,0777** | 15 / 189 | **92,06%** |
-| PyTorch MLP (Argmax puro) | **0,8217** | **82,54%** | 0,1103 (sem calibrar) | 0 / 189 | 100% |
-| NumPy MLP (From-scratch, $\tau=0{,}50$) | 0,6984 | 70,37% | N/A | 22 / 189 | 88,36% |
-| Classe Majoritária (Baseline Ingênuo) | 0,0222 | 11,11% | N/A | N/A | N/A |
-| *MVP Sintético Anterior (360 amostras)* | *0,0452* | *9,30%* | *0,3120* | *23 / 43* | *46,51%* |
+```bash
+uv run python -m models.train --embedder sbert
+```
 
-> **Resultado registrado:** em uma execução específica, o Macro-F1 alcançou **0,8094** sob política com limiar e **0,8217** no argmax direto. Isso é uma métrica do conjunto e protocolo descritos nesta página, não uma estimativa pronta para relatos reais.
-
----
-
-### 2.2. Relatório de Desempenho por Macrotema (PyTorch com $\tau=0{,}50$)
-
-| Macrotema Clínico | Precisão | Revocação | F1-Score | Amostras (Suporte) |
-| :--- | :---: | :---: | :---: | :---: |
-| **autoestima** | 1,0000 | 1,0000 | **1,0000** | 21 |
-| **financas** | 1,0000 | 0,9048 | **0,9500** | 21 |
-| **saude_sono** | 0,8636 | 0,9048 | **0,8837** | 21 |
-| **luto** | 0,8571 | 0,8571 | **0,8571** | 21 |
-| **relacionamentos** | 0,7826 | 0,8571 | **0,8182** | 21 |
-| **estudos** | 0,7308 | 0,9048 | **0,8085** | 21 |
-| **trabalho** | 0,9286 | 0,6190 | **0,7429** | 21 |
-| **familia** | 0,6667 | 0,5714 | **0,6154** | 21 |
-| **outros_indeterminado** | 0,5600 | 0,6667 | **0,6087** | 21 |
-| **Média Macro** | **0,8210** | **0,8095** | **0,8094** | **189** |
+O pipeline registra automaticamente as métricas no MLflow e salva os seguintes artefatos em `dist/`:
+- `best_theme_mlp.pt`: Pesos ótimos da rede neural PyTorch (`384 -> 128 -> 64 -> 6`) com o parâmetro `temperature` acoplado.
+- `theme_embedder.joblib`: Configuração serializada do `SBERTEmbedder` (sem duplicar os pesos do encoder pré-treinado).
+- `best_numpy_mlp.npz`: Pesos do baseline didático em NumPy puro.
+- `comparison_report.json`: Comparativo entre PyTorch MLP (com política de limiar e argmax puro), NumPy MLP e baseline majoritário, além dos parâmetros de calibração (`temperature`, `ece_before`, `ece_after`).
+- `classification_report.json` e `threshold_classification_report.json`: Precisão, revocação e F1-Score para cada um dos 6 temas (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`).
+- `split_manifest.json`: Manifesto com hashes SHA-256 de dados e código-fonte para reprodutibilidade.
 
 ---
 
-### 2.3. Efeito da Calibração de Probabilidades (Temperature Scaling)
+## 3. Referência Histórica (Benchmark Anterior — 9 Classes / ClinicalTextEmbedder)
 
-- **Temperatura Ótima Estimada ($T$):** **1,3736** (aprendida no conjunto de validação).
-- **Diagnóstico Teórico:** $T > 1$ confirma que a rede não-calibrada apresentava **hiperconfiança (*overconfidence*)**, atribuindo probabilidades médias de 85-95% para logits moderados.
-- **Expected Calibration Error (ECE):**
-  - **Antes da calibração ($T=1{,}0$):** $11{,}03\%$
-  - **Após a calibração ($T=1{,}3736$):** **$7{,}77\%$** (redução relativa de ~30% no erro de calibração).
-- **Interpretação:** a transformação reduziu o ECE no conjunto registrado. Isso não demonstra taxa de acerto em pacientes reais nem altera a necessidade de revisão profissional.
-
----
-
-## 3. Artefatos e Rastreabilidade
-
-O treinamento gera e versiona automaticamente no diretório `dist/` e no MLflow:
-- `best_theme_mlp.pt`: Pesos ótimos da rede neural PyTorch com o parâmetro `temperature` acoplado.
-- `theme_embedder.joblib`: Objeto do `ClinicalTextEmbedder` serializado contendo o vocabulário e a matriz de projeção semântica LSA/SVD.
-- `comparison_report.json`: Relatório estruturado completo com métricas por classe, matriz de confusão e parâmetros de calibração.
-- `split_manifest.json`: manifest com hashes SHA-256 de dados e referências aos parâmetros da divisão. Os hashes e configurações facilitam rastreabilidade, mas não garantem reexecução idêntica de todo o ambiente ou de modelos externos.
+> [!NOTE]
+> Em 11/11/2026, antes da consolidação para os **6 temas** e da migração para **SBERT**, o protótipo foi medido sobre 1.260 relatos distribuídos na taxonomia legada de 9 classes (`familia`, `trabalho`, `relacionamentos`, `estudos`, `saude_sono`, `financas`, `luto`, `autoestima`, `outros_indeterminado`) com `ClinicalTextEmbedder` ($d=128$, LSA/SVD), obtendo Macro-F1 de `0,8094` ($\tau=0{,}50$) / `0,8217` (argmax) e redução de ECE de `11,03%` para `7,77%` ($T=1{,}3736$). Esses valores são estritamente históricos e **não** devem ser confundidos com medições da taxonomia atual de 6 classes com SBERT.
 
 ---
 
 ## 4. Status Técnico e Ressalvas
 
-1. **Resultado Técnico:** o benchmark registrou Macro-F1 acima de 0,80 em uma divisão específica.
-2. **Uso:** antes de homologação ou piloto, são necessários dados independentes, revisão profissional, análise por subgrupos e validação da taxonomia consolidada.
-3. **Salvaguarda Ética:** a política de abstenção direciona casos abaixo do limiar para `outros_indeterminado`, mas não garante segurança clínica ou correção da classificação.
+1. **Supervisão Humana (*Human-in-the-Loop*):** O modelo atua exclusivamente como ferramenta de triagem e organização temática prévia para psicólogos; a interpretação clínica permanece 100% humana.
+2. **Semântica dos Percentuais:** Os percentuais (`%`) emitidos por `predict_text()` correspondem aos scores Softmax atribuídos às 6 categorias exclusivas; na decomposição por sentenças (`destrinchar_diario()`), `topic_weights` mede a fração de caracteres analisados atribuída a cada tema com citação literal auditável.
+3. **Salvaguarda Ética:** A política de abstenção ($\tau = 0{,}50$) garante que relatos ambíguos ou com baixa confiança sejam encaminhados para `outros`, mas não garante segurança clínica ou correção da classificação.

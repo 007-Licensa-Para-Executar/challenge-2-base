@@ -1,4 +1,4 @@
-# 05 - Estratégia de Representação Vetorial e Embeddings
+# 05 - Estratégia de Representação Vetorial e Embeddings (SBERT)
 
 > **Estado atual:** a rede implementada usa `ClinicalTextEmbedder` com embeddings
 > densos de 128 dimensões, em modo gaussiano ou LSA/SVD. O recuperador de RAG
@@ -8,32 +8,35 @@
 
 ## 1. Visão Geral e Critérios de Projeto
 
-A representação vetorial no sistema atua em dois subsistemas com requisitos distintos:
-1. **Camada de Deep Learning (Rede Neural Própria):** vetores densos locais de 128 dimensões são usados pelo classificador temático operacional.
+A representação vetorial no sistema atua em dois subsistemas com requisitos complementares:
+1. **Camada de Deep Learning (Rede Neural Própria):** Converte o diário do paciente em vetores semânticos densos para que a Rede Neural MLP identifique e atribua percentuais (`%`) aos **6 temas clínicos** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`).
 2. **Camada de Recuperação (RAG):** o demonstrador usa recuperação lexical BM25; o backend E5 local é opcional e não exige envio de dados a serviços externos.
 
 ---
 
-## 2. Comparativo de Modelos Candidatos
+## 2. Comparativo dos Encoders SBERT Adotados
 
-| Característica | TF-IDF (Term Frequency-Inverse Document Frequency) | multilingual-e5-small (Intfloat) | paraphrase-multilingual-MiniLM-L12-v2 |
-| :--- | :--- | :--- | :--- |
-| **Tipo de Representação** | Esparsa (Sparsely Bag-of-Words/N-grams) | Densa (Dense Embedding Transformer) | Densa (Dense Embedding Transformer) |
-| **Dimensão do Vetor** | 128 no embedder clínico; TF-IDF legado pode usar outra dimensão | 384 dimensões no modelo candidato E5 | 384 dimensões |
-| **Contexto Máximo** | Ilimitado (mas sem contexto sintático) | 512 tokens | 128 a 512 tokens |
-| **Suporte ao Português** | Depende de Stemmer (NLTK RSLP) | Excelente (treinado em 100+ línguas) | Muito Bom (alinhamento semântico) |
-| **Custo Computacional** | Quase zero (CPU rápida) | Baixo (~130 MB de parâmetros) | Muito Baixo (~120 MB de parâmetros) |
-| **Aplicação no Projeto** | Implementado em `models/embedder.py` | Backend E5 opcional no recuperador | Não confirmado como implementação ativa |
+Abordagens esparsas baseadas em contagem de palavras (como TF-IDF) foram **substituídas** na rede neural temática por embeddings densos de sentença (**SBERT** via `sentence-transformers`), superando a limitação de vocabulário exato:
+
+| Característica | `intfloat/multilingual-e5-small` (Padrão da Rede Neural & E5 RAG) | `paraphrase-multilingual-MiniLM-L12-v2` (Alternativa SBERT) |
+| :--- | :--- | :--- |
+| **Tipo de Representação** | Densa (Dense Embedding Transformer) | Densa (Sentence-BERT / Transformer) |
+| **Dimensão do Vetor** | 384 dimensões | 384 dimensões |
+| **Contexto Máximo** | 512 tokens | 128 tokens (configurável) |
+| **Prefixo de Texto** | Exige `"query: "` / `"passage: "` (aplicado automaticamente pelo `SBERTEmbedder`) | Não exige |
+| **Suporte ao Português** | Excelente (treinado em 100+ línguas) | Muito Bom (alinhamento semântico multilíngue) |
+| **Aplicação no Projeto** | **Entrada padrão da Rede Neural MLP (`SBERTEmbedder`) e backend E5 opcional no RAG** | Alternativa leve para a Rede Neural (`--sbert-model`) |
 
 ---
 
 ## 3. Decisão Arquitetural e Segregação de Papéis
 
-### A. Para o Treinamento da Rede Neural de Classificação Temática
-- **Abordagem Implementada:** `ClinicalTextEmbedder` cria um vocabulário local, limita os termos configurados e gera vetores densos de 128 dimensões.
-- **Inicialização:** Gaussian/Xavier-like por padrão ou projeção LSA/SVD quando há dados suficientes e o modo SVD é selecionado.
-- **Tratamento:** stop words, remoção de acentos, pesos IDF opcionais e normalização por documento.
-- **Limitação:** o vetor representa o vocabulário e o conjunto de treino observado. Não prova semântica clínica nem calibração do classificador.
+### A. Para a Rede Neural de Classificação Temática (`models/sbert_embedder.py`)
+- **Abordagem Adotada:** Embeddings densos de sentença via **`SBERTEmbedder`** (`sentence-transformers`), utilizando por padrão o modelo congelado **`intfloat/multilingual-e5-small`** (384 dimensões, janela de 512 tokens e normalização L2).
+- **Por que SBERT ao invés de TF-IDF:**
+  1. **Compreensão Semântica:** Relatos psicológicos usam metáforas, gírias e paráfrases. O SBERT aproxima expressões diferentes com o mesmo significado clínico, enquanto o TF-IDF dependia de coincidência exata de n-gramas.
+  2. **Zero Vazamento de Dados (*No Data Leakage*):** O encoder SBERT é utilizado com pesos pré-treinados e **congelados** (`fit()` é *no-op*). Ele apenas projeta o texto em um vetor de 384 dimensões; quem aprende as fronteiras de decisão entre os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e gera os **percentuais (`%`)** após receber o diário é a Rede Neural MLP (`ClinicalThemeMLP` / `NumpyClinicalMLP`).
+  3. **Serialização Enxuta:** O `SBERTEmbedder` salva apenas os metadados de configuração em `dist/theme_embedder.joblib`, recarregando o modelo sob demanda sem duplicar ~470 MB de pesos em disco.
 
 ### B. Para o RAG (Histórico do Paciente e Diretrizes Clínicas)
 - **Modelo Candidato:** `intfloat/multilingual-e5-small`.

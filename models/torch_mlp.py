@@ -1,6 +1,6 @@
 """Implementação da Rede Neural Perceptron Multicamadas (MLP) em PyTorch para
 
-classificação dos 8 macrotemas clínicos + classe indeterminada.
+classificação dos 6 temas clínicos definidos em data/taxonomy.py.
 """
 
 from __future__ import annotations
@@ -12,17 +12,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-THEME_CLASSES: list[str] = [
-    "familia",
-    "trabalho",
-    "relacionamentos",
-    "estudos",
-    "saude_sono",
-    "financas",
-    "luto",
-    "autoestima",
-    "outros_indeterminado",
-]
+from data.taxonomy import CLASSES
+
+THEME_CLASSES: list[str] = list(CLASSES)
 
 
 class RMSNorm(nn.Module):
@@ -41,18 +33,18 @@ class RMSNorm(nn.Module):
 class ClinicalThemeMLP(nn.Module):
     """Multi-Layer Perceptron (MLP) para classificação temática de diários em saúde mental.
 
-    Arquitetura:
-      Entrada (1024) -> Linear(1024, 128) -> Norm(BatchNorm | LayerNorm | RMSNorm) -> ReLU -> Dropout(0.3)
-                     -> Linear(128, 64)   -> ReLU        -> Dropout(0.2)
-                     -> Linear(64, 9)     -> Logits (Softmax para inferência)
+    Arquitetura padrão (SBERT 384D -> 6 classes):
+      Entrada (384) -> Linear(384, 128) -> Norm(BatchNorm | LayerNorm | RMSNorm) -> ReLU -> Dropout(0.3)
+                    -> Linear(128, 64)  -> ReLU -> Dropout(0.2)
+                    -> Linear(64, 6)    -> Logits (Softmax calibrada para inferência)
     """
 
     def __init__(
         self,
-        input_dim: int = 128,
+        input_dim: int = 384,
         hidden_dim1: int = 128,
         hidden_dim2: int = 64,
-        num_classes: int = 9,
+        num_classes: int = len(THEME_CLASSES),
         dropout_rate: float = 0.3,
         vocab_size: int | None = None,
         embedding_dim: int | None = None,
@@ -92,6 +84,17 @@ class ClinicalThemeMLP(nn.Module):
 
         self.fc3 = nn.Linear(hidden_dim2, num_classes)
         self.temperature = nn.Parameter(torch.ones(1), requires_grad=False)
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Inicialização Kaiming para camadas ReLU e Xavier para a projeção de saída."""
+        for layer in (self.fc1, self.fc2):
+            nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        if self.fc3.bias is not None:
+            nn.init.zeros_(self.fc3.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Passagem direta computando os logits não normalizados."""
@@ -144,20 +147,24 @@ class ClinicalThemeMLP(nn.Module):
         self, val_logits: torch.Tensor, val_labels: torch.Tensor, max_iter: int = 50
     ) -> float:
         """Calibra as probabilidades da Softmax via Temperature Scaling (Guo et al., ICML 2017)."""
-        temp_param = nn.Parameter(torch.ones(1) * 1.2)
-        optimizer = torch.optim.LBFGS([temp_param], lr=0.01, max_iter=max_iter)
+        logits = val_logits.detach()
+        labels = val_labels.detach()
+        log_t = nn.Parameter(torch.zeros(1, device=logits.device, dtype=logits.dtype))
+        optimizer = torch.optim.LBFGS(
+            [log_t], lr=0.1, max_iter=max_iter, line_search_fn="strong_wolfe"
+        )
         criterion = nn.CrossEntropyLoss()
 
-        def _step():
+        def _step() -> torch.Tensor:
             optimizer.zero_grad()
-            t = torch.clamp(temp_param, min=0.05, max=10.0)
-            loss = criterion(val_logits / t, val_labels)
+            t = torch.clamp(torch.exp(log_t), min=0.05, max=10.0)
+            loss = criterion(logits / t, labels)
             loss.backward()
             return loss
 
         optimizer.step(_step)
-        optimal_t = float(torch.clamp(temp_param, min=0.05, max=10.0).item())
-        self.temperature.copy_(torch.tensor([optimal_t]))
+        optimal_t = float(torch.clamp(torch.exp(log_t), min=0.05, max=10.0).item())
+        self.temperature.copy_(torch.tensor([optimal_t], device=self.temperature.device))
         return optimal_t
 
     def predict_proba(self, x: torch.Tensor, apply_temperature: bool = True) -> torch.Tensor:
@@ -180,14 +187,14 @@ class ClinicalThemeMLP(nn.Module):
         """Prediz classe com regra operacional de abstenção.
 
         Se a probabilidade máxima for inferior ao limiar de corte (`threshold`),
-        retorna a classe de fallback `outros_indeterminado` (índice 8).
+        retorna a classe de fallback `outros` (último índice).
         """
         if not 0.0 <= threshold <= 1.0:
             raise ValueError("threshold deve estar entre 0 e 1")
         probs = self.predict_proba(x)
         max_probs, preds = torch.max(probs, dim=-1)
 
-        fallback_idx = self.num_classes - 1  # 8: outros_indeterminado
+        fallback_idx = self.num_classes - 1  # outros
         preds = torch.where(
             max_probs < threshold, torch.tensor(fallback_idx, device=x.device), preds
         )
@@ -221,7 +228,7 @@ class ClinicalSequentialClassifier(nn.Module):
         vocab_size: int = 5000,
         embed_dim: int = 128,
         hidden_dim: int = 128,
-        num_classes: int = 9,
+        num_classes: int = len(THEME_CLASSES),
         num_layers: int = 1,
         bidirectional: bool = True,
         recurrent_type: Literal["lstm", "gru", "rnn"] = "lstm",

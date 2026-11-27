@@ -487,7 +487,7 @@ def registro(dia, nome, pol, paciente="PAC-01"):
     return Agent1Output(
         patient_id=paciente,
         created_at=datetime(2026, 11, dia, 10, tzinfo=UTC),
-        macro_tema_validado=MacroTema.FAMILIA,
+        macro_tema_validado=MacroTema.VINCULOS,
         confianca_macro_tema=0.9,
         subtemas=[SubTemaItem(
             nome=nome,

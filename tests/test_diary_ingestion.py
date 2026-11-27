@@ -24,8 +24,8 @@ class StubPredictor:
     def predict_text(self, text):
         assert text == diary().original_text
         return SimpleNamespace(
-            primary_theme="familia",
-            candidate_theme="familia",
+            primary_theme="vinculos",
+            candidate_theme="vinculos",
             confidence=0.7,
             abstention_reason=None,
         )
@@ -47,7 +47,7 @@ def test_maps_predictor_output_without_changing_original():
     assert classified.recorded_at == item.recorded_at
     assert item.classification.status == "not_requested"
     assert classified.classification.status == "ok"
-    assert classified.classification.primary_theme == "familia"
+    assert classified.classification.primary_theme == "vinculos"
     assert classified.classification.candidate_score == 0.7
     assert classified.classification.model_version is None
 
@@ -56,16 +56,16 @@ def test_abstention_keeps_candidate_and_score_distinct():
     class Abstaining:
         def predict_text(self, text):
             return SimpleNamespace(
-                primary_theme="outros_indeterminado",
-                candidate_theme="familia",
+                primary_theme="outros",
+                candidate_theme="vinculos",
                 confidence=0.2,
                 abstention_reason="below_threshold",
             )
 
     classification = classify_record(diary(), predictor=Abstaining()).classification
     assert classification.status == "ok"
-    assert classification.primary_theme == "outros_indeterminado"
-    assert classification.candidate_theme == "familia"
+    assert classification.primary_theme == "outros"
+    assert classification.candidate_theme == "vinculos"
     assert classification.abstention_reason == "below_threshold"
 
 
@@ -148,7 +148,7 @@ def test_real_predictor_loads_temporary_artifacts_and_records_version(tmp_path):
     joblib.dump(vectorizer, vector)
     result = classify_record(diary(), model_path=weights, vectorizer_path=vector)
     assert result.classification.status == "ok"
-    assert result.classification.primary_theme == "familia"
+    assert result.classification.primary_theme == "autopercepcao"
     assert result.classification.model_version.startswith("sha256:")
     assert result.original_text == diary().original_text
 

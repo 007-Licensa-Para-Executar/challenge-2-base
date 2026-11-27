@@ -1,7 +1,10 @@
-"""Gerador de relatos fictícios por perfis e templates locais.
+"""Gerador de relatos fictícios por perfis e templates locais (taxonomia de 6 classes).
 
 Rótulos e conteúdo são sintéticos e não revisados; não há validação clínica
 nem reprodução demonstrada de um framework científico externo.
+
+Os templates offline ainda usam as chaves antigas de tema. A ligação com as
+classes novas é feita por LEGACY_TO_NEW (ver data/taxonomy.py), sem reescrever textos.
 """
 
 from __future__ import annotations
@@ -14,50 +17,52 @@ import random
 from pathlib import Path
 from typing import Any
 
+from data.taxonomy import (
+    CLASS_DESCRIPTIONS,
+    CLASSES,
+    LEGACY_TO_NEW,
+    SAFEGUARD_CLASS,
+    remap_legacy_label,
+)
+
+try:  # httpx só é necessário com --ollama
+    import httpx
+except ImportError:  # pragma: no cover
+    httpx = None
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PERSONAS_PATH = Path(__file__).resolve().parent / "personas.json"
 
-CLINICAL_THEMES: list[str] = [
-    "familia",
-    "trabalho",
-    "relacionamentos",
-    "estudos",
-    "saude_sono",
-    "financas",
-    "luto",
-    "autoestima",
-]
-
-ALL_THEMES_WITH_FALLBACK: list[str] = CLINICAL_THEMES + ["outros_indeterminado"]
+CLINICAL_CLASSES: list[str] = [c for c in CLASSES if c != SAFEGUARD_CLASS]
 
 DEFAULT_PERSONAS: list[dict[str, Any]] = [
     {
         "id": "persona_universitario",
         "nome": "Lucas, 21 anos, estudante de engenharia",
         "tracos": "Alto neuroticismo, autocrítica severa, procrastinador",
-        "temas_frequentes": ["estudos", "autoestima", "saude_sono"],
+        "temas_frequentes": ["desempenho", "autopercepcao", "fisico"],
         "estilo_linguagem": "Uso de gírias jovens, frases fragmentadas, desespero por prazos",
     },
     {
         "id": "persona_cuidador",
         "nome": "Mariana, 38 anos, cuida da mãe idosa",
         "tracos": "Alta amabilidade, sobrecarregada, culpa constante",
-        "temas_frequentes": ["familia", "financas"],
+        "temas_frequentes": ["vinculos", "desempenho"],
         "estilo_linguagem": "Tom exausto, relatos de atritos com parentes que não ajudam",
     },
     {
         "id": "persona_burnout",
         "nome": "Roberto, 44 anos, gerente de projetos",
         "tracos": "Perfeccionista, alta conscienciosidade, irritável",
-        "temas_frequentes": ["trabalho", "saude_sono"],
+        "temas_frequentes": ["desempenho", "fisico"],
         "estilo_linguagem": "Vocabulário corporativo, menção a dores de estômago e taquicardia",
     },
     {
         "id": "persona_luto",
         "nome": "Clara, 29 anos, perdeu o pai recentemente",
         "tracos": "Introspectiva, triste, desapegada da rotina",
-        "temas_frequentes": ["luto", "relacionamentos"],
+        "temas_frequentes": ["rupturas", "vinculos"],
         "estilo_linguagem": "Frases lentas, referências a saudades, fotos antigas e silêncio",
     },
 ]
@@ -77,7 +82,7 @@ DIRETRIZES:
 3. Retorne EXCLUSIVAMENTE o texto puro do diário.
 """
 
-# Pool de modelos templates sintéticos offline não revisados
+# Pool de templates offline (não revisados). Chaves = temas antigos, mapeados em LEGACY_TO_NEW.
 _OFFLINE_TEMPLATES: dict[str, dict[str, list[str]]] = {
     "persona_universitario": {
         "estudos": [
@@ -227,7 +232,8 @@ _OFFLINE_TEMPLATES: dict[str, dict[str, list[str]]] = {
     },
 }
 
-_SAFEGUARD_TEMPLATES = [
+_SAFEGUARD_TEMPLATES: list[str] = [
+    # Templates neutros / cotidianos originais
     "Hoje foi um dia relativamente neutro, acordei no horário normal, peguei o ônibus e o tempo estava nublado sem novidades relevantes.",
     "Comprei alguns pães na padaria da esquina e voltei para casa para arrumar as prateleiras da sala.",
     "Tarde tranquila lendo notícias de ciência e ouvindo o barulho suave da chuva na janela da cozinha.",
@@ -236,35 +242,213 @@ _SAFEGUARD_TEMPLATES = [
     "Dia sem grandes acontecimentos, o clima ameno permitiu caminhar no parque no fim da tarde.",
     "Apenas registrando a rotina: café pela manhã, leitura breve e almoço simples em casa.",
     "Não aconteceu nada fora do habitual hoje, mantive o dia calmo e preparei o jantar mais cedo.",
+    "Passei no mercado para comprar frutas, arroz e café e depois reguei as plantas da varanda.",
+    "Assisti a um documentário sobre astronomia antes de desligar a televisão e descansar.",
+    "Limpei a mesa da cozinha, troquei a lâmpada do corredor e separei roupas para doação.",
+    "Hoje o trânsito estava tranquilo e aproveitei para ouvir um podcast sobre história no caminho.",
+    "Misturei os ingredientes de uma receita simples de bolo de cenoura para o lanche da tarde.",
+    "Aproveitei o sábado para lavar o quintal, passear com o cachorro e ouvir música instrumental.",
+    "Fui ao correio enviar uma encomenda, depois passei na farmácia comprar protetor solar e voltei a pé.",
+    "Troquei os lençóis da cama, coloquei a roupa na máquina de lavar e preparei um suco de laranja.",
+    "Assisti à previsão do tempo na televisão e separei um guarda-chuva antes de sair de casa.",
+    "Limpei a caixa de entrada de e-mails promocionais e atualizei a lista de compras da geladeira.",
+    "Hoje almocei arroz, feijão e salada de tomate, depois li vinte páginas de um romance policial.",
+    "Reguei o jardim no fim da tarde, conferi a correspondência na portaria e fiz um chá de camomila.",
+    "Comprei ração para o cachorro, varri a garagem e deixei as chaves penduradas na entrada.",
+    "Fiz uma lista dos filmes que quero assistir no próximo mês e reservei um livro na biblioteca.",
+    "Está tudo bem tranquilo por aqui hoje, aproveitei o feriado para descansar em paz sem preocupações.",
+    "Tive um dia sereno e leve, sem conflitos nem aborrecimentos para anotar no diário.",
+    # Templates neutros e cotidianos adicionais (rotina, lazer, casa, hobbies)
+    "Acordei com o sol entrando pela janela, passei café coado e ouvi música brasileira enquanto tomava o desjejum.",
+    "Passei na feira livre da praça pela manhã para escolher legumes frescos, cheiro-verde e bananas.",
+    "Arrumei a estante de livros por ordem alfabética e tirei a poeira dos quadros da sala.",
+    "Consertei a dobradiça frouxa do armário da cozinha usando a chave de fenda que estava na caixa de ferramentas.",
+    "Levei o carro ao posto para calibrar os pneus e abastecer antes do fim de semana.",
+    "Caminhei trinta minutos pela ciclovia do bairro observando as árvores floridas na calçada.",
+    "Separei o lixo reciclável em sacolas diferentes e desci até a lixeira do condomínio.",
+    "Preparei uma sopa de legumes simples para o jantar porque esfriou um pouco à noite.",
+    "Assisti a uma partida de futebol pela televisão enquanto comia pipoca na sala.",
+    "Atualizei os aplicativos do celular, fiz backup das fotos da viagem e organizei os álbuns por ano.",
+    "Comprei papel sulfite e canetas na papelaria do centro e voltei caminhando devagar.",
+    "Lavei a louça do almoço, sequei os copos e deixei a pia limpa antes de sair.",
+    "Fui à biblioteca municipal devolver um livro emprestado e peguei uma biografia antiga para ler.",
+    "Limpei os óculos, troquei a pilha do controle remoto e deixei o carregador na mochila.",
+    "Aproveitei a tarde nublada para montar um quebra-cabeça na mesa de jantar.",
+    "Cortei o cabelo no salão da esquina e passei na banca para comprar palavras cruzadas.",
+    "Fiz alongamentos leves na varanda ouvindo o canto dos bem-te-vis no quintal.",
+    "Passei o aspirador nos tapetes do quarto e abri as janelas para ventilar o apartamento.",
+    "Testei uma receita nova de pão caseiro integral que cresceu direitinho no forno.",
+    "Fui ao horto escolher um vaso novo de samambaia e comprei terra vegetal adubada.",
+    "Organizei os cabos da escrivaninha e etiquetei os carregadores para não confundir mais.",
+    "Peguei o metrô fora do horário de pico, li crônicas no caminho e cheguei com folga.",
+    "Escutei um disco antigo de jazz enquanto dobrava as toalhas recém-tiradas do varal.",
+    "Fiz um inventário rápido da despensa para saber o que precisa repor na próxima ida ao mercado.",
+    "Observei o pôr do sol alaranjado da sacada tomando água com gás e limão.",
+    "Lavei a bicicleta no pátio, lubrifiquei a corrente e guardei o capacete no suporte.",
+    "Assisti a um tutorial de jardinagem sobre como podar alecrim e manjericão em vasos pequenos.",
+    "Costurei o botão solto do casaco azul e passei uma camisa para usar amanhã.",
+    "Cozinhei feijão preto para a semana inteira e congelei em potes pequenos bem fechados.",
+    "Passei na floricultura para comprar sementes de girassol e voltei ouvindo rádio.",
+    "Descongelei a geladeira pela manhã, limpei as gavetas de verduras e reacomodei os potes.",
+    "Sentei na praça do bairro por vinte minutos lendo o jornal impresso de domingo.",
+    "Limpei o filtro do ar-condicionado e troquei o filtro de barro da cozinha.",
+    "Tirei o pó do teclado do computador e organizei os ícones da área de trabalho.",
+    "Fiz uma caminhada matinal até a padaria para buscar pão de queijo quentinho.",
+    "Ouvi um programa de culinária no rádio enquanto descascava batatas para o purê.",
+    # Exemplos positivos e cotidianos com negação explícita (sem sofrimento clínico)
+    "Dormi super bem a noite inteira, não tive insônia nem acordei cansado, levantei disposto para o dia.",
+    "Hoje não senti nenhuma dor no corpo nem cansaço excessivo; meu exame de rotina deu tudo normal.",
+    "Não tive nenhum pesadelo esta semana, meu sono tem sido reparador e acordei com bastante energia.",
+    "Não estou com dor de cabeça nem mal-estar hoje, passei o dia leve e com bom apetite.",
+    "Almocei com meus pais e irmãos no domingo sem nenhuma briga ou tensão; demos muitas risadas juntos.",
+    "Conversei calmamente com minha namorada hoje, não houve desentendimento nenhum e combinamos um passeio no cinema.",
+    "Não me sinto sozinho nem isolado ultimamente; tomei café com amigos queridos e foi ótimo colocar o papo em dia.",
+    "Meu relacionamento está tranquilo e saudável, não temos discutido e estamos planejando as férias em paz.",
+    "Não briguei com ninguém da minha família hoje, nos falamos por vídeo numa boa e combinamos o próximo encontro.",
+    "Não estou sobrecarregado no trabalho esta semana; entreguei minhas tarefas no horário e saí sem estresse.",
+    "Fechei os estudos do dia sem ansiedade nem desespero, entendi a matéria com calma e ainda sobrou tempo para descansar.",
+    "Não estou com dívidas atrasadas nem aperto financeiro neste mês, paguei tudo em dia e sobrou para um lanche fora.",
+    "Conversei com meu chefe na reunião semanal sem conflito nenhum; o ambiente da equipe está colaborativo e leve.",
+    "Não me cobrei nem procrastinei hoje nos estudos; fiz o planejado no meu ritmo e fechei o caderno satisfeito.",
+    "Não estou me sentindo incapaz nem inseguro hoje; reconheci meu progresso com tranquilidade e bom humor.",
+    "Olhei no espelho hoje sem autocrítica nem vergonha, me sentindo bem comigo mesmo e confortável na minha pele.",
+    "Não sinto culpa por tirar a tarde livre para descansar; estou em paz com minhas escolhas e com meu ritmo.",
+    "Não estou frustrado nem duvidando do meu valor; hoje foi um dia produtivo na medida certa e sem pressões.",
+    "Lembrei de histórias antigas do meu avô no jantar e sorri com gratidão, sem aperto no peito nem tristeza.",
+    "Não estou passando por nenhum luto ou perda difícil agora; visitei parentes queridos e todos estão com boa saúde.",
+    "Hoje não acordei ansioso nem preocupado com o futuro; tomei meu café em silêncio curtindo a manhã.",
+    "Não senti tristeza, raiva ou angústia ao longo do dia; tudo fluiu de forma simples e agradável.",
+    "Não estou esgotado nem irritado com a rotina; consegui equilibrar bem os afazeres da casa e meu descanso.",
+    "Mesmo com a chuva lá fora, não me senti desanimado nem para baixo; li um bom livro com tranquilidade.",
+    "Não tive dificuldade para me concentrar nem falta de sono; cumpri meus compromissos sem nenhum peso emocional.",
+    "Falei com uma amiga de infância por telefone e não senti solidão alguma, apenas alegria por saber que ela está bem.",
+    "Não houve nenhuma cobrança exagerada no estágio hoje; aprendi coisas novas com calma e voltei tranquilo para casa.",
+    "Revisei o orçamento da casa sem sustos nem preocupação com contas; tudo está organizado para os próximos meses.",
+    "Não senti taquicardia nem dor de estômago antes da reunião; apresentei os dados com naturalidade e segurança.",
+    "Passei o feriado em casa sem tédio nem melancolia, aproveitando para cozinhar e ouvir minhas músicas favoritas.",
+    "Não me sinto atrasado em relação aos colegas; cada um segue seu caminho e estou satisfeito com o meu momento.",
+    "Não tive crises nem noites mal dormidas nos últimos dias; minha rotina está estável e muito tranquila.",
+    "Não senti falta de ar nem tensão muscular durante o dia; fiz uma caminhada gostosa no fim da tarde.",
+    "Conversei com minha mãe sobre as receitas da semana sem nenhum atrito, foi um papo carinhoso e leve.",
+    "Não precisei virar a noite estudando para a prova; revisei tudo aos poucos e dormi cedo tranquilo.",
+    "Não me senti pressionado por metas no escritório hoje; organizei a agenda e cumpri tudo no meu tempo.",
+    "Paguei a conta de luz e o mercado sem aperto nem preocupação; o mês fechou direitinho no azul.",
+    "Não senti vergonha nem inadequação ao falar em público na apresentação; me expressei com calma.",
+    "Revi meu irmão no fim de semana e não houve cobrança alguma, só conversamos sobre filmes e viagens.",
+    "Não acordei assustado de madrugada nem tive sonhos agitados; descansei profundamente até o despertador.",
+    "Não estou cansado nem desmotivado com a faculdade; assisti às aulas com atenção e fiz boas anotações.",
+    "Não me senti descartável nem desvalorizado no projeto; recebi um elogio simples da equipe e segui o dia.",
+    "Não tive dor de estômago nem gastrite hoje após o almoço; a refeição leve caiu muito bem.",
+    "Conversei com meu marido sobre os planos da casa com paciência e respeito, sem nenhuma discussão.",
+    "Não sinto vazio nem solidão nesta noite chuvosa; estou em casa confortável ouvindo música calma.",
+    "Não estou me culpando pelos pequenos imprevistos da semana; resolvi o que deu e segui em frente leve.",
+    "Tive uma conversa sincera e tranquila com um amigo antigo, sem mágoas nem cobranças de nenhum lado.",
+    "Não estou procrastinando nas tarefas domésticas; fiz tudo aos poucos durante a manhã sem pressa.",
+    "Não senti aperto no peito ao lembrar da infância; guardo essas recordações com serenidade e afeto.",
+    "Passei o sábado inteiro sem estresse com prazos ou mensagens de trabalho; desliguei o computador cedo.",
+    "Fui ao mercado de bairro no fim da tarde, escolhi frutas maduras e voltei cantarolando pela calçada.",
+    "Montei uma prateleira pequena no escritório, guardei as ferramentas e tomei um copo de água gelada.",
+    "Assisti a uma entrevista interessante sobre arquitetura e anotei algumas ideias de decoração.",
+    "Lavei o carro na garagem com meu cachorro por perto e depois preparei um café fresquinho.",
+    "Troquei as pilhas do relógio de parede, acertei a hora e li um capítulo do meu livro atual.",
+    "Preparei uma salada colorida com grão-de-bico para o jantar e arrumei a mochila para amanhã.",
+    "Caminhei até a banca de jornal para comprar uma revista de história e voltei devagar pela sombra.",
+    "Reguei as suculentas da janela, limpei as folhas secas e deixei a sala bem iluminada.",
+    "Fiz um suco natural de maracujá para o almoço e deixei a cozinha organizada antes da tarde começar.",
+    "Ouvi uma palestra sobre botânica urbana pela internet enquanto anotava dicas para o jardim.",
+    "Comprei pão francês e queijo minas na padaria e conversei rapidamente com o padeiro sobre o tempo.",
+    "Separei as notas fiscais da semana numa pasta simples e arquivei os comprovantes pagos.",
+    "Passei o pano no piso da varanda depois da chuva e coloquei os chinelos para secar.",
+    "Assisti a um episódio de culinária regional e anotei o passo a passo de um caldo verde.",
+    "Troquei a água do bebedouro do cachorro e escovei os pelos dele no quintal.",
+    "Dei uma volta de bicicleta pelo quarteirão no fim da tarde aproveitando a brisa fresca.",
+    "Não senti irritação no trânsito hoje; coloquei uma playlist calma e cheguei tranquilo ao destino.",
+    "Não tive nenhuma preocupação com saúde ou exames hoje; minha disposição esteve ótima do início ao fim.",
+    "Conversei com minha irmã sobre a receita da sobremesa de domingo sem nenhuma divergência ou estresse.",
+    "Não me senti pressionado nos estudos; li o capítulo com curiosidade e fiz um resumo bem claro.",
+    "Não houve nenhum conflito no trabalho hoje; ajudei um colega com uma planilha e tudo correu bem.",
+    "Não acordei cansado nem indisposto; levantei no primeiro toque do despertador e tomei café sem pressa.",
+    "Não fiquei remoendo erros antigos hoje; foquei nas pequenas tarefas do dia com leveza.",
+    "Paguei a fatura do cartão sem aperto financeiro e ainda guardei uma pequena reserva na poupança.",
+    "Não senti tristeza nem saudade dolorosa ao passar pela praça antiga; lembrei dos passeios com carinho.",
+    "Não estou enfrentando insônia nem ansiedade nesta semana; minhas noites têm sido calmas e contínuas.",
+    "Não me senti sobrecarregado ao ajudar meus pais com as compras; fizemos tudo juntos em clima leve.",
+    "Não tive dúvidas nem insegurança durante a conversa de hoje; me senti sereno e bem resolvido.",
+    "Arrumei a gaveta de meias e camisetas enquanto ouvia um programa de entrevistas no rádio.",
+    "Caminhei até o parque no fim da tarde, observei os patos no lago e voltei antes de anoitecer.",
 ]
+
+_INTROS: tuple[str, ...] = (
+    "",
+    "Preciso desabafar isso antes de tentar dormir: ",
+    "Mais um dia difícil. ",
+    "Escrevendo aqui só pra tirar esse peso do peito: ",
+    "Hoje acordei com um aperto estranho no peito. ",
+    "Não contei isso pra ninguém hoje, mas: ",
+)
+_CONCLUSIONS: tuple[str, ...] = (
+    "",
+    " Amanhã preciso achar um jeito de respirar fundo e continuar.",
+    " Só queria uma trégua de tudo isso por alguns dias.",
+    " Espero que amanhã seja um pouco menos pesado.",
+    " Não sei até quando consigo sustentar esse ritmo.",
+    " Enfim, vamos ver como vai ser amanhã.",
+)
+
+# Classe nova -> chaves antigas dos templates que a alimentam.
+_LEGACY_KEYS_BY_CLASS: dict[str, list[str]] = {
+    cls: [old for old, new in LEGACY_TO_NEW.items() if new == cls] for cls in CLASSES
+}
+
+# Bases de template ordenadas por tamanho (desc) e texto, para casamento determinístico:
+# a base mais longa contida no texto define a família. Calculado uma única vez.
+_TEMPLATE_BASES: tuple[str, ...] = tuple(
+    sorted(
+        {t for pool in _OFFLINE_TEMPLATES.values() for texts in pool.values() for t in texts}
+        | set(_SAFEGUARD_TEMPLATES),
+        key=lambda s: (-len(s), s),
+    )
+)
+
+# Erros esperados ao usar o Ollama; caímos no gerador offline quando ocorrem.
+_OLLAMA_ERRORS: tuple[type[BaseException], ...] = (OSError, RuntimeError, ValueError, KeyError) + (
+    (httpx.HTTPError,) if httpx is not None else ()
+)
 
 
 def load_personas(personas_path: Path | str | None = None) -> list[dict[str, Any]]:
-    """Carrega as definições de personas de JSON ou fallback embutido."""
+    """Carrega as definições de personas de JSON ou usa o fallback embutido."""
     path = Path(personas_path) if personas_path else DEFAULT_PERSONAS_PATH
     if path.exists():
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) > 0:
-                    return data
-        except (OSError, json.JSONDecodeError, ValueError) as e:
-            logger.warning("Falha ao carregar %s (%s). Usando personas padrão.", path, e)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return data
+        except (OSError, json.JSONDecodeError, ValueError) as err:
+            logger.warning("Falha ao carregar %s (%s). Usando personas padrão.", path, err)
     return DEFAULT_PERSONAS
 
 
 def infer_template_group(text: str) -> str:
-    """Identify known template families; unknown texts get exact-content grouping.
+    """Identifica a família de template; textos desconhecidos são agrupados pelo conteúdo exato.
 
-    This cannot discover arbitrary paraphrases from external/LLM-generated corpora.
-    Such corpora must provide their own source-family group_id.
+    Não descobre paráfrases arbitrárias de corpora externos ou gerados por LLM;
+    esses corpora devem fornecer seu próprio group_id.
     """
-    candidates = [
-        base for pool in _OFFLINE_TEMPLATES.values() for texts in pool.values() for base in texts
-    ] + _SAFEGUARD_TEMPLATES
-    matches = [base for base in candidates if base in text]
-    canonical = max(matches, key=len) if matches else " ".join(text.split())
+    canonical = next((base for base in _TEMPLATE_BASES if base in text), None)
+    if canonical is None:
+        canonical = " ".join(text.split())
     return "template_" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:20]
+
+
+def _theme_templates(persona_id: str, theme: str) -> list[str]:
+    """Textos de uma classe para a persona; se vazio, usa o pool de qualquer persona."""
+    keys = _LEGACY_KEYS_BY_CLASS.get(theme, [])
+    own = _OFFLINE_TEMPLATES.get(persona_id, {})
+    texts = [t for k in keys for t in own.get(k, [])]
+    if not texts:
+        texts = [t for pool in _OFFLINE_TEMPLATES.values() for k in keys for t in pool.get(k, [])]
+    return texts
 
 
 def generate_single_report_offline(
@@ -274,201 +458,180 @@ def generate_single_report_offline(
 ) -> str:
     """Gera um relato fictício offline; não representa uma pessoa real."""
     rng = random_state or random.Random()
-    persona_id = persona.get("id", "persona_universitario")
-
-    if theme == "outros_indeterminado":
+    if theme == SAFEGUARD_CLASS:
         return rng.choice(_SAFEGUARD_TEMPLATES)
 
-    persona_pool = _OFFLINE_TEMPLATES.get(persona_id, {})
-    theme_pool = persona_pool.get(theme)
+    pool = _theme_templates(persona.get("id", ""), theme)
+    if pool:
+        base_text = rng.choice(pool)
+    else:
+        base_text = f"Hoje refleti muito sobre {CLASS_DESCRIPTIONS[theme]}. Tem sido difícil lidar com tudo isso."
 
-    if not theme_pool:
-        # Fallback para qualquer persona que tenha o tema
-        for other_p in _OFFLINE_TEMPLATES.values():
-            if other_p.get(theme):
-                theme_pool = other_p[theme]
-                break
-
-    if not theme_pool:
-        theme_pool = [
-            f"Hoje refleti muito sobre {theme}. Tem sido difícil lidar com tudo isso e me sinto bastante sobrecarregado."
-        ]
-
-    base_text = rng.choice(theme_pool)
-    # Variações sutis para enriquecer vocabulário e garantir unicidade sintética
-    intros = [
-        "",
-        "Preciso desabafar isso antes de tentar dormir: ",
-        "Mais um dia difícil. ",
-        "Escrevendo aqui só pra tirar esse peso do peito: ",
-        "Hoje acordei com um aperto estranho no peito. ",
-        "Não contei isso pra ninguém hoje, mas: ",
-    ]
-    conclusions = [
-        "",
-        " Amanhã preciso achar um jeito de respirar fundo e continuar.",
-        " Só queria uma trégua de tudo isso por alguns dias.",
-        " Espero que amanhã seja um pouco menos pesado.",
-        " Não sei até quando consigo sustentar esse ritmo.",
-        " Enfim, vamos ver como vai ser amanhã.",
-    ]
-
-    intro = rng.choice(intros)
-    conclusion = rng.choice(conclusions)
+    intro = rng.choice(_INTROS)
+    conclusion = rng.choice(_CONCLUSIONS)
     return f"{intro}{base_text}{conclusion}".strip()
+
+
+def _is_valid_report(text: str) -> bool:
+    """Rejeita respostas vazias ou que vazaram o próprio prompt."""
+    return len(text) >= 40 and "PERSONA:" not in text and "DIRETRIZES" not in text
 
 
 def generate_single_report_ollama(
     persona: dict[str, Any],
     theme: str,
-    ollama_url: str = "http://localhost:11434",
+    client: httpx.Client,
     model: str = "qwen2.5:3b",
-    timeout: float = 30.0,
 ) -> str:
-    """Gera um relato usando o endpoint local do Ollama."""
-    import httpx
-
+    """Gera um relato pelo endpoint local do Ollama, reutilizando um cliente HTTP."""
     prompt = GENERATOR_PROMPT_TEMPLATE.format(
         nome=persona["nome"],
         tracos=persona["tracos"],
         estilo_linguagem=persona["estilo_linguagem"],
-        tema=theme,
+        tema=CLASS_DESCRIPTIONS[theme],
     )
-    with httpx.Client(timeout=timeout) as client:
-        resp = client.post(
-            f"{ollama_url.rstrip('/')}/api/chat",
-            json={
-                "model": model,
-                "stream": False,
-                "messages": [{"role": "user", "content": prompt}],
-                "options": {"temperature": 0.85},
-            },
-        )
-        resp.raise_for_status()
-        content = resp.json()["message"]["content"].strip()
-        return content
+    resp = client.post(
+        "/api/chat",
+        json={
+            "model": model,
+            "stream": False,
+            "messages": [{"role": "user", "content": prompt}],
+            "options": {"temperature": 0.85},
+        },
+    )
+    resp.raise_for_status()
+    content = resp.json()["message"]["content"].strip()
+    if not _is_valid_report(content):
+        raise ValueError("Resposta do Ollama vazia ou fora do formato esperado")
+    return content
 
 
 def generate_synthetic_dataset(
     output_path: str = "data/synthetic/synthetic_diaries.json",
-    samples_per_theme: int = 40,
+    samples_per_class: int = 40,
     include_safeguard: bool = True,
+    safeguard_samples: int | None = None,
     use_ollama: bool = False,
     ollama_url: str = "http://localhost:11434",
     model: str = "qwen2.5:3b",
     personas_path: str | None = None,
     seed: int = 42,
 ) -> list[dict[str, Any]]:
-    """Gera o dataset sintético estruturado conforme especificações do projeto."""
+    """Gera o dataset sintético com os rótulos da taxonomia de 6 classes."""
+    if use_ollama and httpx is None:
+        raise RuntimeError("--ollama requer o pacote httpx instalado")
+
     rng = random.Random(seed)
     personas = load_personas(personas_path)
-    themes = list(CLINICAL_THEMES)
-    if include_safeguard:
-        themes.append("outros_indeterminado")
+    classes = list(CLINICAL_CLASSES) + ([SAFEGUARD_CLASS] if include_safeguard else [])
+    client = httpx.Client(base_url=ollama_url.rstrip("/"), timeout=30.0) if use_ollama else None
 
+    safeguard_deck: list[str] = []
     dataset: list[dict[str, Any]] = []
+    try:
+        for cls in classes:
+            target_count = (
+                safeguard_samples
+                if cls == SAFEGUARD_CLASS and safeguard_samples is not None
+                else samples_per_class
+            )
+            logger.info("Gerando %d relatos para a classe: %s", target_count, cls)
+            for i in range(target_count):
+                persona = rng.choice(personas)
+                text: str | None = None
+                method = "offline_template"
 
-    for theme in themes:
-        logger.info("Gerando relatos para o tema: %s (total: %d)...", theme, samples_per_theme)
-        for i in range(samples_per_theme):
-            persona = rng.choice(personas)
+                if client is not None:
+                    try:
+                        text = generate_single_report_ollama(persona, cls, client, model)
+                        method = "ollama"
+                    except _OLLAMA_ERRORS as err:
+                        logger.warning("Ollama falhou (%s). Usando gerador offline.", err)
 
-            generation_method = "offline_template"
-            if use_ollama:
-                import httpx
+                if text is None:
+                    if cls == SAFEGUARD_CLASS:
+                        if not safeguard_deck:
+                            safeguard_deck = list(_SAFEGUARD_TEMPLATES)
+                            rng.shuffle(safeguard_deck)
+                        text = safeguard_deck.pop()
+                    else:
+                        text = generate_single_report_offline(persona, cls, rng)
 
-                try:
-                    text_content = generate_single_report_ollama(
-                        persona=persona,
-                        theme=theme,
-                        ollama_url=ollama_url,
-                        model=model,
-                    )
-                    generation_method = "ollama"
-                except (httpx.HTTPError, OSError, RuntimeError, ValueError) as err:
-                    logger.warning(
-                        "Ollama indisponível (%s). Alternando para gerador offline com templates.",
-                        err,
-                    )
-                    text_content = generate_single_report_offline(persona, theme, rng)
-            else:
-                text_content = generate_single_report_offline(persona, theme, rng)
+                family = infer_template_group(text)
+                dataset.append(
+                    {
+                        "id": f"syn_{cls}_{i + 1:03d}",
+                        "persona_id": persona["id"],
+                        "macro_tema": cls,
+                        "texto": text,
+                        "modalidade": "texto",
+                        "group_id": family,
+                        "template_id": family,
+                        "label_origin": "synthetic_requested_class_unreviewed",
+                        "generation_method": method,
+                        "taxonomia": "v6",
+                    }
+                )
+    finally:
+        if client is not None:
+            client.close()
 
-            record = {
-                "id": f"syn_{theme}_{i + 1:03d}",
-                "persona_id": persona["id"],
-                "macro_tema": theme,
-                "texto": text_content,
-                "modalidade": "texto",
-                "group_id": infer_template_group(text_content),
-                "template_id": infer_template_group(text_content),
-                "label_origin": "synthetic_requested_theme_unreviewed",
-                "generation_method": generation_method,
-            }
-            dataset.append(record)
-
-    out_file = Path(output_path)
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(dataset, f, ensure_ascii=False, indent=2)
-
-    logger.info(
-        "Dataset sintético gerado com sucesso em %s (%d registros)!", out_file, len(dataset)
-    )
+    _write_json(dataset, output_path)
+    logger.info("Dataset sintético salvo em %s (%d registros).", output_path, len(dataset))
     return dataset
 
 
+def remap_legacy_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reclassifica registros sintéticos antigos. O texto não muda; só o rótulo."""
+    out = []
+    for rec in records:
+        new = dict(rec)
+        new["macro_tema_anterior"] = rec.get("macro_tema")
+        new["macro_tema"] = remap_legacy_label(rec["macro_tema"])
+        new["taxonomia"] = "v6"
+        out.append(new)
+    return out
+
+
+def _write_json(data: Any, path: str | Path) -> None:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Gerador de Dataset Sintético Temático")
+    parser = argparse.ArgumentParser(description="Gerador de dataset sintético (6 classes)")
+    parser.add_argument("--output", "-o", default="data/synthetic/synthetic_diaries.json")
     parser.add_argument(
-        "--output",
-        "-o",
-        type=str,
-        default="data/synthetic/synthetic_diaries.json",
-        help="Caminho do arquivo de saída JSON",
+        "--samples-per-class", "--samples-per-theme", "-s", type=int, default=40,
+        help="Quantidade de amostras por classe",
     )
     parser.add_argument(
-        "--samples-per-theme",
-        "-s",
-        type=int,
-        default=40,
-        help="Quantidade de amostras por macrotema",
+        "--safeguard-samples", type=int, default=None,
+        help="Quantidade específica de amostras para a classe 'outros' (padrão: igual a --samples-per-class)",
     )
+    parser.add_argument("--ollama", action="store_true", help="Gera via Ollama (requer serviço ativo)")
+    parser.add_argument("--ollama-url", default="http://localhost:11434")
+    parser.add_argument("--model", default="qwen2.5:3b")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--personas", default=None, help="Caminho para personas.json customizado")
     parser.add_argument(
-        "--ollama",
-        action="store_true",
-        help="Ativar geração via Ollama (requer serviço ativo)",
-    )
-    parser.add_argument(
-        "--ollama-url",
-        type=str,
-        default="http://localhost:11434",
-        help="URL base do servidor Ollama",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="qwen2.5:3b",
-        help="Nome do modelo no Ollama",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Semente pseudoaleatória para reprodutibilidade",
-    )
-    parser.add_argument(
-        "--personas",
-        type=str,
-        default=None,
-        help="Caminho customizado para arquivo personas.json",
+        "--remap-legacy", metavar="JSON", default=None,
+        help="Apenas reclassifica um JSON sintético antigo (9 classes) para as 6 novas",
     )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+    if args.remap_legacy:
+        records = json.loads(Path(args.remap_legacy).read_text(encoding="utf-8"))
+        _write_json(remap_legacy_records(records), args.output)
+        return
+
     generate_synthetic_dataset(
         output_path=args.output,
-        samples_per_theme=args.samples_per_theme,
+        samples_per_class=args.samples_per_class,
+        safeguard_samples=args.safeguard_samples,
         use_ollama=args.ollama,
         ollama_url=args.ollama_url,
         model=args.model,

@@ -27,14 +27,12 @@ Sua missão é ler o relato íntimo do diário de um paciente e, sabendo o MACRO
 DIRETRIZES FUNDAMENTAIS:
 1. RASTREABILIDADE TOTAL: Toda citação ('quote_text') deve ser COPIADA EXATAMENTE do texto do paciente. Não altere conjugação verbal, pontuação ou sinônimos.
 2. SUBTEMAS CLÍNICOS RELEVANTES:
-   - Se o macrotema for 'familia', identifique pessoas ou tópicos centrais (ex: 'Irmão', 'Pai', 'Mãe', 'Finanças Familiares').
-   - Se for 'trabalho', identifique gatilhos (ex: 'Chefe', 'Carga Horária', 'Medo de Demissão', 'Assédio/Clima Hostil').
-   - Se for 'relacionamentos', identifique dinâmicas afetivas (ex: 'Namorado(a)', 'Término', 'Amizades', 'Isolamento Social').
-   - Se for 'autoestima', identifique focos de autopercepção (ex: 'Autocrítica', 'Autoimagem Corporal', 'Sentimento de Insuficiência').
-   - Se for 'estudos', identifique demandas acadêmicas (ex: 'Provas', 'Sobrecarga Universitária', 'Medo de Reprovação').
-   - Se for 'saude_sono', identifique queixas somáticas e ritmo biológico (ex: 'Insônia', 'Fadiga Crônica', 'Somatização').
-   - Se for 'financas', identifique pressões materiais (ex: 'Dívidas', 'Insegurança Orçamentária', 'Desemprego').
-   - Se for 'luto', identifique processos de perda (ex: 'Saudade', 'Separação Dolorosa', 'Processo de Despedida').
+   - Se o tema for 'autopercepcao', identifique focos de autopercepção (ex: 'Autocrítica', 'Autoimagem Corporal', 'Sentimento de Insuficiência').
+   - Se for 'vinculos', identifique pessoas ou dinâmicas relacionais (ex: 'Irmão', 'Pai', 'Mãe', 'Namorado(a)', 'Término', 'Amizades').
+   - Se for 'desempenho', identifique gatilhos laborais, acadêmicos ou financeiros (ex: 'Chefe', 'Carga Horária', 'Provas', 'Dívidas', 'Pressão por Metas').
+   - Se for 'fisico', identifique queixas somáticas e ritmo biológico (ex: 'Insônia', 'Fadiga Crônica', 'Somatização', 'Tratamento Médico').
+   - Se for 'rupturas', identifique processos de perda e luto (ex: 'Saudade', 'Luto', 'Despedida').
+   - Se for 'outros', extraia o foco factual principal sem forçar interpretação clínica.
    - Não crie subtemas genéricos demais como 'Coisas Ruins' ou 'Problemas'.
 3. AVALIAÇÃO DE SENTIMENTO: Rotule a emoção dominante (alegria, tristeza, raiva, medo, preocupacao, frustracao, calma) e a polaridade numérica contínua (-1.0 para muito negativo, +1.0 para muito positivo).
 4. SINALIZADOR DE RISCO: Avalie se há menção explícita de ideação de autolesão ou desesperança crítica ('presente', 'nao_identificado' ou 'indeterminado').

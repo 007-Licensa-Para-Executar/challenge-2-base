@@ -1,4 +1,4 @@
-"""Módulo de modelos de Deep Learning para classificação clínica de macrotemas e emoções."""
+"""Módulo de modelos de Deep Learning para classificação clínica de temas e emoções."""
 
 from typing import TYPE_CHECKING
 
@@ -15,6 +15,7 @@ from models.emotion_taxonomy import (
     resolve_sub_emotion,
 )
 from models.numpy_mlp import NumpyClinicalMLP
+from models.sbert_embedder import SBERTEmbedder
 
 if TYPE_CHECKING:
     from models.predictor import (
@@ -62,6 +63,7 @@ __all__ = [
     "EmotionNeuralNetwork",
     "EmotionPipeline",
     "NumpyClinicalMLP",
+    "SBERTEmbedder",
     "SubEmotion",
     "TopicDistribution",
     "canonicalize_emotion_id",

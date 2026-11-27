@@ -39,7 +39,7 @@ def test_written_synthetic_text_is_projected_and_retrieved(tmp_path):
     projected = project_entry(diary, rag, "t1", _patient(), predictor=_theme(seen))
     assert projected.status == "stored"
     assert projected.code == "projected"
-    assert projected.primary_theme == "saude_sono"
+    assert projected.primary_theme == "fisico"
     assert projected.version == "w"
     assert projected.recorded_at == WHEN
     assert projected.record_id == "e2xt1vw"
@@ -260,8 +260,8 @@ def _theme(seen: list[str]):
         def predict_text(self, text, threshold=0.50):
             seen.append(text)
             return SimpleNamespace(
-                primary_theme="saude_sono",
-                candidate_theme="saude_sono",
+                primary_theme="fisico",
+                candidate_theme="fisico",
                 confidence=0.8,
                 abstention_reason=None,
             )

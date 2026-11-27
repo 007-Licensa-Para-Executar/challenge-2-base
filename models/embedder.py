@@ -35,8 +35,6 @@ PORTUGUESE_STOPWORDS: list[str] = [
     "um",
     "para",
     "com",
-    "nao",
-    "não",
     "uma",
     "os",
     "no",
@@ -76,7 +74,6 @@ PORTUGUESE_STOPWORDS: list[str] = [
     "entre",
     "era",
     "depois",
-    "sem",
     "mesmo",
     "aos",
     "ter",
@@ -94,7 +91,6 @@ PORTUGUESE_STOPWORDS: list[str] = [
     "foram",
     "essa",
     "num",
-    "nem",
     "suas",
     "meu",
     "minha",
@@ -344,7 +340,8 @@ class ClinicalTextEmbedder:
             embeddings = svd_model.transform(doc_term).astype(np.float32)
             if normalize:
                 norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-                embeddings = np.where(norms > 1e-9, embeddings / norms, embeddings)
+                safe_norms = np.where(norms > 1e-9, norms, 1.0)
+                embeddings = np.where(norms > 1e-9, embeddings / safe_norms, embeddings)
             return embeddings
 
         embeddings = np.zeros((len(texts), self.embedding_dim), dtype=np.float32)

@@ -11,7 +11,7 @@ Este cronograma orienta o desenvolvimento do **Diário Clínico Assistido & Copi
 | **1. Ter pelo menos 2 agentes que trabalhem juntos** | Arquitetura consolidada com Agente 1 (Extrator) e Agente 2 (Analista Longitudinal e Copiloto RAG). | Testes de integração demonstrando passagem de dados estruturados entre os dois agentes. |
 | **2. Ter uma base de conhecimento** | Base tripartite planejada: diretrizes clínicas autorizadas, histórico do paciente e regras do sistema. | BM25 demonstrado em dados sintéticos; índice clínico vetorial persistente permanece a definir. |
 | **3. Aplicar MLOps** | Pipeline em `mlops/`, lock do `uv`, CI e MLflow em SQLite com artefatos ao lado do banco. | `uv run bem-estar-mlops`, tag `promoted`, matriz de confusão e registry só após o gate de F1 macro. Ver `docs/mlops.md`. |
-| **4. Construir e testar rede neural simples** | MLP próprio com embeddings para sugerir uma categoria entre seis macrotemas consolidados, comparado a um baseline textual. | Pipeline, divisão treino/validação/teste e métricas reproduzíveis por macrotema. |
+| **4. Construir e testar rede neural simples** | Rede Neural MLP (PyTorch e NumPy puro) alimentada por embeddings densos **SBERT** para identificar os **6 temas** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e atribuir seus percentuais (`%`), comparada a um baseline de classe mais frequente. | `models/sbert_embedder.py`, `models/torch_mlp.py`, `models/numpy_mlp.py`, `models/train.py`, `models/predictor.py` e suíte `tests/test_*mlp*.py`. |
 | **5. Utilizar API por meio dos agentes** | API local Ollama e API HTTP local de pseudonimização. Transcrição e busca vetorial são integrações futuras ou opcionais. | Clientes HTTP tipados com timeout, erro sanitizado e testes controlados. |
 | **6. Ferramenta de versionamento de código** | Repositório Git com branches temáticas (`feat/*`), Conventional Commits e Pull Requests. | Histórico de commits claro, branches documentadas e PRs revisados. |
 | **7. Solução ética e explicável** | Governança CFP/LGPD, diário assíncrono e rastreabilidade por citações literais. | Documentos de risco e pseudonimização; a interface visual permanece especificação. |
@@ -24,8 +24,8 @@ Este cronograma orienta o desenvolvimento do **Diário Clínico Assistido & Copi
 
 ```
 Semana 1: Escopo, Fronteiras Clínicas e Alinhamento das 9 Constraints
-Semana 2: Geração de Dados Sintéticos (PsychAdapter) & Preparação do Dataset dos 6 Macrotemas
-Semana 3: Construção, Treino e Teste da Rede Neural Simples (MLP) + Rastreamento no MLflow
+Semana 2: Geração de Dados Sintéticos (PsychAdapter) & Preparação do Dataset dos 6 Temas
+Semana 3: Construção, Treino e Teste da Rede Neural Simples (SBERT + MLP) + Rastreamento no MLflow
 Semana 4: Implementação do Agente 1 (Decompositor de Subtemas e Ancoragem Literal)
 Semana 5: Ingestão da Base de Conhecimento Clínico e Pipeline Híbrido de RAG (BM25 + e5-small)
 Semana 6: Implementação do Agente 2 (Análise Longitudinal e Copiloto RAG)
@@ -38,7 +38,7 @@ Semana 8: Auditoria Geral de MLOps, Testes Ponta a Ponta, Gravação da Demonstr
 ## 3. Critérios de Aceite para Demonstração do MVP
 
 1. **Entrada:** Um relato sintético (texto ou áudio simulado) é submetido ao sistema.
-2. **Processamento Neural:** a Rede Neural sugere um rótulo operacional e informa o score sem apresentar o resultado como diagnóstico; latência deve ser medida no ambiente declarado.
+2. **Processamento Neural:** A Rede Neural (com **SBERT**) identifica o tema predominante (ex: `vinculos`) e calcula os percentuais (`%`) dos 6 temas sem apresentar o resultado como diagnóstico; latência deve ser medida no ambiente declarado.
 3. **Execução Multiagente:** O Agente 1 extrai os subtemas (`irmão`, `pai`) e os recortes literais exatos com índices de caracteres.
 4. **Armazenamento:** o relato e os metadados são salvos no SQLite; índice vetorial persistente não é pré-requisito desta demonstração.
 5. **Dashboard Interativo:** a interface `/explore` pode ser demonstrada apenas após implementação; a especificação atual não deve ser apresentada como tela disponível.

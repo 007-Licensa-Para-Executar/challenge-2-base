@@ -3,7 +3,7 @@
 ## 1. Identificação e Propósito do Agente
 * **Arquivos no Código:** `agents/extractor/service.py`, `agents/extractor/prompt.py`, `agents/extractor/contracts.py`
 * **Contrato de Saída (documento):** `Agent1Output`, publicado no barramento como `Documento` do tipo `registro_estruturado`
-* **Objetivo Primário:** Receber um registro do paciente (texto de até 2.400 caracteres) com o macrotema sugerido pelo MLP e produzir um **Registro Estruturado**: subtemas específicos, evidências literais com posição no texto, modelo ABC quando houver base, sentimento principal, polaridade e indício textual de risco.
+* **Objetivo Primário:** Receber um registro do paciente (texto de até 2.400 caracteres) com o tema e os percentuais (`%`) produzidos pela Rede Neural MLP com SBERT (entre os 6 temas: `autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e produzir um **Registro Estruturado**: subtemas específicos, evidências literais com posição no texto, modelo ABC quando houver base, sentimento principal, polaridade e indício textual de risco.
 * **Não faz:** não conversa com o paciente, não interpreta funções de comportamento, não diagnostica, não lê documentos produzidos pelo Agente 2.
 * **Comunicação (caixa preta):** a entrada é o registro e o macrotema. A saída é um documento publicado no barramento. Nenhum outro agente é chamado diretamente, e o Agente 2 só usa registros com status `valido`. O texto original é gravado pelo orquestrador na camada restrita, com o mesmo `entry_id`, e o Agente 2 pode lê-lo para a análise.
 * **Por que este componente existe?** Para garantir **100% de explicabilidade**. O psicólogo nunca verá uma categoria solta na tela: ao clicar em um subtema, ele acessa o trecho literal que o paciente escreveu, e um registro com citação não localizada é descartado inteiro.
@@ -14,8 +14,8 @@
 
 ```mermaid
 flowchart LR
-    A["Registro do paciente (texto ou áudio transcrito)"] --> B["Rede Neural MLP"]
-    B -->|"Macrotema sugerido e confiança"| C["Agente 1 (LLM local via Ollama)"]
+    A["Registro do paciente (texto ou áudio transcrito)"] --> B["Rede Neural MLP (SBERT)"]
+    B -->|"Tema: 'vinculos' + % dos 6 Temas"| C["Agente 1 (LLM local via Ollama)"]
     A --> C
     C --> D["Validação do esquema e localização das citações"]
     D -->|"válido"| E[("Barramento: documento registro_estruturado, status valido")]
@@ -38,16 +38,12 @@ from pydantic import BaseModel, ConfigDict, Field
 # Macrotemas: a lista abaixo é a atual. A taxonomia final (6 macrotemas) ainda
 # será definida pela equipe e exige revisão deste enum e do treino do MLP.
 class MacroTema(str, Enum):
-    TRABALHO = "trabalho"
-    FAMILIA = "familia"
-    RELACIONAMENTOS = "relacionamentos"
-    ESTUDOS = "estudos"
-    SAUDE_SONO = "saude_sono"
-    FINANCAS = "financas"
-    LUTO = "luto"
-    AUTOESTIMA = "autoestima"
+    AUTOPERCEPCAO = "autopercepcao"
+    VINCULOS = "vinculos"
+    DESEMPENHO = "desempenho"
+    FISICO = "fisico"
+    RUPTURAS = "rupturas"
     OUTROS = "outros"
-    NAO_IDENTIFICADO = "nao_identificado"
 
 class Sentimento(str, Enum):
     ALEGRIA = "alegria"
@@ -256,6 +252,44 @@ from agents.extractor.service import Agent1Service, CitacaoNaoLocalizada
 
 TEXTO = "Ontem meu irmão pegou meu carro sem pedir de novo e ainda riu de mim. Fiquei com uma raiva insuportável."
 
+def test_agent1_successful_parsing():
+    mock_response = {
+        "subtemas": [
+            {
+                "nome": "Irmão",
+                "descricao": "Conflito por apropriação indevida do veículo e deboche",
+                "evidencias": [
+                    {
+                        "quote_text": "meu irmão pegou meu carro sem pedir de novo e ainda riu de mim",
+                        "start_char": 6,
+                        "end_char": 68
+                    }
+                ]
+            }
+        ],
+        "sentimento_predominante": "raiva",
+        "score_polaridade": -0.82,
+        "indicio_textual_risco": "nao_identificado"
+    }
+    
+    service = Agent1Service()
+    with patch.object(service.client, "post") as mock_post:
+        mock_post.return_value.json.return_value = {
+            "message": {"content": json.dumps(mock_response)}
+        }
+        mock_post.return_value.raise_for_status = MagicMock()
+        
+        res = service.process(
+            patient_id="PAC-123",
+            text=TEXTO,
+            macro_tema="vinculos",
+            confidence=0.92
+        )
+        assert res.macro_tema_validado == "vinculos"
+        assert res.subtemas[0].nome == "Irmão"
+        assert res.sentimento_predominante == "raiva"
+        assert res.score_polaridade < 0
+=======
 RESPOSTA_OK = {
     "subtemas": [{
         "nome": "Irmão",
@@ -294,6 +328,7 @@ def test_citacao_inventada_recusa_o_registro_inteiro():
 def test_registro_acima_do_limite_e_recusado():
     with pytest.raises(ValueError):
         Agent1Service(FakeLLM(RESPOSTA_OK)).process("PAC-123", "a" * 2401, "familia", 0.9)
+>>>>>>> origin/main
 ```
 
 ---

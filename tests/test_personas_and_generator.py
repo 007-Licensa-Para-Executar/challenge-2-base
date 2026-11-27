@@ -2,18 +2,20 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import httpx
 
 from data.split import stratified_split_dataset
 from data.synthetic_generator import (
-    ALL_THEMES_WITH_FALLBACK,
-    CLINICAL_THEMES,
+    CLINICAL_CLASSES,
     DEFAULT_PERSONAS,
     generate_single_report_offline,
     generate_single_report_ollama,
     generate_synthetic_dataset,
     load_personas,
 )
+from data.taxonomy import CLASSES, SAFEGUARD_CLASS
 
 
 def test_personas_definitions():
@@ -37,6 +39,7 @@ def test_personas_definitions():
         assert "temas_frequentes" in p
         assert "estilo_linguagem" in p
         assert isinstance(p["temas_frequentes"], list)
+        assert set(p["temas_frequentes"]).issubset(set(CLASSES))
 
 
 def test_personas_json_file_validity():
@@ -50,32 +53,31 @@ def test_personas_json_file_validity():
 
 
 def test_offline_report_generation():
-    """Verifica que o gerador offline produz textos não-vazios para todos os temas."""
+    """Verifica que o gerador offline produz textos não-vazios para todos os 6 temas."""
     personas = load_personas()
     for persona in personas:
-        for theme in CLINICAL_THEMES:
+        for theme in CLINICAL_CLASSES:
             report = generate_single_report_offline(persona, theme)
             assert isinstance(report, str)
             assert len(report.strip()) > 30
 
-    # Teste para salvaguarda outros_indeterminado
-    safeguard_report = generate_single_report_offline(personas[0], "outros_indeterminado")
+    safeguard_report = generate_single_report_offline(personas[0], SAFEGUARD_CLASS)
     assert isinstance(safeguard_report, str)
     assert len(safeguard_report.strip()) > 10
 
 
 def test_generate_synthetic_dataset_in_memory(tmp_path):
-    """Verifica a geração completa de um dataset sintético balanceado."""
+    """Verifica a geração completa de um dataset sintético balanceado na taxonomia de 6 classes."""
     out_file = tmp_path / "test_synthetic.json"
     dataset = generate_synthetic_dataset(
         output_path=str(out_file),
-        samples_per_theme=3,
+        samples_per_class=3,
         include_safeguard=True,
         use_ollama=False,
         seed=123,
     )
 
-    expected_total = len(ALL_THEMES_WITH_FALLBACK) * 3
+    expected_total = len(CLASSES) * 3
     assert len(dataset) == expected_total
     assert out_file.exists()
 
@@ -83,21 +85,20 @@ def test_generate_synthetic_dataset_in_memory(tmp_path):
         saved_data = json.load(f)
     assert len(saved_data) == expected_total
 
-    # Verifica integridade dos campos
     for rec in saved_data:
         assert "id" in rec
         assert "persona_id" in rec
         assert "macro_tema" in rec
         assert "texto" in rec
         assert rec["modalidade"] == "texto"
-        assert rec["macro_tema"] in ALL_THEMES_WITH_FALLBACK
+        assert rec["macro_tema"] in CLASSES
 
 
 def test_stratified_split_dataset():
     """Verifica a divisão estratificada 70% Treino, 15% Validação, 15% Holdout."""
     records = []
-    # 9 temas x 20 amostras = 180 registros
-    for theme in ALL_THEMES_WITH_FALLBACK:
+    # 6 temas x 20 amostras = 120 registros
+    for theme in CLASSES:
         for i in range(20):
             records.append(
                 {
@@ -115,19 +116,18 @@ def test_stratified_split_dataset():
         random_state=42,
     )
 
-    assert len(train) == round(180 * 0.70)
-    assert len(val) == round(180 * 0.15)
-    assert len(test) == round(180 * 0.15)
-    assert len(train) + len(val) + len(test) == 180
+    assert len(train) == round(120 * 0.70)
+    assert len(val) == round(120 * 0.15)
+    assert len(test) == round(120 * 0.15)
+    assert len(train) + len(val) + len(test) == 120
 
-    # Verifica estratificação: todas as classes devem estar presentes em cada partição
     train_themes = {r["macro_tema"] for r in train}
     val_themes = {r["macro_tema"] for r in val}
     test_themes = {r["macro_tema"] for r in test}
 
-    assert train_themes == set(ALL_THEMES_WITH_FALLBACK)
-    assert val_themes == set(ALL_THEMES_WITH_FALLBACK)
-    assert test_themes == set(ALL_THEMES_WITH_FALLBACK)
+    assert train_themes == set(CLASSES)
+    assert val_themes == set(CLASSES)
+    assert test_themes == set(CLASSES)
 
 
 def test_ollama_generation_mock():
@@ -136,10 +136,36 @@ def test_ollama_generation_mock():
 
     mock_resp = MagicMock()
     mock_resp.json.return_value = {
-        "message": {"content": "Desabafo simulado via Ollama LLM com alta fidelidade."}
+        "message": {
+            "content": "Desabafo simulado via Ollama LLM com alta fidelidade para testes."
+        }
     }
     mock_resp.raise_for_status.return_value = None
 
-    with patch("httpx.Client.post", return_value=mock_resp):
-        text = generate_single_report_ollama(persona, "estudos")
-        assert "Desabafo simulado via Ollama" in text
+    client = MagicMock(spec=httpx.Client)
+    client.post.return_value = mock_resp
+
+    text = generate_single_report_ollama(persona, "desempenho", client)
+    assert "Desabafo simulado via Ollama" in text
+
+
+def test_safeguard_templates_expanded_unique_and_balanced_override(tmp_path):
+    """Garante templates únicos de 'outros' e suporte ao parâmetro safeguard_samples."""
+    from data.synthetic_generator import _SAFEGUARD_TEMPLATES
+
+    assert len(_SAFEGUARD_TEMPLATES) >= 100
+    assert len(_SAFEGUARD_TEMPLATES) == len(set(_SAFEGUARD_TEMPLATES))
+
+    out_file = tmp_path / "balanced_outros.json"
+    dataset = generate_synthetic_dataset(
+        output_path=str(out_file),
+        samples_per_class=4,
+        safeguard_samples=12,
+        include_safeguard=True,
+        use_ollama=False,
+        seed=42,
+    )
+    outros_rows = [r for r in dataset if r["macro_tema"] == SAFEGUARD_CLASS]
+    assert len(outros_rows) == 12
+    assert len({r["group_id"] for r in outros_rows}) == 12
+    assert len(dataset) == len(CLINICAL_CLASSES) * 4 + 12

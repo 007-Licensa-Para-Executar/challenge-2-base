@@ -11,8 +11,9 @@ import hashlib
 import json
 import logging
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import joblib
 import mlflow
@@ -27,6 +28,8 @@ from data.synthetic_generator import infer_template_group
 from mlops.tracker import MLFlowTracker
 from models.embedder import PORTUGUESE_STOPWORDS, ClinicalTextEmbedder
 from models.numpy_mlp import NumpyClinicalMLP
+from models.sbert_embedder import DEFAULT_MODEL as DEFAULT_SBERT_MODEL
+from models.sbert_embedder import SBERTEmbedder
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP, compute_ece
 
 logger = logging.getLogger(__name__)
@@ -34,24 +37,36 @@ THEME_TO_IDX = {theme: idx for idx, theme in enumerate(THEME_CLASSES)}
 IDX_TO_THEME = dict(enumerate(THEME_CLASSES))
 
 
-def load_dataset_rows(data_path: str | Path) -> list[dict[str, Any]]:
-    path = Path(data_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Dataset not found: {path}; generate it explicitly first")
-    rows = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(rows, list) or not rows:
-        raise ValueError("Dataset must be a nonempty list")
+def load_dataset_rows(data_path: str | Path | Sequence[str | Path]) -> list[dict[str, Any]]:
+    paths = [data_path] if isinstance(data_path, (str, Path)) else list(data_path)
+    if not paths:
+        raise ValueError("At least one dataset path is required")
     result = []
-    for i, row in enumerate(rows):
-        text = row.get("texto") or row.get("text", "")
-        label = row.get("macro_tema") or row.get("expected", {}).get("tema")
-        if not isinstance(text, str) or not text.strip() or label not in THEME_TO_IDX:
-            raise ValueError(f"Invalid text or unknown label at row {i}")
-        result.append({**row, "texto": text, "macro_tema": label})
+    seen_ids: set[str] = set()
+    for path_value in paths:
+        path = Path(path_value)
+        if not path.exists():
+            raise FileNotFoundError(f"Dataset not found: {path}; generate it explicitly first")
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list) or not rows:
+            raise ValueError(f"Dataset must be a nonempty list: {path}")
+        for i, row in enumerate(rows):
+            text = row.get("texto") or row.get("text", "")
+            label = row.get("macro_tema") or row.get("expected", {}).get("tema")
+            record_id = str(row.get("id", f"{path}:{i}"))
+            if (
+                not isinstance(text, str)
+                or not text.strip()
+                or label not in THEME_TO_IDX
+                or record_id in seen_ids
+            ):
+                raise ValueError(f"Invalid text, duplicate ID, or unknown label at row {i} in {path}")
+            seen_ids.add(record_id)
+            result.append({**row, "id": record_id, "texto": text, "macro_tema": label})
     return result
 
 
-def load_dataset_records(data_path: str | Path) -> tuple[list[str], list[int]]:
+def load_dataset_records(data_path: str | Path | Sequence[str | Path]) -> tuple[list[str], list[int]]:
     """Compatibility helper; the CLI also preserves groups and IDs via load_dataset_rows."""
     rows = load_dataset_rows(data_path)
     return [row["texto"] for row in rows], [THEME_TO_IDX[row["macro_tema"]] for row in rows]
@@ -102,7 +117,7 @@ def _evaluate(probs, labels, threshold):
 def train_theme_classifier(
     texts: list[str],
     labels: list[int],
-    epochs: int = 35,
+    epochs: int = 40,
     batch_size: int = 32,
     lr: float = 0.005,
     weight_decay: float = 1e-3,
@@ -112,10 +127,21 @@ def train_theme_classifier(
     tracking_uri: str | None = None,
     groups: list[str] | None = None,
     record_ids: list[str] | None = None,
-    threshold: float = 0.50,
-    numpy_lr: float = 0.05,
+    threshold: float = 0.45,
+    numpy_lr: float = 0.25,
     max_features: int = 3000,
     init_strategy: str = "svd",
+    embedder: Literal["clinical", "sbert"] = "sbert",
+    sbert_model: str = DEFAULT_SBERT_MODEL,
+    sbert_batch_size: int = 64,
+    norm_type: Literal["batch_norm", "layer_norm", "rms_norm", "none"] = "batch_norm",
+    label_smoothing: float = 0.02,
+    class_weight: Literal["none", "balanced"] = "none",
+    dropout_rate: float = 0.3,
+    hidden_dim1: int = 128,
+    hidden_dim2: int = 64,
+    lr_scheduler: Literal["none", "cosine", "plateau"] = "cosine",
+    early_stopping_patience: int = 15,
 ) -> dict[str, Any]:
     """Select both neural checkpoints on validation; inspect test only afterwards.
 
@@ -129,6 +155,13 @@ def train_theme_classifier(
         raise ValueError("Group and record IDs must align with texts")
     if not 0 <= threshold <= 1 or lr <= 0 or numpy_lr <= 0:
         raise ValueError("Invalid threshold or learning rate")
+    if (
+        not 0 <= dropout_rate < 1
+        or hidden_dim1 < 1
+        or hidden_dim2 < 1
+        or early_stopping_patience < 0
+    ):
+        raise ValueError("Invalid architecture or training regularization parameter")
     if any(label not in IDX_TO_THEME for label in labels):
         raise ValueError("Unknown class index")
     rows = [
@@ -146,14 +179,25 @@ def train_theme_classifier(
     splits = stratified_split_dataset(rows, random_state=random_state)
     indexes = [[row["row_index"] for row in split] for split in splits]
     y_train, y_val, y_test = [np.asarray(labels)[idx] for idx in indexes]
-    vectorizer = ClinicalTextEmbedder(
-        embedding_dim=128,
-        max_features=max_features,
-        stop_words=PORTUGUESE_STOPWORDS,
-        random_state=random_state,
-        init_strategy=init_strategy,
-        use_idf_weighting=True,
-    )
+
+    if embedder == "sbert":
+        # Encoder pré-treinado e congelado: fit() é no-op, então não há vazamento
+        # entre treino/validação/teste.
+        vectorizer: ClinicalTextEmbedder | SBERTEmbedder = SBERTEmbedder(
+            model_name=sbert_model,
+            batch_size=sbert_batch_size,
+            normalize_default=True,
+        )
+    else:
+        vectorizer = ClinicalTextEmbedder(
+            embedding_dim=128,
+            max_features=max_features,
+            stop_words=PORTUGUESE_STOPWORDS,
+            random_state=random_state,
+            init_strategy=init_strategy,  # type: ignore[arg-type]
+            use_idf_weighting=True,
+        )
+
     vectorizer.fit([texts[i] for i in indexes[0]])
     x_train = vectorizer.transform([texts[i] for i in indexes[0]], normalize=True)
     x_val, x_test = [
@@ -167,10 +211,12 @@ def train_theme_classifier(
     torch.manual_seed(random_state)
     model = ClinicalThemeMLP(
         input_dim=vectorizer.embedding_dim,
-        hidden_dim1=128,
-        hidden_dim2=64,
+        hidden_dim1=hidden_dim1,
+        hidden_dim2=hidden_dim2,
         num_classes=len(THEME_CLASSES),
+        dropout_rate=dropout_rate,
         vocab_size=None,
+        norm_type=norm_type,
     )
 
     numpy_model = NumpyClinicalMLP(
@@ -181,7 +227,24 @@ def train_theme_classifier(
         random_state=random_state,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-    criterion = nn.CrossEntropyLoss()
+    scheduler: torch.optim.lr_scheduler.LRScheduler | torch.optim.lr_scheduler.ReduceLROnPlateau | None = None
+    if lr_scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(1, epochs), eta_min=lr * 0.02
+        )
+    elif lr_scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="max", factor=0.5, patience=4, min_lr=lr * 0.01
+        )
+
+    weight_tensor = None
+    if class_weight == "balanced":
+        counts = np.bincount(y_train, minlength=len(THEME_CLASSES)).astype(np.float32)
+        counts = np.maximum(counts, 1.0)
+        weights = len(y_train) / (len(THEME_CLASSES) * counts)
+        weight_tensor = torch.tensor(weights, dtype=torch.float32)
+
+    criterion = nn.CrossEntropyLoss(weight=weight_tensor, label_smoothing=label_smoothing)
     target_t = torch.tensor(y_train, dtype=torch.long)
     val_target_t = torch.tensor(y_val, dtype=torch.long)
     loader = torch.utils.data.DataLoader(
@@ -212,8 +275,10 @@ def train_theme_classifier(
             for path in (
                 Path(__file__).resolve(),
                 Path(__file__).resolve().with_name("embedder.py"),
+                Path(__file__).resolve().with_name("sbert_embedder.py"),
                 Path(__file__).resolve().with_name("numpy_mlp.py"),
                 Path(__file__).resolve().with_name("torch_mlp.py"),
+                Path(__file__).resolve().parent.parent / "data" / "taxonomy.py",
                 Path(__file__).resolve().parent.parent / "data" / "split.py",
                 Path(__file__).resolve().parent.parent / "data" / "synthetic_generator.py",
             )
@@ -225,6 +290,13 @@ def train_theme_classifier(
         "grouping_limit": "known templates and exact duplicates; external paraphrases need groups",
         "threshold": threshold,
         "numpy_lr": numpy_lr,
+        "norm_type": norm_type,
+        "label_smoothing": label_smoothing,
+        "class_weight": class_weight,
+        "dropout_rate": dropout_rate,
+        "hidden_layers": [hidden_dim1, hidden_dim2],
+        "lr_scheduler": lr_scheduler,
+        "early_stopping_patience": early_stopping_patience,
         "splits": {
             name: [{k: row[k] for k in ("id", "group_id", "macro_tema")} for row in split]
             for name, split in zip(("train", "validation", "test"), splits, strict=True)
@@ -237,12 +309,20 @@ def train_theme_classifier(
                 "seed": random_state,
                 "dataset_sha256": manifest["dataset_sha256"],
                 "input_dim": x_train.shape[1],
-                "hidden_layers": [128, 64],
+                "embedder": embedder,
+                "sbert_model": sbert_model if embedder == "sbert" else None,
+                "norm_type": norm_type,
+                "label_smoothing": label_smoothing,
+                "class_weight": class_weight,
+                "dropout_rate": dropout_rate,
+                "hidden_layers": [hidden_dim1, hidden_dim2],
                 "numpy_hidden_units": 64,
                 "threshold": threshold,
                 "epochs": epochs,
                 "batch_size": batch_size,
                 "learning_rate": lr,
+                "lr_scheduler": lr_scheduler,
+                "early_stopping_patience": early_stopping_patience,
                 "numpy_lr": numpy_lr,
                 "weight_decay": weight_decay,
                 "train_samples": len(y_train),
@@ -253,6 +333,7 @@ def train_theme_classifier(
         best_torch, best_numpy = None, None
         best_scores = [-1.0, -1.0]
         best_epochs = [0, 0]
+        epochs_no_improve = 0
         history = []
         for epoch in range(1, epochs + 1):
             model.train()
@@ -278,6 +359,10 @@ def train_theme_classifier(
                 _metrics(y_val, p.argmax(axis=1))["macro_f1"]
                 for p in (torch_probs, numpy_probs)
             ]
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(scores[0])
+            elif scheduler is not None:
+                scheduler.step()
             metrics = {
                 "train_loss": train_loss / len(y_train),
                 "val_loss": val_loss,
@@ -285,15 +370,27 @@ def train_theme_classifier(
                 "numpy_train_loss": numpy_loss,
                 "numpy_val_loss": numpy_val_loss,
                 "numpy_val_macro_f1": scores[1],
+                "lr": float(optimizer.param_groups[0]["lr"]),
             }
             tracker.log_metrics(metrics, step=epoch)
             history.append({"epoch": epoch, **metrics})
             if scores[0] > best_scores[0]:
                 best_scores[0], best_epochs[0] = scores[0], epoch
                 best_torch = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
             if scores[1] > best_scores[1]:
                 best_scores[1], best_epochs[1] = scores[1], epoch
                 best_numpy = {k: getattr(numpy_model, k).copy() for k in ("W1", "b1", "W2", "b2")}
+            if early_stopping_patience > 0 and epochs_no_improve >= early_stopping_patience:
+                logger.info(
+                    "Early stopping na época %d (melhor val_macro_f1=%.4f na época %d).",
+                    epoch,
+                    best_scores[0],
+                    best_epochs[0],
+                )
+                break
         model.load_state_dict(best_torch)
         for key, value in best_numpy.items():
             setattr(numpy_model, key, value)
@@ -308,6 +405,14 @@ def train_theme_classifier(
             optimal_temp = 1.0
 
         with torch.no_grad():
+            val_uncalibrated_probs = torch.softmax(val_raw_logits, dim=1).numpy()
+            val_calibrated_probs = model.predict_proba(x_val_t, apply_temperature=True).numpy()
+        val_eval = _evaluate(val_calibrated_probs, y_val, threshold)
+        val_ece_uncalibrated = compute_ece(val_uncalibrated_probs, y_val)
+        val_ece_calibrated = compute_ece(val_calibrated_probs, y_val)
+        val_th_report = val_eval["threshold_policy"]["classification_report"]
+
+        with torch.no_grad():
             test_logits = model(x_test_t)
             uncalibrated_test_probs = torch.softmax(test_logits, dim=1).numpy()
             torch_probs = model.predict_proba(x_test_t, apply_temperature=True).numpy()
@@ -319,15 +424,19 @@ def train_theme_classifier(
         comparison = {
             "reference_status": manifest["reference_status"],
             "torch": _evaluate(torch_probs, y_test, threshold),
+            "torch_validation": val_eval,
             "numpy": _evaluate(numpy_model.predict_proba(x_test), y_test, threshold),
             "majority_baseline": _metrics(y_test, baseline.predict(x_test)),
             "calibration": {
                 "temperature": optimal_temp,
+                "val_ece_before": val_ece_uncalibrated,
+                "val_ece_after": val_ece_calibrated,
                 "ece_before": ece_uncalibrated,
                 "ece_after": ece_calibrated,
             },
         }
-        final = comparison["torch"]["threshold_policy"]
+        operational = comparison["torch"]["threshold_policy"]
+        final = comparison["torch"]["argmax_only"]
         manifest["calibration"] = comparison["calibration"]
         manifest["best_checkpoint_epochs"] = dict(zip(("torch", "numpy"), best_epochs, strict=True))
 
@@ -336,12 +445,24 @@ def train_theme_classifier(
                 "final_test_macro_f1": final["macro_f1"],
                 "final_test_acc": final["accuracy"],
                 "final_test_loss": test_loss,
+                "threshold_test_macro_f1": operational["macro_f1"],
+                "threshold_test_acc": operational["accuracy"],
                 "torch_test_argmax_macro_f1": comparison["torch"]["argmax_only"]["macro_f1"],
                 "numpy_test_macro_f1": comparison["numpy"]["threshold_policy"]["macro_f1"],
                 "majority_test_macro_f1": comparison["majority_baseline"]["macro_f1"],
                 "temperature": optimal_temp,
                 "ece_uncalibrated": ece_uncalibrated,
                 "ece_calibrated": ece_calibrated,
+                "val_ece_uncalibrated": val_ece_uncalibrated,
+                "val_ece_calibrated": val_ece_calibrated,
+                "val_threshold_macro_f1": val_eval["threshold_policy"]["macro_f1"],
+                "val_threshold_acc": val_eval["threshold_policy"]["accuracy"],
+                "val_determined_coverage": val_eval["threshold_policy"]["determined_coverage"],
+                "val_vinculos_recall": val_th_report["vinculos"]["recall"],
+                "val_desempenho_recall": val_th_report["desempenho"]["recall"],
+                "val_outros_f1": val_th_report["outros"]["f1-score"],
+                "best_torch_epoch": float(best_epochs[0]),
+                "best_numpy_epoch": float(best_epochs[1]),
             }
         )
         tracker.log_confusion_matrix(
@@ -355,6 +476,7 @@ def train_theme_classifier(
             "comparison_report.json": comparison,
             "learning_curves.json": history,
             "classification_report.json": final["classification_report"],
+            "threshold_classification_report.json": operational["classification_report"],
             "theme_classes.json": THEME_CLASSES,
         }
         for name, obj in documents.items():
@@ -378,8 +500,14 @@ def train_theme_classifier(
             "run_id": run.info.run_id,
             "final_test_macro_f1": final["macro_f1"],
             "final_test_acc": final["accuracy"],
+            "threshold_test_macro_f1": operational["macro_f1"],
+            "threshold_test_acc": operational["accuracy"],
             "final_test_loss": test_loss,
             "torch_argmax_macro_f1": comparison["torch"]["argmax_only"]["macro_f1"],
+            "best_val_macro_f1": best_scores[0],
+            "val_threshold_macro_f1": val_eval["threshold_policy"]["macro_f1"],
+            "val_threshold_acc": val_eval["threshold_policy"]["accuracy"],
+            "val_ece_calibrated": val_ece_calibrated,
             "temperature": optimal_temp,
             "ece_calibrated": ece_calibrated,
             "model_path": str(dist / "best_theme_mlp.pt"),
@@ -391,19 +519,39 @@ def train_theme_classifier(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    default_data_path = (
-        "data/real_diaries.json"
-        if Path("data/real_diaries.json").exists()
-        else "data/synthetic/synthetic_diaries.json"
-    )
-    parser.add_argument("--data-path", default=default_data_path)
-    parser.add_argument("--epochs", type=int, default=35)
+    default_data_paths = [
+        path
+        for path in ("data/real_diaries.json", "data/synthetic/synthetic_diaries.json")
+        if Path(path).exists()
+    ]
+    parser.add_argument("--data-path", nargs="+", default=default_data_paths)
+    parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.005)
-    parser.add_argument("--numpy-lr", type=float, default=0.05)
-    parser.add_argument("--threshold", type=float, default=0.50)
+    parser.add_argument("--weight-decay", type=float, default=1e-3)
+    parser.add_argument("--numpy-lr", type=float, default=0.25)
+    parser.add_argument("--threshold", type=float, default=0.45)
     parser.add_argument("--max-features", type=int, default=3000)
     parser.add_argument("--init-strategy", default="svd", choices=["gaussian", "svd"])
+    parser.add_argument("--embedder", default="sbert", choices=["clinical", "sbert"])
+    parser.add_argument("--sbert-model", default=DEFAULT_SBERT_MODEL)
+    parser.add_argument("--sbert-batch-size", type=int, default=64)
+    parser.add_argument(
+        "--norm-type",
+        default="batch_norm",
+        choices=["batch_norm", "layer_norm", "rms_norm", "none"],
+    )
+    parser.add_argument("--label-smoothing", type=float, default=0.02)
+    parser.add_argument("--class-weight", default="none", choices=["none", "balanced"])
+    parser.add_argument("--dropout", type=float, default=0.3)
+    parser.add_argument("--hidden-dim1", type=int, default=128)
+    parser.add_argument("--hidden-dim2", type=int, default=64)
+    parser.add_argument(
+        "--lr-scheduler",
+        default="cosine",
+        choices=["none", "cosine", "plateau"],
+    )
+    parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dist-dir", default="dist")
     parser.add_argument("--experiment-name", default="Theme_MLP_Preliminary")
@@ -415,10 +563,22 @@ def main() -> None:
         epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.lr,
+        weight_decay=args.weight_decay,
         numpy_lr=args.numpy_lr,
         threshold=args.threshold,
         max_features=args.max_features,
         init_strategy=args.init_strategy,
+        embedder=args.embedder,
+        sbert_model=args.sbert_model,
+        sbert_batch_size=args.sbert_batch_size,
+        norm_type=args.norm_type,
+        label_smoothing=args.label_smoothing,
+        class_weight=args.class_weight,
+        dropout_rate=args.dropout,
+        hidden_dim1=args.hidden_dim1,
+        hidden_dim2=args.hidden_dim2,
+        lr_scheduler=args.lr_scheduler,
+        early_stopping_patience=args.patience,
         random_state=args.seed,
         experiment_name=args.experiment_name,
         dist_dir=args.dist_dir,

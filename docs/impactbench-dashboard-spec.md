@@ -15,8 +15,8 @@ No ImpactBench, os avaliadores navegam em múltiplos níveis concêntricos:
 
 Transpondo essa filosofia para o consultório de psicologia:
 - O paciente desabafa no seu **Diário Multimodal** (texto, áudio ou foto) ao longo da semana.
-- A **Rede Neural MLP** e os dois agentes locais processam os relatos em segundo plano.
-- O psicólogo abre a tela do paciente no **Dashboard Clínico (`/explore`)**, visualiza os **seis macrotemas consolidados**, clica no tema desejado para desdobrar os **Subtemas** e, ao clicar em qualquer subtema, abre um painel de evidência literal.
+- A **Rede Neural MLP (com SBERT)** e os dois agentes locais processam os relatos em segundo plano, identificando e atribuindo percentuais (`%`) aos **6 Temas Clínicos**.
+- O psicólogo abre a tela do paciente no **Dashboard Clínico (`/explore`)**, visualiza os **6 Temas Clínicos** (`Autopercepção`, `Vínculos`, `Desempenho`, `Físico`, `Rupturas`, `Outros`), clica no tema desejado para desdobrar os **Subtemas** e, ao clicar em qualquer subtema, abre um painel de evidência literal.
 
 ---
 
@@ -41,7 +41,7 @@ Transpondo essa filosofia para o consultório de psicologia:
 │           EXPERIÊNCIA DO PSICÓLOGO (/EXPLORE)          │
 │   "Navegação Hierárquica Inspirada no ImpactBench"     │
 ├────────────────────────────────────────────────────────┤
-│ Nível 1: Visão Panorâmica & 6 Macrotemas Consolidados │
+│ Nível 1: Visão Panorâmica & 6 Temas Clínicos Padrão   │
 │ Nível 2: Expansão Interativa em Subtemas Específicos   │
 │ Nível 3: Pop-up de Rastreabilidade e Evidência Literal │
 │ Nível 4: Briefing Normativo Citado pelo Agente 2 (RAG)│
@@ -62,25 +62,27 @@ Inspirada nos cartões do ImpactBench, a faixa superior exibe:
 
 ---
 
-### 3.2 O Grid dos 6 Macrotemas Consolidados
-O corpo central exibe seis categorias consolidadas em cartões ou gráfico radial:
+### 3.2 O Grid dos 6 Temas Clínicos Padrão
+O corpo central exibe os **6 Temas** identificados pela Rede Neural MLP (com seus respectivos percentuais `%`) em formato de cartões visuais (*Cards*) ou gráfico radial (*Sunburst/Radar Chart*):
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                       PAINEL DOS 6 MACROTEMAS CONSOLIDADOS                        │
-├────────────────────────────┬────────────────────────────────────────────────────┤
-│ 🪞 Autoestima e Identidade │ 🤝 Relacionamentos e Família                       │
-├────────────────────────────┼────────────────────────────────────────────────────┤
-│ 💼 Trabalho, Estudos e Finanças │ 🌙 Saúde, Sono e Rotina                       │
-├────────────────────────────┼────────────────────────────────────────────────────┤
-│ 🕊️ Perdas, Luto e Rupturas │ ℹ️ Outros / Indeterminado                            │
-└────────────────────────────┴────────────────────────────────────────────────────┘
+│                           PAINEL DOS 6 TEMAS CLÍNICOS                           │
+├───────────────────────┬─────────────────────────┬───────────────────────────────┤
+│ 🪞 AUTOPERCEPÇÃO (68%)│ 🤝 VÍNCULOS (91%)       │ 💼 DESEMPENHO (84%)           │
+│ [2 registros | Culpa] │ [4 registros | Raiva]   │ [3 registros | Ansiedade]     │
+│ *Clique para expandir*│ *Clique para expandir*  │ *Clique para expandir*        │
+├───────────────────────┼─────────────────────────┼───────────────────────────────┤
+│ 🌙 FÍSICO (78%)       │ 🕊️ RUPTURAS (12%)       │ ℹ️ OUTROS (8%)                │
+│ [4 registros | Insônia]│ [0 registros na semana]│ [0 registros na semana]       │
+│ *Clique para expandir*│ *Clique para expandir*  │ *Clique para expandir*        │
+└───────────────────────┴─────────────────────────┴───────────────────────────────┘
 ```
 
 ---
 
 ### 3.3 A Interação de Expansão: Do Tema para os Subtemas
-Ao clicar em qualquer um dos cartões (por exemplo, no card **Família**):
+Ao clicar em qualquer um dos cartões (por exemplo, no card **Vínculos**):
 1. O cartão entra em estado selecionado com destaque cromático.
 2. Abre-se logo abaixo ou na lateral uma bandeja de **Subtemas** gerados pelo **Agente 1**:
    - Pílula 1: **`Irmão`** (2 menções | Sentimento: *Raiva/Frustração*)
@@ -95,7 +97,7 @@ Ao clicar na pílula **`Irmão`**, dispara-se o **Pop-up Modal de Evidência**, 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 🔍 Evidências Clínicas Ancoradas - Subtema: [ Irmão ]                            │
-│ Macrotema: Família (Rede Neural MLP - Confiança: 91%)                           │
+│ Tema: Vínculos (Rede Neural MLP + SBERT - Confiança: 91%)                       │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │ 📌 Ocorrência 1 de 2 • 05/11/2026 às 22:14 • 🎙️ Áudio de Voz (1m 24s)           │

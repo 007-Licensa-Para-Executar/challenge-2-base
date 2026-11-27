@@ -1,7 +1,9 @@
-"""Inferência temática de textos sintéticos e segmentação com trechos literais.
+"""Inferência temática de textos clínicos e segmentação com trechos literais.
 
-Os scores softmax são não calibrados. A fração de caracteres analisados por tema
-é uma medida separada e não representa intensidade ou relevância clínica.
+A distribuição softmax entre os 6 temas (autopercepcao, vinculos, desempenho,
+fisico, rupturas, outros) atribui percentuais cuja soma é 100%. A fração de
+caracteres analisados por tema em `destrinchar_diario` é uma medida separada
+baseada no comprimento dos segmentos classificados.
 """
 
 from __future__ import annotations
@@ -19,7 +21,9 @@ import numpy as np
 import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from data.taxonomy import SAFEGUARD_CLASS
 from models.embedder import ClinicalTextEmbedder
+from models.sbert_embedder import SBERTEmbedder
 from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 logger = logging.getLogger(__name__)
@@ -30,9 +34,28 @@ DEFAULT_VECTORIZER_PATH = Path("dist/theme_embedder.joblib")
 LEGACY_VECTORIZER_PATH = Path("dist/tfidf_vectorizer.joblib")
 
 
+def _infer_score_semantics(model: ClinicalThemeMLP) -> str:
+    temp_attr = getattr(model, "temperature", None)
+    if temp_attr is not None:
+        temp_val = float(temp_attr.detach().cpu().item())
+        if abs(temp_val - 1.0) > 1e-4:
+            return "temperature_scaled_softmax"
+    return "uncalibrated_softmax"
+
+
+def _infer_norm_type(state_dict: dict[str, torch.Tensor]) -> str:
+    if "bn1.running_mean" in state_dict:
+        return "batch_norm"
+    if "bn1.scale" in state_dict:
+        return "rms_norm"
+    if "bn1.weight" in state_dict:
+        return "layer_norm"
+    return "batch_norm"
+
+
 @dataclass
 class TopicDistribution:
-    """Scores softmax não calibrados; campos percentuais são scores vezes 100."""
+    """Distribuição de probabilidades e percentuais (0 a 100%) nos 6 temas."""
 
     primary_theme: str
     confidence: float
@@ -102,7 +125,7 @@ class ClinicalThemePredictor:
         model_path: str | Path | None = None,
         vectorizer_path: str | Path | None = None,
         model: ClinicalThemeMLP | None = None,
-        vectorizer: TfidfVectorizer | ClinicalTextEmbedder | None = None,
+        vectorizer: TfidfVectorizer | ClinicalTextEmbedder | SBERTEmbedder | None = None,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -114,7 +137,7 @@ class ClinicalThemePredictor:
                 v_path = Path(vectorizer_path)
                 if not v_path.exists():
                     raise FileNotFoundError(
-                        f"Vetorizador/Embedder TF-IDF não encontrado em '{v_path}'. "
+                        f"Vetorizador/Embedder não encontrado em '{v_path}'. "
                         "Execute 'python -m models.train' para treinar a rede."
                     )
             else:
@@ -124,7 +147,7 @@ class ClinicalThemePredictor:
                     v_path = LEGACY_VECTORIZER_PATH
                 else:
                     raise FileNotFoundError(
-                        f"Vetorizador/Embedder TF-IDF não encontrado em '{DEFAULT_EMBEDDER_PATH}'. "
+                        f"Vetorizador/Embedder não encontrado em '{DEFAULT_EMBEDDER_PATH}'. "
                         "Execute 'python -m models.train' para treinar a rede."
                     )
             self.vectorizer = joblib.load(v_path)
@@ -139,18 +162,35 @@ class ClinicalThemePredictor:
                     "Execute 'python -m models.train' para treinar a rede."
                 )
             state_dict = torch.load(m_path, map_location=self.device, weights_only=True)
-            # Reconstruct only layers actually stored; never invent random missing weights.
-            vocab_size = (state_dict["embedding_bag.weight"].shape[0]
-                          if "embedding_bag.weight" in state_dict else None)
-            input_dim = state_dict["fc1.weight"].shape[1]
-            norm_type = ("batch_norm" if "bn1.running_mean" in state_dict else
-                         "layer_norm" if "bn1.bias" in state_dict else
-                         "rms_norm" if "bn1.scale" in state_dict else "none")
+            vocab_size = None
+            if "embedding_bag.weight" in state_dict:
+                vocab_size = int(state_dict["embedding_bag.weight"].shape[0])
+                input_dim = int(state_dict["embedding_bag.weight"].shape[1])
+            elif "fc1.weight" in state_dict:
+                input_dim = int(state_dict["fc1.weight"].shape[1])
+            elif hasattr(self.vectorizer, "embedding_dim"):
+                input_dim = int(self.vectorizer.embedding_dim)
+            elif hasattr(self.vectorizer, "vocabulary_"):
+                input_dim = len(self.vectorizer.vocabulary_)
+            else:
+                input_dim = 384
+
+            hidden_dim1 = int(state_dict["fc1.weight"].shape[0]) if "fc1.weight" in state_dict else 128
+            hidden_dim2 = int(state_dict["fc2.weight"].shape[0]) if "fc2.weight" in state_dict else 64
+            num_classes = (
+                int(state_dict["fc3.weight"].shape[0])
+                if "fc3.weight" in state_dict
+                else len(THEME_CLASSES)
+            )
+            norm_type = _infer_norm_type(state_dict)
+
             self.model = ClinicalThemeMLP(
                 input_dim=input_dim,
-                hidden_dim1=state_dict["fc1.weight"].shape[0],
-                hidden_dim2=state_dict["fc2.weight"].shape[0],
-                num_classes=len(THEME_CLASSES), vocab_size=vocab_size, norm_type=norm_type,
+                hidden_dim1=hidden_dim1,
+                hidden_dim2=hidden_dim2,
+                num_classes=num_classes,
+                vocab_size=vocab_size,
+                norm_type=norm_type,  # type: ignore[arg-type]
             )
             # Older checkpoints predate temperature scaling (identity temperature).
             state_dict.setdefault("temperature", torch.ones(1))
@@ -158,56 +198,49 @@ class ClinicalThemePredictor:
             self.model.to(self.device)
 
         self.model.eval()
+        self.score_semantics = _infer_score_semantics(self.model)
 
-    def predict_text(self, text: str, threshold: float = 0.50) -> TopicDistribution:
-        """Classifica um tema; não estima participação dos temas no texto.
+    def _encode_texts(self, cleaned_texts: list[str]) -> np.ndarray:
+        if isinstance(self.vectorizer, (ClinicalTextEmbedder, SBERTEmbedder)):
+            features = self.vectorizer.transform(cleaned_texts, normalize=True)
+        else:
+            features = self.vectorizer.transform(cleaned_texts)
+            if hasattr(features, "toarray"):
+                features = features.toarray()
+        return np.asarray(features, dtype=np.float32)
 
-        ``confidence`` é o maior score do candidato antes da abstenção. Os campos
-        ``probabilities``/``percentages`` são mantidos por compatibilidade e não
-        comprovam calibração. Entrada vazia não aciona a rede.
-        """
-        if not 0.0 <= threshold <= 1.0:
-            raise ValueError("threshold deve estar entre 0 e 1")
-        cleaned = text.strip() if isinstance(text, str) else ""
-        if not cleaned:
-            return TopicDistribution(
-                primary_theme="outros_indeterminado",
-                confidence=0.0,
-                primary_percentage=0.0,
-                percentages={theme: 0.0 for theme in THEME_CLASSES},
-                probabilities={theme: 0.0 for theme in THEME_CLASSES},
-                ranking=[],
-                top_topics=[],
-                is_fallback=True,
-                candidate_theme=None,
-                abstention_reason="empty_input",
-            )
+    def _encode_text(self, cleaned_text: str) -> np.ndarray:
+        return self._encode_texts([cleaned_text])
 
-        features = (self.vectorizer.transform([cleaned], normalize=True)
-                    if isinstance(self.vectorizer, ClinicalTextEmbedder)
-                    else self.vectorizer.transform([cleaned]))
-        if hasattr(features, "toarray"):
-            features = features.toarray()
-        features = np.asarray(features, dtype=np.float32)
-        t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
+    def _empty_distribution(self, reason: str) -> TopicDistribution:
+        return TopicDistribution(
+            primary_theme=SAFEGUARD_CLASS,
+            confidence=0.0,
+            primary_percentage=0.0,
+            percentages={theme: 0.0 for theme in THEME_CLASSES},
+            probabilities={theme: 0.0 for theme in THEME_CLASSES},
+            ranking=[],
+            top_topics=[],
+            is_fallback=True,
+            candidate_theme=None,
+            abstention_reason=reason,
+            score_semantics=self.score_semantics,
+        )
 
-        with torch.no_grad():
-            probs_tensor = self.model.predict_proba(t_features)[0]
-            probs_np = probs_tensor.cpu().numpy()
-
+    def _build_distribution(self, probs_np: np.ndarray, threshold: float) -> TopicDistribution:
         probabilities = {THEME_CLASSES[i]: float(probs_np[i]) for i in range(len(THEME_CLASSES))}
         percentages = {
             THEME_CLASSES[i]: round(float(probs_np[i]) * 100.0, 2)
             for i in range(len(THEME_CLASSES))
         }
 
-        max_idx = int(torch.argmax(probs_tensor).item())
+        max_idx = int(np.argmax(probs_np))
         max_prob = float(probs_np[max_idx])
         predicted_theme = THEME_CLASSES[max_idx]
 
         is_fallback = max_prob < threshold
         if is_fallback:
-            primary_theme = "outros_indeterminado"
+            primary_theme = SAFEGUARD_CLASS
             confidence = max_prob
             primary_pct = percentages.get(primary_theme, 0.0)
         else:
@@ -242,11 +275,60 @@ class ClinicalThemePredictor:
             is_fallback=is_fallback,
             candidate_theme=predicted_theme,
             abstention_reason="below_threshold" if is_fallback else None,
+            score_semantics=self.score_semantics,
         )
 
+    def predict_text(self, text: str, threshold: float = 0.50) -> TopicDistribution:
+        """Classifica o diário entre os 6 temas e devolve percentuais (%).
+
+        ``confidence`` é o maior score do candidato antes da abstenção.
+        Quando ``confidence < threshold``, a decisão operacional recai em ``outros``.
+        Entrada vazia não aciona a rede.
+        """
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
+        cleaned = text.strip() if isinstance(text, str) else ""
+        if not cleaned or not re.search(r"[A-Za-zÀ-ÿ]", cleaned):
+            reason = "empty_input" if not cleaned else "non_textual_input"
+            return self._empty_distribution(reason)
+
+        features = self._encode_text(cleaned)
+        t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
+
+        with torch.no_grad():
+            probs_np = self.model.predict_proba(t_features)[0].cpu().numpy()
+
+        return self._build_distribution(probs_np, threshold=threshold)
+
     def predict_batch(self, texts: list[str], threshold: float = 0.50) -> list[TopicDistribution]:
-        """Executa a inferência vetorizada para um lote de relatos."""
-        return [self.predict_text(text, threshold=threshold) for text in texts]
+        """Executa a inferência vetorizada em lote para uma lista de relatos."""
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
+        if not texts:
+            return []
+
+        results: list[TopicDistribution | None] = [None] * len(texts)
+        valid_indices: list[int] = []
+        valid_texts: list[str] = []
+
+        for idx, text in enumerate(texts):
+            cleaned = text.strip() if isinstance(text, str) else ""
+            if not cleaned or not re.search(r"[A-Za-zÀ-ÿ]", cleaned):
+                reason = "empty_input" if not cleaned else "non_textual_input"
+                results[idx] = self._empty_distribution(reason)
+            else:
+                valid_indices.append(idx)
+                valid_texts.append(cleaned)
+
+        if valid_texts:
+            features = self._encode_texts(valid_texts)
+            t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
+            with torch.no_grad():
+                probs_batch = self.model.predict_proba(t_features).cpu().numpy()
+            for idx, probs_np in zip(valid_indices, probs_batch, strict=True):
+                results[idx] = self._build_distribution(probs_np, threshold=threshold)
+
+        return [r for r in results if r is not None]
 
     def destrinchar_diario(
         self,
@@ -270,7 +352,7 @@ class ClinicalThemePredictor:
         if not full_text.strip():
             return DiaryTopicBreakdown(
                 text=full_text,
-                global_theme="outros_indeterminado",
+                global_theme=SAFEGUARD_CLASS,
                 global_confidence=0.0,
                 theme_percentages=global_dist.percentages,
                 topic_weights={t: 0.0 for t in THEME_CLASSES},
@@ -283,9 +365,9 @@ class ClinicalThemePredictor:
                 coverage_ratio=0.0,
                 global_candidate_theme=global_dist.candidate_theme,
                 global_abstention_reason=global_dist.abstention_reason,
+                theme_score_semantics=self.score_semantics,
             )
 
-        # Decomposição do texto em sentenças mantendo índices de início e fim exatos
         sentence_pattern = re.compile(r"[^.!?\n]+(?:[.!?\n]+|$)")
         segments: list[DiaryTopicSegment] = []
         topic_char_counts: dict[str, int] = {theme: 0 for theme in THEME_CLASSES}
@@ -297,7 +379,6 @@ class ClinicalThemePredictor:
             if len(stripped_quote) < min_segment_chars:
                 continue
 
-            # Ajusta os índices para coincidir estritamente com a citação sem espaços excedentes
             leading_spaces = len(raw_quote) - len(raw_quote.lstrip())
             start_char = match.start() + leading_spaces
             end_char = start_char + len(stripped_quote)
@@ -315,6 +396,7 @@ class ClinicalThemePredictor:
                 candidate_theme=seg_dist.candidate_theme,
                 is_fallback=seg_dist.is_fallback,
                 abstention_reason=seg_dist.abstention_reason,
+                score_semantics=self.score_semantics,
             )
             segments.append(segment)
 
@@ -322,17 +404,14 @@ class ClinicalThemePredictor:
             topic_char_counts[seg_theme] = topic_char_counts.get(seg_theme, 0) + seg_len
             total_analyzed_chars += seg_len
 
-        # Calcula o peso percentual de cada tópico baseado no volume de texto discutido
         if total_analyzed_chars > 0:
             topic_weights = {
                 theme: round((topic_char_counts.get(theme, 0) / total_analyzed_chars) * 100.0, 2)
                 for theme in THEME_CLASSES
             }
         else:
-            # Sem segmento analisado, não há proporção textual para estimar.
             topic_weights = {theme: 0.0 for theme in THEME_CLASSES}
 
-        # Tópicos detectados com proporção relevante no relato (> 0%)
         detected = [
             theme
             for theme, weight in sorted(
@@ -341,7 +420,6 @@ class ClinicalThemePredictor:
             if weight > 0.0
         ]
 
-        # Resumo descritivo da contagem
         summary_parts = [
             f"{theme}: {weight:.1f}%"
             for theme, weight in sorted(
@@ -352,7 +430,7 @@ class ClinicalThemePredictor:
         resumo = (
             f"Tema preponderante global: {global_dist.primary_theme} "
             f"(score máximo do candidato: {global_dist.confidence:.4f}). "
-            f"Fração dos caracteres analisados por tema: " + ", ".join(summary_parts)
+            "Fração dos caracteres analisados por tema: " + ", ".join(summary_parts)
             if summary_parts
             else "Nenhum segmento atingiu o comprimento mínimo; pesos textuais indisponíveis."
         )
@@ -372,6 +450,7 @@ class ClinicalThemePredictor:
             coverage_ratio=total_analyzed_chars / len(full_text),
             global_candidate_theme=global_dist.candidate_theme,
             global_abstention_reason=global_dist.abstention_reason,
+            theme_score_semantics=self.score_semantics,
         )
 
 
@@ -403,6 +482,11 @@ def main() -> None:
         content = sys.stdin.read()
 
     predictor = ClinicalThemePredictor()
+    cal_label = (
+        "calibrado (temperature scaling)"
+        if predictor.score_semantics == "temperature_scaled_softmax"
+        else "não calibrado"
+    )
 
     if args.destrinchar:
         breakdown = predictor.destrinchar_diario(content)
@@ -415,7 +499,7 @@ def main() -> None:
             print(f"Resultado global da política: {breakdown.global_theme}")
             print(
                 f"Candidato global: {breakdown.global_candidate_theme}; "
-                f"score softmax não calibrado: {breakdown.global_confidence:.4f}; "
+                f"score softmax {cal_label}: {breakdown.global_confidence:.4f}; "
                 f"abstenção: {breakdown.global_abstention_reason}"
             )
             print(f"Resumo: {breakdown.summary}\n")
@@ -437,14 +521,14 @@ def main() -> None:
             print(json.dumps(dist.to_dict(), ensure_ascii=False, indent=2))
         else:
             print("=" * 60)
-            print("CLASSIFICACAO TEMATICA (SCORES SOFTMAX NAO CALIBRADOS)")
+            print(f"CLASSIFICACAO TEMATICA (SOFTMAX {cal_label.upper()})")
             print("=" * 60)
             print(f"Resultado da política: {dist.primary_theme}")
             print(
-                f"Candidato: {dist.candidate_theme} | Score softmax não calibrado: "
+                f"Candidato: {dist.candidate_theme} | Score softmax {cal_label}: "
                 f"{dist.confidence:.4f} | Abstenção: {dist.abstention_reason}\n"
             )
-            print("Ranking de scores por categoria (não é composição textual):")
+            print("Ranking de percentuais por tema:")
             for item in dist.ranking:
                 bar = "#" * int(item["percentual"] // 4)
                 print(f"  - {item['tema']:<22}: {item['percentual']:6.2f}%  {bar}")

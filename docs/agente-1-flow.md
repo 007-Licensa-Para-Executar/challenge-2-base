@@ -17,7 +17,7 @@ O Agente 1 tem como missão exclusiva a **compreensão semântica profunda dos d
 
 A saída do Agente 1 alimenta diretamente a **Roda de Bem-Estar** (Sunburst Chart concêntrico):
 1. **Centro (Núcleo):** O paciente (representado pelo Homem Vitruviano).
-2. **Anel Interno (Nível 1):** Os **seis macrotemas consolidados**, apresentados como agrupamento de rótulos operacionais mais específicos.
+2. **Anel Interno (Nível 1):** Os **6 Temas Clínicos** classificados em milissegundos pela Rede Neural MLP com embeddings **SBERT** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`), acompanhados de seus percentuais (`%`) após o recebimento do diário.
 3. **Anel Externo (Nível 2):** Os **Subtemas Específicos** identificados pelo Agente 1 a partir dos relatos (ex.: *Cobrança Paterna*, *Insônia Inicial*, *Sobrecarga de Metas*).
 4. **Teto de 24 Subtemas no Total:** A plataforma acomoda no máximo 24 subtemas ativos simultaneamente, distribuídos livremente entre os macrotemas de acordo com o que o paciente mais fala.
 5. **Comportamento Rotativo:** Subtemas entram, permanecem ou saem da roda conforme o paciente altera os assuntos de desabafo ao longo dos dias e semanas.
@@ -35,12 +35,12 @@ flowchart TD
         A["Diário do Paciente (Texto ou Áudio com Transcrição)"]
     end
 
-    subgraph CamadaNeural["2. Classificação Rápida (Rede Neural MLP)"]
-        B["ClinicalThemePredictor (Inferência &lt; 5ms)"]
-        C["Softmax: Distribuição dos rótulos temáticos operacionais"]
+    subgraph CamadaNeural["2. Classificação Rápida (SBERT + Rede Neural MLP)"]
+        B["ClinicalThemePredictor (SBERTEmbedder + MLP)"]
+        C["Softmax: Distribuição Percentual (%) dos 6 Temas"]
         D{"Confiança &gt;= 50%?"}
-        E["Macrotema Dominante (ex: 'familia', 95.7%)"]
-        F["Classe de Salvaguarda: 'outros_indeterminado'"]
+        E["Tema Identificado (ex: 'vinculos', 84.5%) + Percentuais (%)"]
+        F["Classe de Salvaguarda: 'outros'"]
         
         B --> C --> D
         D -- Sim --> E
@@ -74,7 +74,7 @@ flowchart TD
     end
 
     subgraph VisualizacaoPlataforma["6. Saída para o Psicólogo"]
-        R["Roda de Bem-Estar Sunburst (Centro: Vitruviano | Anel 1: 6 Macrotemas | Anel 2: até 24 Subtemas)"]
+        R["Roda de Bem-Estar Sunburst (Centro: Vitruviano | Anel 1: 6 Temas | Anel 2: até 24 Subtemas)"]
         S["Cores dos Arcos: Gradiente Vermelho (Sofrimento) a Verde (Florescimento)"]
         T["Histórico Longitudinal: Comparativo Semanal e Mensal (Persistentes, Emergentes, Rotacionados)"]
         
@@ -102,7 +102,7 @@ Inspirada no modelo concêntrico do **MIT ImpactBench** e na tradição humanist
                                 │   SUBTEMAS ESPECÍFICOS  │
                                 │   (Anel Externo - N2)   │
                                 ├─────────────────────────┤
-                                │   6 MACROTEMAS CONSOLIDADOS │
+                                │   6 TEMAS CLÍNICOS      │
                                 │   (Anel Interno - N1)   │
                                 ├─────────────────────────┤
                                 │  PACIENTE / VITRUVIANO  │
@@ -114,21 +114,18 @@ Inspirada no modelo concêntrico do **MIT ImpactBench** e na tradição humanist
 * Representa o paciente em sua integridade bio-psico-social.
 * Ponto de ancoragem para a navegação do psicólogo.
 
-### 3.2. Nível 1: Anel Interno (Seis Macrotemas Consolidados)
-O primeiro anel representa a taxonomia consolidada:
-1. Autoestima e Identidade
-2. Relacionamentos e Família
-3. Trabalho, Estudos e Finanças
-4. Saúde, Sono e Rotina
-5. Perdas, Luto e Rupturas
-6. Outros / Indeterminado
-
-Os rótulos operacionais atuais podem ser agrupados nesses macrotemas. O mapeamento
-exato e a validação de interface permanecem pendentes.
+### 3.2. Nível 1: Anel Interno (Os 6 Temas Clínicos da Rede Neural)
+Os setores fixos do primeiro anel correspondem aos temas definidos em `data/taxonomy.py`, identificados com percentuais (`%`) pela Rede Neural (SBERT + MLP):
+1. `autopercepcao` (**Autopercepção**): autoestima, identidade, imagem corporal e sensação de incapacidade ou inadequação.
+2. `vinculos` (**Vínculos**): relacionamentos amorosos, amizades, família, términos, traições e separações.
+3. `desempenho` (**Desempenho**): trabalho, estudos e finanças (cobranças, metas, provas, dívidas).
+4. `fisico` (**Físico**): saúde física e mental em sintomas, sono, tratamento médico, dores e sonhos.
+5. `rupturas` (**Rupturas**): perdas por morte e luto.
+6. `outros` (**Outros**): sem tema clínico claro, relato neutro ou classe de salvaguarda por abstenção.
 
 ### 3.3. Nível 2: Anel Externo (Até 24 Subtemas Ativos)
 * **Ponderação por Fala:** A largura do arco é diretamente proporcional à quantidade de vezes e à intensidade com que o paciente falou sobre o assunto.
-* **Alocação Dinâmica:** Se o paciente desabafar reiteradamente sobre o trabalho e a família nesta semana, o macrotema `trabalho` pode ter **7 subtemas** e `familia` pode ter **6**, enquanto `luto` ou `financas` podem ter **0 subtemas** na borda externa.
+* **Alocação Dinâmica:** Se o paciente desabafar reiteradamente sobre desempenho e vínculos nesta semana, o tema `desempenho` pode ter **7 subtemas** e `vinculos` pode ter **6**, enquanto `rupturas` ou `fisico` podem ter **0 subtemas** na borda externa.
 * **Gradiente Afetivo (Cores dos Arcos):**
   * **Vermelho Forte (`#E53935`):** Sofrimento agudo, angústia, raiva, desespero (polaridade $\le -0.6$).
   * **Coral / Vermelho Claro (`#E57373`):** Preocupação, frustração moderada (polaridade entre $-0.6$ e $-0.25$).
@@ -169,7 +166,7 @@ stateDiagram-v2
 A implementação reside no pacote [`agents/extractor/`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor):
 
 ### 5.1. Contratos de Dados ([`agents/extractor/contracts.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py))
-* [`MacroTema`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L16): Enum atual com rótulos operacionais granulares e classes de salvaguarda; o agrupamento consolidado ainda precisa ser aplicado à interface.
+* [`MacroTema`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L16): Enum com os temas clínicos da taxonomia (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`).
 * [`EvidenceSpan`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L116): Citação literal, índices de caractere (`start_char`, `end_char`) e carimbos de áudio (`audio_start_sec`, `audio_end_sec`).
 * [`SubTemaItem`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L131): Nome do subtema, contextualização e lista de evidências literais.
 * [`Agent1Output`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/agents/extractor/contracts.py#L168): Envelope completo da extração de cada diário.
@@ -214,10 +211,9 @@ for macro in wheel.macrotemas:
 **Resultado Produzido:**
 ```
 Total de Subtemas Ativos na Roda: 5 (máx 24)
-- Família: ['Cobrança Paterna'] | Polaridade: -0.65 (Vermelho)
-- Estudos: ['Pressão de Provas', 'Medo de Reprovação'] | Polaridade: -0.58 (Coral)
-- Relacionamentos: ['Solidão e Isolamento'] | Polaridade: -0.40 (Coral)
-- Saúde & Sono: ['Caminhada Restaurativa'] | Polaridade: +0.50 (Verde)
+- Vínculos: ['Cobrança Paterna', 'Solidão e Isolamento'] | Polaridade: -0.53 (Coral)
+- Desempenho: ['Pressão de Provas', 'Medo de Reprovação'] | Polaridade: -0.58 (Coral)
+- Físico: ['Caminhada Restaurativa'] | Polaridade: +0.50 (Verde)
 ```
 
 **Comparativo Longitudinal (Semana 2 vs. Semana 1):**

@@ -22,6 +22,7 @@ from agents.extractor.contracts import MAX_INPUT_BYTES, ProcessingResult
 from app.contracts import COMMANDS, Arguments, Proposal
 from app.history import read_history
 from app.processes import ROOT, run_module
+from app.rag_shell import RagMenu
 from app.router import installed_models
 
 
@@ -57,7 +58,7 @@ def bindings():
         # A abertura explícita deve ser a única tarefa de completamento inicial.
         buffer.insert_text("/", fire_event=not initial)
         if initial:
-            buffer.start_completion(select_first=True)
+            buffer.start_completion()
 
     @keys.add("tab")
     def tab(event):
@@ -90,7 +91,7 @@ def bindings():
     return keys
 
 
-class Shell:
+class Shell(RagMenu):
     def __init__(self, settings=None, *, session=None, write=print, runner=run_module):
         self.settings = settings or Settings.from_env()
         db = Path(self.settings.db_path).expanduser()
@@ -106,6 +107,7 @@ class Shell:
         self.write_raw = write
         self.runner = runner
         self.synthetic = False
+        self.privacy_mode = False
         self.running = True
         self.last_progress = 0.0
 
@@ -310,6 +312,9 @@ class Shell:
 
     def execute(self, proposal, *, natural=False):
         tool = proposal.ferramenta
+        if self.privacy_mode and tool in {"extrair", "historico"}:
+            self.say("Para trabalhar na base tratada, use /rag.")
+            return
         if tool == "esclarecer":
             self.say("Pedido ambíguo ou não permitido. Escolha uma ação por vez; use /ajuda.")
             return
@@ -336,6 +341,8 @@ class Shell:
             self.session.app.output.erase_screen()
             self.session.app.output.cursor_goto(0, 0)
             self.session.app.output.flush()
+        elif tool == "rag":
+            self.rag(proposal, natural=natural)
         elif tool == "extrair":
             self.extract(proposal)
         elif tool == "historico":
@@ -346,9 +353,7 @@ class Shell:
             self.configure(proposal)
         elif tool == "avaliar":
             self.evaluate(proposal)
-        elif tool == "testes" and self.propose(
-            proposal, {"execucao": "python -m pytest -q"}
-        ):
+        elif tool == "testes" and self.propose(proposal, {"execucao": "python -m pytest -q"}):
             result = self.process("pytest", ["-q"])
             self.say(result.stdout)
             self.say(result.stderr)
@@ -368,6 +373,9 @@ class Shell:
             self.synthetic = self.confirm("Confirma usar exclusivamente dados sintéticos nesta sessão?")
             if not self.synthetic:
                 return
+        if self.privacy_mode:
+            self.say("No modo protegido, use comandos com barra. Abra /rag para consultar.")
+            return
         result = self.process("app.router", [self.router_model, str(self.router_timeout)],
                               text=text, timeout=self.router_timeout)
         if result.code:
@@ -406,12 +414,15 @@ class Shell:
 
 def main():
     parser = argparse.ArgumentParser(description="Shell local para desenvolvimento com dados sintéticos")
-    parser.parse_args()
+    parser.add_argument("--privacy", action="store_true", help="Usar RAG com API de pseudonimização")
+    args = parser.parse_args()
     if not sys.stdin.isatty():
         print("Abra um terminal interativo e execute: uv run bem-estar", file=sys.stderr)
         return 2
     try:
-        return Shell().run()
+        shell = Shell()
+        shell.privacy_mode = args.privacy
+        return shell.run()
     except ValueError:
         print("Configuração inválida. Consulte .env.example.", file=sys.stderr)
         return 2

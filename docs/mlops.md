@@ -51,6 +51,7 @@ A rede classifica o campo `expected.sentimento` dos relatos sintéticos. Ela nã
 - [`mlops/plots.py`](../mlops/plots.py): matriz de confusão.
 
 O resultado da promoção fica na tag `promoted` e na métrica `promoted`. Ele não entra como hiperparâmetro.
+A promoção é apenas um gate de engenharia sobre sentimento sintético; não autoriza uso clínico, inferência em pacientes reais ou substituição da revisão profissional.
 
 ---
 

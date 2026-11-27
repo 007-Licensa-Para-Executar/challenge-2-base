@@ -22,7 +22,7 @@ flowchart TD
 
     subgraph DUO["2. Dualidade de Modelagem"]
         EMB --> NUMPY["NumpyClinicalMLP (NumPy Puro do Zero)"]
-        EMB --> TORCH["ClinicalThemeMLP (PyTorch de Produção)"]
+        EMB --> TORCH["ClinicalThemeMLP (implementação PyTorch)"]
     end
 
     subgraph CORE["3. Arquitetura Neural"]
@@ -49,7 +49,7 @@ flowchart TD
 
 ## 1. Fundamentos Matemáticos e Formulação Teórica
 
-A rede neural desenvolvida é um **Perceptron Multicamadas (MLP - Multi-Layer Perceptron)** operando como um mapeador não linear $f: \mathbb{R}^d \to \mathbb{R}^K$, onde $d = 384$ é a dimensionalidade padrão dos embeddings de sentença **SBERT** e $K = 6$ representa a taxonomia única definida em [`data/taxonomy.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/data/taxonomy.py):
+A rede neural desenvolvida é um **Perceptron Multicamadas (MLP - Multi-Layer Perceptron)** operando como um mapeador não linear $f: \mathbb{R}^d \to \mathbb{R}^K$, onde $d = 384$ é a dimensionalidade padrão dos embeddings de sentença **SBERT** e $K = 6$ representa a taxonomia única definida em [`data/taxonomy.py`](../data/taxonomy.py):
 
 1. `autopercepcao` (**Autopercepção**)
 2. `vinculos` (**Vínculos**)
@@ -191,11 +191,11 @@ $$\text{Classe Final} =
 \end{cases}$$
 
 ### 5.2. Calibração de Probabilidades via Temperature Scaling (Guo et al., 2017)
-Para tornar os percentuais exibidos pela rede (`predict_percentages`) mais confiáveis, aplicamos **Temperature Scaling**:
+Para tornar os percentuais exibidos pela rede (`predict_percentages`) mais bem calibrados em validação, aplicamos **Temperature Scaling**:
 
 $$\hat{p}_k = \frac{\exp(z_k / T)}{\sum_{j=1}^6 \exp(z_j / T)}$$
 
-O hiperparâmetro escalar $T > 0$ é ajustado sobre os logits do conjunto de validação minimizando a Entropia Cruzada via L-BFGS sem alterar a acurácia das predições ($T$ preserva a ordenação dos logits).
+O hiperparâmetro escalar $T > 0$ é ajustado sobre os logits do conjunto de validação minimizando a Entropia Cruzada via L-BFGS sem alterar a acurácia das predições ($T$ é monotônico com relação à ordem dos logits). Essa calibração não substitui validação clínica em uso real.
 
 ### 5.3. Identificação Temática, Percentuais (`%`) e Segmentação Literal ([`models/predictor.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/predictor.py))
 Ao receber o diário:

@@ -1,0 +1,25 @@
+name: diario-ficticio
+
+services:
+  diario:
+    build:
+      context: ..
+      dockerfile: compartilha/Dockerfile
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      DIARY_BIND: "0.0.0.0"
+      DIARY_ROOT: /data
+      DIARY_MODEL_DIR: /models/faster-whisper-small
+      HF_HUB_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - diary-data:/data
+      - type: bind
+        source: ${DIARY_MODEL_DIR:?Defina DIARY_MODEL_DIR}
+        target: /models/faster-whisper-small
+        read_only: true
+
+volumes:
+  diary-data:

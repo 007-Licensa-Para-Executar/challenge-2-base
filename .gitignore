@@ -37,6 +37,7 @@ __pycache__/
 # Build, empacotamento e cobertura gerados.
 build/
 dist/
+compartilha/pacote/
 wheels/
 *.egg-info/
 *.egg
@@ -79,6 +80,7 @@ htmlcov/
 !/data/synthetic_generator.py
 !/data/split.py
 !/data/fetch_real_dataset.py
+!/data/fetch_goemotions.py
 !/data/real_diaries.json
 !/data/synthetic/
 /data/synthetic/*

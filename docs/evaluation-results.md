@@ -1,5 +1,10 @@
 # Estado da avaliação real - 26/10/2026
 
+> **Snapshot histórico:** este arquivo registra verificações observadas nessa
+> data. Não substitui a metodologia em [evaluation-method.md](evaluation-method.md)
+> nem representa o estado atual das versões posteriores. Consulte o manifesto e
+> os arquivos incrementais locais antes de reutilizar qualquer número.
+
 ## Verificações concluídas
 
 - Python 3.12 e dependências fixadas por uv.lock.

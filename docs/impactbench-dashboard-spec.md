@@ -1,5 +1,9 @@
 # 10 - Especificação da Interface do Psicólogo e UX Inspirada no MIT ImpactBench
 
+> **Estado da especificação:** esta página define a interface pretendida.
+> A implementação visual ainda não existe no repositório. Trechos de UI, dados e
+> gráficos abaixo são exemplos de produto, não resultados atuais.
+
 ## 1. Visão Geral da Interface e Filosofia de Design
 
 A interface da nossa ferramenta foi concebida para atender à necessidade expressa de aproximar a experiência visual e analítica daquela consolidada na plataforma **MIT ImpactBench (`impactbench.media.mit.edu/explore`)**.
@@ -11,8 +15,8 @@ No ImpactBench, os avaliadores navegam em múltiplos níveis concêntricos:
 
 Transpondo essa filosofia para o consultório de psicologia:
 - O paciente desabafa no seu **Diário Multimodal** (texto, áudio ou foto) ao longo da semana.
-- A **Rede Neural MLP (com SBERT)** e os **Agentes Especializados** processam os relatos em segundo plano, identificando e atribuindo percentuais (`%`) aos **6 Temas Clínicos**.
-- O psicólogo abre a tela do paciente no **Dashboard Clínico (`/explore`)**, visualiza os **6 Temas Clínicos** (`Autopercepção`, `Vínculos`, `Desempenho`, `Físico`, `Rupturas`, `Outros`), clica no tema desejado para desdobrar os **Subtemas** e, ao clicar em qualquer subtema, abre um **Modal Pop-up de Evidência Literal**, com os trechos exatos de texto ou gravações de áudio com carimbos de tempo.
+- A **Rede Neural MLP (com SBERT)** e os dois agentes locais processam os relatos em segundo plano, identificando e atribuindo percentuais (`%`) aos **6 Temas Clínicos**.
+- O psicólogo abre a tela do paciente no **Dashboard Clínico (`/explore`)**, visualiza os **6 Temas Clínicos** (`Autopercepção`, `Vínculos`, `Desempenho`, `Físico`, `Rupturas`, `Outros`), clica no tema desejado para desdobrar os **Subtemas** e, ao clicar em qualquer subtema, abre um painel de evidência literal.
 
 ---
 
@@ -40,7 +44,7 @@ Transpondo essa filosofia para o consultório de psicologia:
 │ Nível 1: Visão Panorâmica & 6 Temas Clínicos Padrão   │
 │ Nível 2: Expansão Interativa em Subtemas Específicos   │
 │ Nível 3: Pop-up de Rastreabilidade e Evidência Literal │
-│ Nível 4: Apoio Teórico de Diretrizes Clínicas (RAG)    │
+│ Nível 4: Briefing Normativo Citado pelo Agente 2 (RAG)│
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -53,7 +57,7 @@ Inspirada nos cartões do ImpactBench, a faixa superior exibe:
 - **Identificação Pseudonimizada:** Paciente `#PAC-8419` | Última consulta: 02/11/2026.
 - **Seletor de Janela Temporal:** [Últimos 7 dias (Padrão)] | [Últimos 14 dias] | [Últimos 30 dias].
 - **Frequência de Registros:** 6 desabafos registrados (4 textos, 2 áudios).
-- **Termômetro Afetivo Longitudinal:** Proporção de sentimentos na semana (ex: 55% Frustração/Raiva, 30% Preocupação, 15% Calma).
+- **Resumo Afetivo da Janela:** Frequências ou combinações de sentimentos observadas no período.
 - **Card de Risco Sintático:** Status descritivo com sinalizador (Verde: *Sem termos de alerta* | Âmbar: *Indício textual de desespero/desesperança para averiguação em sessão*).
 
 ---
@@ -118,14 +122,12 @@ Ao clicar na pílula **`Irmão`**, dispara-se o **Pop-up Modal de Evidência**, 
 │   "Tive que cancelar meus estudos para cobrir o turno do meu irmão de novo."   │
 │                                                                                 │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│ 💡 SUBSÍDIO CLÍNICO DO COPILOTO (AGENTE 3 - RAG DE DIRETRIZES TCC):             │
+│ 💡 BRIEFING DO AGENTE 2 (RAG EM FONTES AUTORIZADAS):                           │
 │                                                                                 │
-│   "Protocolos de TCC para estabelecimento de limites e assertividade            │
-│   interpessoal sugerem investigar em sessão:                                    │
-│   1. Quais crenças centrais são ativadas quando o paciente se sente             │
-│      desrespeitado? [Beck, 2021, Cap. 7 - Crenças Intermediárias]              │
-│   2. Treino de comunicação assertiva DEAR MAN para negociação familiar         │
-│      [Linehan, 2015, Treinamento de Habilidades em DBT]."                      │
+│   "O sistema apresenta somente fontes encontradas e citações verificáveis.       │
+│   Exemplo: técnicas de limites podem ser apresentadas como referência           │
+│   normativa, nunca como diagnóstico ou prescrição ao paciente.                   │
+│   [Documento autorizado, seção]."                                               │
 │                                                                                 │
 │ ┌─────────────────────────────────────────────────────────────────────────────┐ │
 │ │ [ Fechar Pop-up ]                      [ Anotar na Pauta da Sessão ]        │ │

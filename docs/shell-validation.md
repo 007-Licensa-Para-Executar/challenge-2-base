@@ -1,6 +1,10 @@
 # Shell interativo: validação e limites
 
-Implementação de 28/10/2026, Python 3.12. Execução: `uv run bem-estar`.
+> **Snapshot operacional de 28/10/2026:** os resultados abaixo correspondem à
+> implementação e ao ambiente daquela data. Python 3.12 continua sendo o
+> contexto esperado, mas novas versões devem repetir as verificações.
+
+Execução: `uv run bem-estar`.
 O shell é uma bancada de desenvolvimento com dados sintéticos.
 
 ## Arquitetura

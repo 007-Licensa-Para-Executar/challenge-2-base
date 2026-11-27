@@ -1,6 +1,8 @@
 # Infraestrutura inicial
 
-Verificação em 22/10/2026.
+> **Snapshot de 22/10/2026:** este documento registra uma verificação histórica
+> da organização e da branch. Consulte o estado atual do repositório e o GitHub
+> antes de tratar proteção de branch, CI, equipe ou permissões como concluídas.
 
 ## Preparado
 

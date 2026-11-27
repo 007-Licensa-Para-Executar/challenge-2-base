@@ -77,7 +77,7 @@ def test_closed_schema():
 
 def test_completer_only_main_slash():
     completer = CommandCompleter()
-    assert len(list(completer.get_completions(Document("/"), None))) == 10
+    assert len(list(completer.get_completions(Document("/"), None))) == 11
     assert [c.text for c in completer.get_completions(Document("/ext"), None)] == ["/extrair"]
     assert not list(completer.get_completions(Document("meu /relato"), None))
     assert not list(completer.get_completions(Document("/extrair argumento"), None))
@@ -290,12 +290,14 @@ def test_subprocess_unicode_crlf_path(tmp_path):
     assert json.loads(result.stdout)["status"] == "error"
 
 
-def test_initial_slash_starts_only_one_completion_request():
+def test_initial_slash_opens_menu_without_inserting_a_command():
     import asyncio
 
     async def check():
         with create_pipe_input() as pipe:
-            session = PromptSession(input=pipe, output=DummyOutput(), key_bindings=bindings())
+            session = PromptSession(
+                input=pipe, output=DummyOutput(), key_bindings=bindings(), complete_while_typing=True,
+            )
             buffer = session.default_buffer
             original = buffer._async_completer
             completed = asyncio.Event()
@@ -313,9 +315,11 @@ def test_initial_slash_starts_only_one_completion_request():
             pipe.send_text("/")
             await asyncio.wait_for(completed.wait(), 3)
             assert len(requests) == 1
-            assert requests[0]["select_first"] is True
-            pipe.send_text("\n")
-            assert await asyncio.wait_for(task, 3) == "/ajuda"
+            assert buffer.text == "/"
+            assert buffer.complete_state is not None
+            assert buffer.complete_state.current_completion is None
+            pipe.send_text("rag\n")
+            assert await asyncio.wait_for(task, 3) == "/rag"
 
     asyncio.run(check())
 
@@ -333,7 +337,7 @@ def test_menu_arrows_enter_and_escape():
                 if session.default_buffer.complete_state:
                     break
             state = session.default_buffer.complete_state
-            assert state is not None and len(state.completions) == 10
+            assert state is not None and len(state.completions) == 11
             pipe.send_text("\x1b[B")
             await asyncio.sleep(0.05)
             first = session.default_buffer.complete_state.current_completion.text

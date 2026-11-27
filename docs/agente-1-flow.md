@@ -1,5 +1,12 @@
 # Fluxo de Processamento do Agente 1 (Decomposição Temática e Roda de Bem-Estar)
 
+> Para o caminho executável que usa dados tratados, consulte a [integração da API HTTP interna](api-local-pseudonimizacao.md).
+
+> **Nota de alinhamento v2.1:** o código atual usa rótulos operacionais granulares.
+> Na taxonomia consolidada, eles são apresentados em seis macrotemas. O teto de 24
+> subtemas é uma proposta de visualização e ainda não constitui uma decisão clínica
+> ou uma capacidade comprovada.
+
 Este documento descreve detalhadamente o fluxo de funcionamento do **Agente 1 (Decompositor Temático e Extrator de Evidências)**, sua integração com a **Rede Neural MLP** e o motor da **Roda de Bem-Estar (Sunburst Chart)**, modelado para fornecer ao psicólogo uma plataforma visual hierárquica, dinâmica e longitudinal.
 
 ---
@@ -14,7 +21,7 @@ A saída do Agente 1 alimenta diretamente a **Roda de Bem-Estar** (Sunburst Char
 3. **Anel Externo (Nível 2):** Os **Subtemas Específicos** identificados pelo Agente 1 a partir dos relatos (ex.: *Cobrança Paterna*, *Insônia Inicial*, *Sobrecarga de Metas*).
 4. **Teto de 24 Subtemas no Total:** A plataforma acomoda no máximo 24 subtemas ativos simultaneamente, distribuídos livremente entre os macrotemas de acordo com o que o paciente mais fala.
 5. **Comportamento Rotativo:** Subtemas entram, permanecem ou saem da roda conforme o paciente altera os assuntos de desabafo ao longo dos dias e semanas.
-6. **Histórico Longitudinal:** Análise comparativa semanal e mensal permitindo ao psicólogo inspecionar a persistência, o surgimento ou a resolução de tópicos e a evolução da polaridade afetiva (vermelho a verde).
+6. **Histórico Longitudinal:** A comparação semanal ou mensal permite inspecionar persistência, surgimento e retirada de menções, sem inferir resolução ou evolução clínica da polaridade.
 
 ---
 
@@ -149,8 +156,8 @@ stateDiagram-v2
 | :--- | :--- | :--- |
 | **Subtemas Persistentes** | Presentes tanto no período anterior quanto no atual. | Indicam **focos crônicos de atenção** ou tópicos nucleares da queixa do paciente (ex.: *Insônia* há 4 semanas). |
 | **Subtemas Emergentes (Novos)** | Não existiam no período anterior e entraram no Top-24 atual. | Novos acontecimentos de vida, **gatilhos recentes** ou novas áreas exploradas pelo paciente. |
-| **Subtemas Rotacionados (Esquecidos)** | Estavam ativos no período anterior e saíram da roda atual. | Pode representar **resolução do conflito**, alívio de sintomas ou **esquiva cognitiva**. |
-| **Variação da Polaridade ($\Delta$ Sentimento)** | O subtema permaneceu ativo, mas mudou de tom afetivo. | Mensuração objetiva de melhora (ex.: *Insônia* mudando de vermelho para verde após higiene do sono). |
+| **Subtemas Rotacionados (Sem menção no período atual)** | Estavam ativos no período anterior e não aparecem no conjunto atual. | Indica ausência de menção no recorte observado; não permite concluir resolução, alívio ou esquiva. |
+| **Variação da Polaridade ($\Delta$ Sentimento)** | O subtema permaneceu ativo, mas mudou de tom afetivo. | Descreve mudança observada na entrada; não demonstra melhora clínica ou efeito de uma intervenção. |
 
 ---
 

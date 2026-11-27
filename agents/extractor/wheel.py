@@ -144,6 +144,7 @@ class SubtopicWheelTracker:
         ("financas", "Finanças"),
         ("luto", "Luto"),
         ("autoestima", "Autoestima"),
+        ("outros_indeterminado", "Outros / Indeterminado"),
     ]
 
     def __init__(self, max_total_subtemas: int = 24) -> None:
@@ -230,7 +231,6 @@ class SubtopicWheelTracker:
             if uses_legacy_only
             else [(c, CLASS_LABELS_PT[c]) for c in CLASSES]
         )
-
         macro_nodes: list[MacrotopicNode] = []
         for macro_code, macro_label in theme_specs:
             subs = macro_to_subs.get(macro_code, [])

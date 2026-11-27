@@ -2,17 +2,16 @@
 
 ## 1. Visão Geral da Colaboração Multiagente
 
-Para cumprir com rigor as restrições do projeto (**Requisito 1: Pelo menos 2 agentes que trabalhem juntos** e **Requisito 5: Utilizar API por meio dos agentes**), o sistema adota um pipeline colaborativo com especialização estrita de papéis. Em vez de delegar todas as tarefas a um único modelo genérico, três agentes com contratos de dados definidos e validados por Pydantic cooperam em etapas sequenciais e cíclicas.
+Para cumprir com rigor as restrições do projeto (**Requisito 1: Pelo menos 2 agentes que trabalhem juntos** e **Requisito 5: Utilizar API por meio dos agentes**), o sistema adota dois agentes locais com especialização estrita e contratos validados por Pydantic. O Agente 1 estrutura cada relato; o Agente 2 agrega janelas temporais e consulta a base normativa autorizada. Cálculos, persistência e validações críticos permanecem determinísticos.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Paciente
     participant DL as Rede Neural MLP
-    participant Ag1 as Agente 1 (Decompositor & Evidências)
+    participant Ag1 as Agente 1 (Extrator & Evidências)
     participant Store as Repositório Clínico (SQLite / Vetorial)
-    participant Ag2 as Agente 2 (Correlacionador Longitudinal)
-    participant Ag3 as Agente 3 (RAG & Copiloto Clínico)
+    participant Ag2 as Agente 2 (Analista Longitudinal & Copiloto RAG)
     actor Psicologo as Psicólogo (Dashboard)
 
     Paciente->>DL: Envia relato do diário (Texto/Áudio transcrito)
@@ -20,21 +19,18 @@ sequenceDiagram
     Ag1->>Ag1: Extrai Subtemas ("Irmão", "Pai") e Trechos Literais Exatos
     Ag1->>Store: Persiste Metadados Estruturados e Spans de Evidência
     
-    Psicologo->>Ag2: Solicita panorama da semana / mês do paciente
+    Psicologo->>Ag2: Solicita panorama, tarefas ou briefing normativo
     Ag2->>Store: Recupera histórico longitudinal de registros
-    Ag2->>Ag2: Identifica padrões, gatilhos recorrentes e correlações afetivas
-    Ag2-->>Psicologo: Alimenta Dashboard com Métricas e Nós Interativos
-    
-    Psicologo->>Ag3: Clica em Subtema ou solicita subsídio terapêutico
-    Ag3->>Store: Consulta Base de Conhecimento Clínico (RAG - TCC / Beck)
-    Ag3-->>Psicologo: Retorna Diretrizes Clínicas citadas e sugestões de pauta
+    Ag2->>Ag2: Identifica frequências, coocorrências e sequência temporal
+    Ag2->>Store: Consulta fontes normativas autorizadas
+    Ag2-->>Psicologo: Retorna síntese factual ou briefing citado e revisável
 ```
 
 ---
 
 ## 2. Especificação Detalhada dos Agentes
 
-### Agente 1: Decompositor Temático e Extrator de Evidências Literais
+### Agente 1: Extrator Temático e Evidências Literais
 * **Papel:** Transformar a entrada não estruturada e a previsão macrotemática da Rede Neural em representações clínicas granulares ancoradas em evidências do texto.
 * **Entradas:** 
   - Texto higienizado do diário (máx. 2.400 caracteres UTF-8).
@@ -48,31 +44,19 @@ sequenceDiagram
 * **Saídas:** Esquema JSON estrito validado por Pydantic (`ExtractionEnvelope`).
 * **Chamadas de API:** API local Ollama (modelos Qwen 2.5 / Gemma 2 via endpoints estruturados) ou modelo compatível via HTTP REST.
 
-### Agente 2: Correlacionador Longitudinal e Analista de Padrões
-* **Papel:** Agregar o histórico de múltiplos relatos de um mesmo paciente ao longo de semanas/meses para identificar correlações clínicas e evolução temporal.
+### Agente 2: Analista Longitudinal e Copiloto RAG
+* **Papel:** Agregar o histórico autorizado de um paciente, calcular frequências em janelas temporais e recuperar fontes normativas com citações verificáveis.
 * **Entradas:**
   - Identificador único do paciente (`patient_id`).
   - Janela temporal selecionada (ex: últimos 7, 14 ou 30 dias).
   - Coleção de `ExtractionEnvelope` armazenados no banco de dados.
 * **Tarefas Internas:**
-  1. **Agrupamento e Co-ocorrência:** Mapear a frequência de cada subtema e sua correlação com variações de sentimentos (ex: *"O subtema 'Irmão' surge sempre associado ao sentimento 'Raiva' e coincide com quedas na qualidade do 'Sono'"*).
-  2. **Detecção de Trajetória Afetiva:** Calcular tendências de melhora ou agravamento de humor em relação a semanas anteriores (inspirado nas dimensões psicológicas do MIT ImpactBench).
-  3. **Mapeamento de Recursos Protetivos vs. Gatilhos de Vulnerabilidade:** Separar momentos em que o paciente relatou superação, suporte social e sentimentos positivos daqueles marcados por estresse agudo.
-* **Saídas:** Esquema estruturado `LongitudinalSynthesis` consumido diretamente pelos gráficos e cartões do Dashboard do psicólogo.
-* **Colaboração:** Consome diretamente os dados gerados pelo Agente 1 e entrega dados sumarizados para o Agente 3 e para a interface visual.
-
-### Agente 3: Copiloto Clínico & Especialista RAG em Diretrizes
-* **Papel:** Consultar acervos clínicos validados (TCC, diretrizes da APA, protocolos de regulação emocional) para subsidiar o psicólogo com hipóteses e perguntas reflexivas para a sessão.
-* **Entradas:**
-  - Subtema selecionado pelo psicólogo no painel ou síntese longitudinal gerada pelo Agente 2.
-  - Base de Conhecimento Clínico (recuperação híbrida via banco vetorial e BM25).
-* **Tarefas Internas:**
-  1. **Recuperação Contextual:** Buscar na literatura técnica autorizada protocolos pertinentes ao subtema e à dinâmica emocional identificada (ex: técnicas de reestruturação cognitiva para desentendimentos familiares).
-  2. **Elaboração de Perguntas Investigativas:** Formular de 2 a 4 sugestões de perguntas abertas que o psicólogo pode usar em sessão para aprofundar o relato trazido pelo diário.
-  3. **Explicabilidade por Citações Mandatórias:** Toda recomendação teórica deve vir acompanhada pelo identificador da fonte clínica (`[Doc_ID]`, capítulo/página e título).
-  4. **Regra de Abstenção Total:** Caso o subtema não tenha literatura clínica indexada na base do sistema, o agente deve declarar explicitamente sua insuficiência de dados.
-* **Saídas:** Relatório estruturado `ClinicalGuidelineBriefing` exibido na aba de apoio do psicólogo.
-* **Chamadas de API:** API do motor vetorial e API de inferência de linguagem com parâmetros restritos de temperatura ($T = 0.1$).
+  1. **Agrupamento e Contagem:** Mapear frequências de temas, subtemas, humor e tarefas nas janelas de 7, 14 ou 30 dias.
+  2. **Coocorrência Factual:** Relatar apenas ocorrências compartilhadas ou sequências observadas, sem converter correlação em causalidade.
+  3. **Recuperação RAG:** Buscar fontes autorizadas e responder somente com documentos, seções e trechos verificáveis.
+  4. **Abstenção:** Informar insuficiência da evidência ou da recuperação em vez de inventar resultados.
+* **Saídas:** Sínteses longitudinais, rascunhos revisáveis e briefings normativos citados.
+* **Chamadas de API:** API local Ollama, busca híbrida e validação Pydantic com parâmetros restritos.
 
 ---
 

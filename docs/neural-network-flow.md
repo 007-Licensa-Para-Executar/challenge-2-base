@@ -1,6 +1,6 @@
 # Fluxograma e Funcionamento da Rede Neural
 
-Este documento detalha o fluxo de processamento, arquitetura e ciclo de treinamento da **Rede Neural Perceptron Multicamadas (MLP)** equipada com embeddings **SBERT** (`models/sbert_embedder.py`), dedicada a receber o diário do paciente, **identificar os 6 temas clínicos** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e **gerar suas distribuições percentuais (`%`)**.
+Este documento detalha o fluxo de processamento, arquitetura e ciclo de treinamento da **Rede Neural Perceptron Multicamadas (MLP)** equipada com embeddings **SBERT** (`models/sbert_embedder.py`), dedicada a receber o diário do paciente, **identificar os 6 temas clínicos** (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e **gerar suas distribuições percentuais (`%`)**. Comparações conceituais com modelos sequenciais (RNN, LSTM e GRU) em seções posteriores são apenas teóricas e não integram o código ativo.
 
 ---
 
@@ -150,6 +150,9 @@ $$\frac{\partial \mathcal{L}}{\partial z_1} = \left(\frac{\partial \mathcal{L}}{
 
 ### 4.1. SBERT + MLP vs. Modelos Sequenciais (RNN, LSTM, GRU)
 
+As alternativas seguintes são conceituais. O repositório implementado não contém
+um `ClinicalSequentialClassifier` ou modelos RNN, LSTM e GRU ativos.
+
 ```mermaid
 flowchart TD
     Q1{"Qual a necessidade semântica e de latência?"}
@@ -190,6 +193,9 @@ flowchart TD
 ---
 
 ## 5. Exemplo Ilustrativo do Formato de Saída após Receber o Diário
+
+O trecho abaixo é ilustrativo. Os números não representam uma inferência
+confirmada ou uma taxonomia clínica validada.
 
 **Entrada Textual:**
 > *"Meu pai ligou só pra cobrar as notas da faculdade e comparar com o filho do vizinho. Desliguei o telefone com vontade de sumir do mapa, eles nunca perguntam como eu tô me sentindo por dentro."*

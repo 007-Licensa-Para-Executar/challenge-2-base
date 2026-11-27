@@ -1,6 +1,6 @@
 # Validação Técnica do Classificador Neural de Temas — Taxonomia de 6 Classes & SBERT
 
-Este documento descreve o protocolo experimental de validação do classificador neural de temas após a consolidação da taxonomia única de **6 classes** em [`data/taxonomy.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/data/taxonomy.py) e a substituição da vetorização baseada em TF-IDF pelos embeddings densos de sentença **SBERT** em [`models/sbert_embedder.py`](file:///C:/Users/BLU8CA/Projects/PUC/challenge-2-base/models/sbert_embedder.py).
+Este documento descreve o protocolo experimental de validação do classificador neural de temas após a consolidação da taxonomia única de **6 classes** em [`data/taxonomy.py`](../data/taxonomy.py) e a substituição da vetorização baseada em TF-IDF pelos embeddings densos de sentença **SBERT** em [`models/sbert_embedder.py`](../models/sbert_embedder.py).
 
 ---
 
@@ -46,8 +46,8 @@ O pipeline registra automaticamente as métricas no MLflow e salva os seguintes 
 
 ---
 
-## 4. Status de Prontidão Clínica e Ressalvas
+## 4. Status Técnico e Ressalvas
 
 1. **Supervisão Humana (*Human-in-the-Loop*):** O modelo atua exclusivamente como ferramenta de triagem e organização temática prévia para psicólogos; a interpretação clínica permanece 100% humana.
 2. **Semântica dos Percentuais:** Os percentuais (`%`) emitidos por `predict_text()` correspondem aos scores Softmax atribuídos às 6 categorias exclusivas; na decomposição por sentenças (`destrinchar_diario()`), `topic_weights` mede a fração de caracteres analisados atribuída a cada tema com citação literal auditável.
-3. **Salvaguarda Ética:** A política de abstenção ($\tau = 0{,}50$) garante que relatos ambíguos ou com baixa confiança sejam encaminhados para `outros`.
+3. **Salvaguarda Ética:** A política de abstenção ($\tau = 0{,}50$) garante que relatos ambíguos ou com baixa confiança sejam encaminhados para `outros`, mas não garante segurança clínica ou correção da classificação.

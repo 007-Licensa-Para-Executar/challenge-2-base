@@ -1,5 +1,8 @@
 # Guia prático de MLOps
 
+> Este guia é complementar a [mlops.md](mlops.md), que descreve contrato,
+> componentes e gate do pipeline.
+
 ## 1. O que está no repositório
 
 O pipeline executável está em `mlops/` e os modelos em `models/`. O contrato operacional, o gate e os comandos estão em [`docs/mlops.md`](mlops.md).

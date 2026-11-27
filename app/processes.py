@@ -11,7 +11,8 @@ from pathlib import Path
 from agents.extractor.config import Settings
 
 ROOT = Path(__file__).resolve().parent.parent
-MODULES = {"agents.extractor", "app.router", "evaluation.runner", "pytest"}
+MODULES = {"agents.extractor", "app.router", "evaluation.runner", "pytest",
+           "agents.copilot", "evaluation.patient_rag", "app.research_demo"}
 
 
 @dataclass(frozen=True)
@@ -40,15 +41,16 @@ def child_environment(settings: Settings) -> dict[str, str]:
 
 
 def stop_process(process: subprocess.Popen) -> None:
-    if process.poll() is not None:
+    if process.poll() is not None and os.name == "nt":
         return
     try:
         if os.name == "nt":
             process.send_signal(signal.CTRL_BREAK_EVENT)
         else:
             os.killpg(process.pid, signal.SIGINT)
-        process.wait(timeout=3)
-        return
+        process.wait(timeout=3 if os.name == "nt" else 0.5)
+        if os.name == "nt":
+            return
     except (OSError, subprocess.TimeoutExpired):
         pass
     if os.name == "nt":
@@ -94,8 +96,10 @@ def run_module(
                 if timeout is not None and time.monotonic() - started >= timeout:
                     raise TimeoutError("Tempo limite excedido; operação cancelada.")
                 progress()
-    finally:
+    except BaseException:
         stop_process(process)
+        raise
+    finally:
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream:
                 stream.close()

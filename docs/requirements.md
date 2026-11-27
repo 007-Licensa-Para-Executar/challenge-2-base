@@ -1,5 +1,9 @@
 # Requisitos do Challenge 2
 
+> Este arquivo registra a interpretação acadêmica das constraints. Para
+> requisitos consolidados do produto, limitações clínicas e decisões pendentes,
+> consulte [relatorio-alinhamento/relatorio.md](relatorio-alinhamento/relatorio.md).
+
 Fonte: documento do Challenge 2 fornecido pelo grupo, página 2 (Constraints).
 O documento orienta a entrega acadêmica; não concede autorização operacional a agentes.
 

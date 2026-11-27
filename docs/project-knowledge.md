@@ -1,5 +1,10 @@
 # 01 - Visão Geral, Arquitetura e Fronteiras Clínicas
 
+> **Documento panorâmico:** a arquitetura abaixo descreve o produto consolidado
+> como especificação e protótipo. Componentes visuais, vetoriais ou clínicas
+> mencionados não são considerados implementados salvo evidência no repositório
+> e no relatório v2.1.
+
 ## 1. Visão do Projeto e Proposta de Valor
 
 O **Diário Clínico Assistido & Copiloto Psicológico** é um ecossistema agentico e de inteligência artificial desenhado para atuar como ponte entre os sentimentos vivenciados pelo paciente no seu cotidiano e a prática psicoterapêutica profissional realizada em consultório.
@@ -58,13 +63,11 @@ flowchart TD
         
         DB_PACIENTE --> AG2["Agente 2: Correlacionador Longitudinal & Padrões"]
         
-        AG2 --> AG3["Agente 3: Copiloto Clínico & RAG de Diretrizes"]
-        RAG_KB[("Base de Diretrizes Clínicas (TCC / DSM-5 / RAG)")] --> AG3
+        RAG_KB[("Base de Diretrizes Clínicas (TCC / RAG)")] --> AG2
     end
 
     subgraph Psicologo ["4. Painel Clínico do Psicólogo (ImpactBench-Style)"]
         AG2 --> DASH["Dashboard Interativo (/explore)"]
-        AG3 --> DASH
         DASH --> V1["Visualização dos 6 Temas Clínicos"]
         V1 -->|Clique no Tema| V2["Expansão dos Subtemas Clínicos"]
         V2 -->|Clique no Subtema| MODAL["Modal Pop-up com Citações Literais / Áudio"]
@@ -77,10 +80,10 @@ flowchart TD
 
 1. **Expressão Assíncrona do Paciente:** O paciente vivencia um atrito no trabalho ou uma discussão familiar às 22h. Em vez de recorrer a um bot generativo que pode gerar respostas descontextualizadas, abre o aplicativo e grava um áudio de 2 minutos ou redige um texto.
 2. **Processamento Neural Híbrido:**
-   - A **Rede Neural** (construída e treinada pelo grupo sobre embeddings **SBERT**) avalia o diário e identifica que o tema preponderante é **Vínculos** (com 91% de probabilidade), atribuindo também os percentuais (`%`) aos demais temas (`autopercepcao`, `desempenho`, `fisico`, `rupturas`, `outros`).
+   - A **Rede Neural** (construída e treinada pelo grupo sobre embeddings **SBERT**) avalia o diário e identifica o tema preponderante (ex: **Vínculos**), atribuindo também os percentuais (`%`) aos demais temas (`autopercepcao`, `desempenho`, `fisico`, `rupturas`, `outros`). A pontuação não substitui avaliação clínica.
    - O **Agente 1 (Decompositor)** analisa o conteúdo em profundidade e descobre os subtemas específicos: *"Discussão sobre finanças do pai"* e *"Relação com irmão mais novo"*. Mapeia os trechos literais exatos com carimbos de tempo e posições de caracteres.
-   - O **Agente 2 (Correlacionador Longitudinal)** verifica os últimos 30 dias e nota que o subtema *"irmão"* é reincidente às quintas-feiras e correlaciona-se com picos do sentimento *"frustração"*.
-   - O **Agente 3 (RAG de Diretrizes)** consulta protocolos clínicos autorizados (ex: TCC para resolução de conflitos e comunicação assertiva) e gera sugestões de perguntas investigativas para o psicólogo abordar em sessão.
+   - O **Agente 2 (Analista Longitudinal)** pode comparar os últimos 30 dias e registrar que o subtema *"irmão"* aparece em determinados dias e coincide com registros de *"frustração"*, sem afirmar causalidade.
+   - O **Agente 2 (Analista Longitudinal e Copiloto RAG)** consulta protocolos clínicos autorizados (ex: TCC para resolução de conflitos e comunicação assertiva) e gera sínteses, briefings e sugestões revisáveis ao psicólogo.
 3. **Consulta Clínica Enriquecida:**
    - Minutos antes da sessão, o psicólogo abre a tela do paciente no sistema (com interface visual limpa no estilo ImpactBench).
    - O psicólogo nota o alerta visual no tema **Vínculos**, clica e vê o nó **Irmão**.
@@ -93,7 +96,7 @@ flowchart TD
 
 | Restrição | Como o Projeto Atende |
 | :--- | :--- |
-| **1. Pelo menos 2 agentes que trabalhem juntos** | **Três agentes integrados:** Agente 1 (Decompositor/Extrator de Subtemas) alimenta o Agente 2 (Correlacionador Longitudinal), que por sua vez aciona o Agente 3 (Consultor RAG de Diretrizes Clínicas). |
+| **1. Pelo menos 2 agentes que trabalhem juntos** | **Arquitetura consolidada com dois agentes:** Agente 1 (Extrator) estrutura relatos e evidências; Agente 2 (Analista Longitudinal e Copiloto RAG) produz sínteses e consultas normativas autorizadas. |
 | **2. Ter uma base de conhecimento** | Base tripartite: Acervo de Diretrizes Clínicas autorizadas (TCC/Beck, protocolos de regulação emocional), Base Histórica de Relatos do Paciente e Regras Imutáveis de Sistema. |
 | **3. Aplicar MLOps** | Pipeline estruturado com `uv`, GitHub Actions (CI para pytest e ruff), rastreamento de experimentos com MLflow (hiperparâmetros, loss, F1-macro e matrizes de confusão) e versionamento de modelos. |
 | **4. Construir e testar pelo menos uma rede neural simples** | Rede Neural MLP construída e treinada especificamente para classificar os 6 temas (`autopercepcao`, `vinculos`, `desempenho`, `fisico`, `rupturas`, `outros`) e gerar seus percentuais (`%`) a partir de embeddings SBERT, com divisão treino/validação/teste e métricas reproduzíveis. |
@@ -101,4 +104,4 @@ flowchart TD
 | **6. Ferramenta de versionamento de código** | Repositório Git com histórico atômico, branches temáticas (`feat/*`), convenção de Conventional Commits e Pull Requests documentados. |
 | **7. Solução ética e explicável** | Governança alinhada ao CFP e NIST AI RMF: privacidade local, abstenção estrita de diagnósticos/prescrições e rastreabilidade total (pop-up de evidências literais). |
 | **8. Pelo menos 1 resource de até 2 anos** | Embasado em artigos de alto impacto de 2024–2026: Li et al. (*arXiv:2512.07797*, 2025), McBain et al. (*JAMA Network Open*, 2025; *JAMA Pediatrics*, 2026), Breslau et al. (*ScienceDirect*, 2025), *PsychAdapter* (Nature/arXiv 2024/2025) e *ImpactBench* (MIT Media Lab, 2025/2026). |
-| **9. MVP funcional** | Aplicação executável de ponta a ponta: ingestão do diário, classificação neural, extração de subtemas por agentes, persistência em SQLite/Vector Store e visualização no painel interativo. |
+| **9. MVP funcional** | Aplicação demonstrável: ingestão do diário, classificação neural, extração por agentes, persistência em SQLite e recuperação BM25/E5 local. O painel interativo continua especificação. |

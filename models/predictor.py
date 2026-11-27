@@ -192,6 +192,8 @@ class ClinicalThemePredictor:
                 vocab_size=vocab_size,
                 norm_type=norm_type,  # type: ignore[arg-type]
             )
+            # Older checkpoints predate temperature scaling (identity temperature).
+            state_dict.setdefault("temperature", torch.ones(1))
             self.model.load_state_dict(state_dict, strict=True)
             self.model.to(self.device)
 

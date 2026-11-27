@@ -1,5 +1,10 @@
 # 09 - Ética, Governança de Riscos e Explicabilidade Clínica
 
+> **Estado atual:** este documento combina requisitos de governança com
+> salvaguardas já implementadas ou propostas. Recursos de interface e alertas
+> descritos abaixo são especificações; não implicam que o painel clínico esteja
+> disponível ou que o sistema tenha aprovação clínica.
+
 ## 1. Visão Geral e Atendimento ao Requisito
 
 Este documento estabelece as bases de governança, conformidade legal e princípios éticos para atender integralmente ao **Requisito 7 (Desenvolver uma solução ética e explicável)**.
@@ -33,7 +38,9 @@ A literatura científica recente adverte vigorosamente contra o uso de chatbots 
 
 ### LGPD (Dados Pessoais Sensíveis)
 - Conforme o Artigo 5º, II da LGPD, informações sobre saúde e vida afetiva são dados sensíveis com regime de proteção especial.
-- O banco SQLite adota criptografia em repouso e isolamento estrito entre identidades.
+- O módulo de persistência do extrator oferece criptografia opcional em repouso
+  para o texto registrado. Isolamento completo por identidade, autorização,
+  consentimento e acesso profissional ainda depende da aplicação de produto.
 
 ---
 
@@ -45,8 +52,8 @@ A literatura científica recente adverte vigorosamente contra o uso de chatbots 
 ├───────────────────────┬─────────────────────────┬───────────────────────────────┤
 │ Categoria Detectada   │ Padrão Semântico        │ Ação do Sistema               │
 ├───────────────────────┼─────────────────────────┼───────────────────────────────┤
-│ 'presente'            │ Menções a ideação       │ Destaque visual urgente no    │
-│                       │ ativa ou autolesão      │ topo do Dashboard do terapeuta│
+│ 'presente'            │ Menções a ideação       │ Exibição passiva para         │
+│                       │ ativa ou autolesão      │ averiguação pelo terapeuta    │
 ├───────────────────────┼─────────────────────────┼───────────────────────────────┤
 │ 'indeterminado'       │ Desesperança ambígua,   │ Sinalização para investigação │
 │                       │ metáforas de cansaço    │ exploratória em sessão        │
@@ -69,3 +76,17 @@ O sistema resolve esse problema na interface por meio de **Citação Literal Anc
 1. Nenhum subtema ou indicador emocional é exibido sem um link direto para o texto/áudio original.
 2. Ao clicar no subtema, o psicólogo vê o **pop-up modal de evidência**, contendo o trecho literal exato que motivou a categorização.
 3. Em registros por voz, o psicólogo pode ouvir o trecho exato de 15 segundos do desabafo do paciente, percebendo entonação, pausas, choro ou inflexões de voz que nenhum modelo puramente textual conseguiria capturar.
+
+---
+
+## 6. Limitações de Escopo Longitudinal e Cultural
+
+Uma revisão sobre LLMs em psicoterapia identifica desafios ainda não resolvidos para este projeto:
+
+- **Integração entre sessões:** o acompanhamento longitudinal não deve converter registros entre sessões em diagnóstico, prognóstico ou tratamento dinâmico automático.
+- **Mudanças e comorbidades:** sintomas podem mudar ao longo do tempo e coexistir em quadros diferentes. O sistema deve descrever fatos e períodos observados, não decidir que um quadro substituiu outro.
+- **Diversidade linguística e cultural:** dados e modelos em português precisam ser avaliados em contextos brasileiros, sem assumir que tradução do inglês preserve significado clínico ou cultural.
+- **Código aberto e proveniência:** bases e modelos abertos podem reduzir dependência externa, mas licenças, pesos, dados de treino e limites devem ser auditados.
+- **Diversidade terapêutica:** DBT, terapia humanista e outros modelos podem ser usados como fontes autorizadas para revisão profissional; não são condutas prescritas pelo sistema.
+
+Esses pontos são objetivos de pesquisa e validação futura. Não constituem garantias atuais de desempenho clínico, cultural ou longitudinal.

@@ -67,6 +67,11 @@ Data de referência do projeto: **Novembro de 2026**. Todas as fontes listadas f
 * **Referência:** Leung, Janni et al. *Generative Large Language Models in Mental Health Care Settings: Systematic Review and Meta-Analysis*. **JMIR AI**, v. 5, e87730, 2026. DOI: 10.2196/87730.
 * **Contribuição:** Reitera a importância de tarefas delimitadas, supervisão constante e avaliação rigorosa de modos de falha em aplicações de saúde mental.
 
+### 4.4 Survey sobre LLMs em Psicoterapia
+* **Referência:** Na, Hongbin; Hua, Yining; Wang, Zimu; Shen, Tao; Yu, Beibei; Wang, Lilin; Wang, Wei; Torous, John; Chen, Ling. *A Survey of Large Language Models in Psychotherapy: Current Landscape and Future Directions*. **Findings of ACL**, 2025. DOI: 10.48550/arXiv.2502.11095.
+* **Link:** [arXiv:2502.11095](https://arxiv.org/pdf/2502.11095v1)
+* **Contribuição:** Identifica limitações relevantes para o projeto: integração ainda fragmentada entre avaliação, diagnóstico e tratamento; dificuldade com sintomas evolutivos e comorbidades; dependência de dados e modelos com vieses linguísticos/culturais; concentração em transtornos comuns; e pouca diversidade de abordagens terapêuticas. A survey fundamenta validações futuras, não declara que estas capacidades já sejam implementadas.
+
 ---
 
 ## 5. Governança e Gestão de Riscos

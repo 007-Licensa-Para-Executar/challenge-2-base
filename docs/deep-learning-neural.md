@@ -87,7 +87,7 @@ A rede utiliza representações densas de sentença geradas por **SBERT** (subst
 
 ### Preparação do Dataset e Prevenção de Vazamento
 O treinamento combina relatos reais anonimizados em português (`data/real_diaries.json`) e relatos sintéticos parametrizados (`data/synthetic/synthetic_diaries.json`), todos padronizados na taxonomia de **6 temas** via [`data/taxonomy.py`](../data/taxonomy.py):
-- **Divisão Estratificada por Grupos (`data/split.py`):** Aproximadamente **70% Treino**, **15% Validação**, **15% Teste Holdout Cego**, garantindo que famílias de origem e templates semelhantes não atravessem os conjuntos.
+- **Divisão Estratificada por Grupos (`data/split.py`):** Aproximadamente **70% Treino**, **15% Validação**, **15% Teste Holdout Cego**, garantindo que famílias de origem e templates semelhantes não atravessem os conjuntos. A divisão exata depende dos grupos disponíveis e é registrada no `split_manifest.json`.
 - **Encoder Congelado:** O `SBERTEmbedder` não é treinado nem ajustado nos dados do projeto, eliminando vazamento entre os splits.
 
 ### Critérios de Seleção e Métricas
@@ -104,7 +104,10 @@ O treinamento combina relatos reais anonimizados em português (`data/real_diari
 
 ---
 
-## 5. Viabilização Arquitetural: MLPs vs. Modelos Sequenciais (RNNs, LSTMs, GRUs)
+## 5. Comparação Arquitetural Histórica: MLPs e Modelos Sequenciais
+
+A comparação a seguir é técnica e não significa que RNN, LSTM ou GRU estejam
+implementados no repositório atual.
 
 Para processamento de relatos clínicos, o ecossistema disponibiliza tanto o MLP sobre embeddings densos SBERT quanto modelos sequenciais de referência (`models/torch_mlp.py`):
 

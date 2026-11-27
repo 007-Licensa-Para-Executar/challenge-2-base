@@ -1285,6 +1285,12 @@
   background: #f3f4f6;
 }
 
+.ragQuickChips button[aria-selected="true"] {
+  background: #2f594e;
+  border-color: #2f594e;
+  color: #fff;
+}
+
 .ragInputRow {
   display: flex;
   gap: 6px;
@@ -1822,25 +1828,94 @@
   display: none;
 }
 
-.copilotModes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+.copilotModeField {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.copilotModes button {
-  padding: 5px 10px;
-  border: 1px solid rgba(49, 92, 80, 0.24);
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.85rem;
+.copilotModeField legend {
+  margin-bottom: 2px;
+  padding: 0 2px;
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.copilotModes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #d7e2dd;
+  border-radius: 11px;
+  background: #e9f0ec;
+}
+
+.copilotModeOption {
+  position: relative;
   cursor: pointer;
 }
 
-.copilotModes button[aria-pressed="true"] {
-  background: #2f594e;
+.copilotModeOption input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.copilotModeOption > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: var(--cor-primaria);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.copilotModeOption > span > span {
+  visibility: hidden;
+}
+
+.copilotModeOption input:checked + span {
+  background: var(--cor-primaria);
   color: #fff;
-  border-color: #2f594e;
+}
+
+.copilotModeOption input:checked + span > span {
+  visibility: visible;
+}
+
+.copilotModeOption input:focus-visible + span {
+  outline: 2px solid var(--cor-secundaria);
+  outline-offset: 2px;
+}
+
+.copilotResponseBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.copilotResponseBar button {
+  appearance: none;
+  padding: 4px 9px;
+  border: 1px solid #d7e2dd;
+  border-radius: 7px;
+  background: var(--cor-superficie);
+  color: var(--cor-primaria);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.copilotResponseBar button:hover {
+  background: #e9f0ec;
 }

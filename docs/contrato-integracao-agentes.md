@@ -43,6 +43,8 @@ Com Ana ou Bruno selecionado, use **Explorar Roda** para editar o nome exibido e
 
 No prompt, `/ajuda` lista as opções, `/status` verifica os serviços locais, `/modelos` informa o modelo de resposta, `/historico` abre a linha do tempo e `/limpar` fecha o resultado atual.
 
+Digite `/` para abrir a lista de ferramentas. Por exemplo, digite `/dia` e pressione **Tab** para completar `/diarios`, depois escreva o assunto e envie. Na Roda, use o botão de recolher a resposta para liberar espaço. Você pode reabri-la com as mesmas citações.
+
 ### Roteiro de apresentação
 
 Antes de apresentar, carregue o acervo fictício que já vem com o projeto no mesmo banco que o painel usa. Execute na raiz, com a API de privacidade no ar e os artefatos do treino já gerados.

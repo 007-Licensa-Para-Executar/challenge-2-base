@@ -66,6 +66,14 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
     )["status"] == "insufficient_evidence"
     command = {"patient": "patient_ana", "question": "/reprocessar ref1"}
     assert cli.dispatch("chat", command, directory=tmp_path)["status"] == "confirmation"
+    natural_reprocess = {**command, "question": "Reprocesse o diário ref1.", "confirmed": True}
+    assert cli.dispatch("chat", natural_reprocess, directory=tmp_path)["status"] == "confirmation"
+    natural_query = {**command, "question": "Nos diários, o que foi escrito sobre os avós?"}
+    natural_result = cli.dispatch("chat", natural_query, directory=tmp_path)
+    assert natural_result["status"] == "ok"
+    assert natural_result["evidence"][0]["record_id"] == "ref1"
+    outside = {**command, "question": "Consulte os diários do Bruno."}
+    assert cli.dispatch("chat", outside, directory=tmp_path)["status"] == "clarification"
     replacement = output.model_copy(update={"entry_id": uuid4()})
 
     def extract(treated_record, _args, modalidade):
@@ -131,3 +139,23 @@ def test_catalogue_lists_only_callable_slash_commands():
         command = item["command"]
         assert item["description"]
         assert cli._route(command) == command.removeprefix("/")
+
+
+@pytest.mark.parametrize(("text", "tool"), [
+    ("Mostre os comandos.", "ajuda"),
+    ("Como está o status do Ollama?", "status"),
+    ("Quais modelos locais estão instalados?", "modelos"),
+    ("Mostre o histórico deste paciente.", "historico"),
+    ("Mostre a contagem por tema neste período.", "temas"),
+    ("Busque nos diários sobre os avós.", "diarios"),
+    ("Nos diários, o que foi escrito sobre os avós?", "diarios"),
+    ("Procure artigos sobre agentes conversacionais.", "literatura"),
+    ("Reprocesse o diário ana_07.", "reprocessar"),
+    ("Limpe a conversa e abra o histórico.", "esclarecer"),
+])
+def test_common_natural_commands_are_resolved_without_a_model(text, tool, monkeypatch):
+    def unexpected_model_call(**_kwargs):
+        pytest.fail("Comando conhecido deve funcionar com o roteador indisponível")
+
+    monkeypatch.setattr(cli, "Client", unexpected_model_call)
+    assert cli._route(text) == tool

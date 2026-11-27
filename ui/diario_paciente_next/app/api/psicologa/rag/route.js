@@ -6,6 +6,19 @@ import { getDemoPatientEntries, isDemoPatientId } from "../../../lib/demoPatient
 
 export const runtime = "nodejs";
 
+export async function GET(request) {
+  if (process.env.NODE_ENV === "production" || process.env.REQUIRE_PSICOLOGA_AUTH === "true" ||
+      !localDemo(request)) {
+    return NextResponse.json({ message: "Acesso profissional requerido." }, { status: 403 });
+  }
+  try {
+    const result = integrationEnabled() ? await runIntegration("tools", {}) : { tools: [] };
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ message: "Catálogo indisponível." }, { status: 503 });
+  }
+}
+
 export async function POST(request) {
   if (process.env.NODE_ENV === "production" || process.env.REQUIRE_PSICOLOGA_AUTH === "true") {
     return NextResponse.json({ message: "Acesso profissional requerido." }, { status: 403 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getValenceStatus } from "./wheelMath";
 import styles from "./impactbench.module.css";
 
@@ -50,7 +50,6 @@ function renderHighlightedText(text, span) {
 }
 
 export default function DrillDownPanel({
-  patient,
   geometry,
   wheel,
   longitudinal,
@@ -58,7 +57,7 @@ export default function DrillDownPanel({
   selectedSubtopicKey,
   selectedOccurrence,
   isDemo,
-  days,
+  onShowEvidence,
   onSelectTheme,
   onSelectSubtopic,
   onSelectOccurrence,
@@ -75,45 +74,11 @@ export default function DrillDownPanel({
   const [editNote, setEditNote] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Copiloto RAG embutido no 4º painel (detalhe da evidência)
-  const ragRequest = useRef(null);
-  const [ragQuestion, setRagQuestion] = useState("");
-  const [ragLoading, setRagLoading] = useState(false);
-  const [ragResult, setRagResult] = useState(null);
-  const [ragError, setRagError] = useState("");
-
   useEffect(() => {
     setEditingSub(false);
     setEditName(activeSub?.label || "");
     setEditNote(activeSub?.clinicalNote || "");
   }, [activeSub]);
-
-  useEffect(() => {
-    setRagResult(null);
-    setRagError("");
-    if (selectedOccurrence?.primarySpan?.quote_text) {
-      const keywords = selectedOccurrence.primarySpan.quote_text
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .split(/\s+/)
-        .filter((w) => w.length >= 4)
-        .slice(0, 4)
-        .join(" ");
-      setRagQuestion(
-        keywords
-          ? `Em quais momentos apareceram relatos com "${keywords}" ou ${activeSub?.parentLabel || "esse tema"}?`
-          : `Quando "${activeSub?.parentLabel || activeSub?.label}" surgiu antes nos relatos?`,
-      );
-    } else if (activeSub) {
-      setRagQuestion(`Quando "${activeSub.parentLabel || activeSub.label}" surgiu antes nos relatos?`);
-    }
-  }, [selectedOccurrence?.occurrenceId, selectedOccurrence?.primarySpan?.quote_text, activeSub]);
-
-  useEffect(() => {
-    setRagResult(null);
-    setRagError("");
-    setRagLoading(false);
-    return () => ragRequest.current?.abort();
-  }, [selectedOccurrence?.occurrenceId]);
 
   async function handleSaveEdit(e) {
     e.preventDefault();
@@ -129,45 +94,6 @@ export default function DrillDownPanel({
       setEditingSub(false);
     } finally {
       setSavingEdit(false);
-    }
-  }
-
-  async function runQuickRag(customQuestion, mode = "extractive", showSpan = false) {
-    const q = (customQuestion || ragQuestion || "").trim();
-    if (!q || !patient?.id) return;
-    ragRequest.current?.abort();
-    const request = new AbortController();
-    ragRequest.current = request;
-    setRagQuestion(q);
-    setRagLoading(true);
-    setRagError("");
-    try {
-      const res = await fetch("/api/psicologa/rag", {
-        method: "POST",
-        signal: request.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: patient.id,
-          question: selectedOccurrence?.entry.representation_id ? `/diarios ${q}` : q,
-          days,
-          generationMode: mode,
-          ...(showSpan && selectedOccurrence?.entry.representation_id && {
-          topic: selectedOccurrence.originalSubtopicName,
-          entryId: selectedOccurrence.entry.agent1?.entry_id,
-          recordId: selectedOccurrence?.entry.id,
-          representationId: selectedOccurrence?.entry.representation_id,
-          startChar: selectedOccurrence?.primarySpan?.start_char,
-          endChar: selectedOccurrence?.primarySpan?.end_char,
-          }),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Falha ao consultar Copiloto RAG.");
-      if (!request.signal.aborted) setRagResult(data);
-    } catch (err) {
-      if (!request.signal.aborted) setRagError(err.message);
-    } finally {
-      if (!request.signal.aborted) setRagLoading(false);
     }
   }
 
@@ -547,66 +473,13 @@ export default function DrillDownPanel({
               </div>
             )}
 
-            {/* COPILOTO RAG EMBUTIDO */}
-            <div className={styles.embeddedRagBox}>
-              <div className={styles.ragBoxHeader}>
-                <strong>Copiloto RAG (sobre relatos deste paciente)</strong>
-                <span>BM25 + Evidência literal</span>
-              </div>
-
+            {selectedOccurrence.entry.representation_id && selectedOccurrence.entry.agent1?.entry_id && (
               <div className={styles.ragQuickChips}>
-                <button
-                  type="button"
-                  onClick={() => runQuickRag("Mostre o trecho selecionado", "extractive", true)}
-                >
+                <button type="button" onClick={() => onShowEvidence(selectedOccurrence)}>
                   Mostrar trecho selecionado
                 </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    runQuickRag(`Quais eventos acompanham "${activeMacro?.label}"?`, "extractive")
-                  }
-                >
-                  Contexto de {activeMacro?.label}
-                </button>
               </div>
-
-              <div className={styles.ragInputRow}>
-                <input
-                  type="text"
-                  value={ragQuestion}
-                  onChange={(e) => setRagQuestion(e.target.value)}
-                  placeholder="Perguntar ao histórico com citação literal..."
-                />
-                <button
-                  type="button"
-                  disabled={ragLoading || !ragQuestion.trim()}
-                  onClick={() => runQuickRag(ragQuestion, "extractive")}
-                >
-                  {ragLoading ? "Buscando..." : "Consultar"}
-                </button>
-              </div>
-
-              {ragError && <p className={styles.ragErr}>{ragError}</p>}
-
-              {ragResult && (
-                <div className={styles.ragAnswerCard}>
-                  <p className={styles.ragAnswerText}>{ragResult.answer}</p>
-                  {ragResult.evidence?.length > 0 && (
-                    <ul className={styles.ragEvidenceList}>
-                      {ragResult.evidence.map((ev) => (
-                        <li key={ev.chunk_id}>
-                          <blockquote>“{ev.quote}”</blockquote>
-                          <small>
-                            {formatDateTime(ev.recorded_at)} · score {Number(ev.score).toFixed(2)}
-                          </small>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}

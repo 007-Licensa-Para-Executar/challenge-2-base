@@ -138,6 +138,11 @@ def _dashboard(store, query, alias):
 
 
 def dispatch(command, payload, *, directory=DEMO_DIR):
+    if command == "tools":
+        return {"tools": [
+            {"command": f"/{name}", "description": description}
+            for name, description in TOOLS.items() if name != "esclarecer"
+        ]}
     alias = payload["patient"]
     if alias not in PATIENTS:
         raise ValueError("Paciente fora da carteira de demonstração")

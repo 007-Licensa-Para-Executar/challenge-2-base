@@ -334,7 +334,7 @@ def test_rag_sources_do_not_reference_transcription():
         path = root / relative
         if not path.is_file():
             continue
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         assert "transcripts" not in source
         assert "FasterWhisper" not in source
         checked += 1

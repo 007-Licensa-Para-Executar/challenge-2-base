@@ -1584,6 +1584,7 @@
 
 .ragFormLarge input {
   flex: 1;
+  min-width: 0;
   padding: 10px 13px;
   border: 1px solid #d1d5db;
   border-radius: 9px;
@@ -1777,4 +1778,46 @@
   .secondaryGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.copilotDock {
+  position: sticky;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 5;
+  margin-top: auto;
+  padding: 12px;
+  border: 1px solid rgba(49, 92, 80, 0.22);
+  border-radius: 16px;
+  background: var(--cor-fundo);
+  box-shadow: 0 6px 26px rgba(31, 62, 51, 0.16);
+}
+
+.copilotControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 8px;
+}
+
+.copilotControls strong {
+  margin-right: auto;
+}
+
+.copilotControls select {
+  padding: 4px 6px;
+  border: 1px solid rgba(49, 92, 80, 0.22);
+  border-radius: 6px;
+  background: var(--cor-fundo);
+  color: inherit;
+}
+
+.copilotResponses {
+  max-height: min(34dvh, 320px);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.copilotResponses:empty {
+  display: none;
 }

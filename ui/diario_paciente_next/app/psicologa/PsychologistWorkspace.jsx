@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DrillDownPanel from "./DrillDownPanel";
 import ImpactBenchSunburst from "./ImpactBenchSunburst";
-import { CopilotRagView, TimelineAndReportsView } from "./SecondaryViews";
+import { TimelineAndReportsView } from "./SecondaryViews";
 import { buildSunburstGeometry } from "./wheelMath";
 import styles from "./impactbench.module.css";
 
 const CADASTRO_SYNC_KEY = "meu-diario:cadastro-atualizado";
 
-export default function PsychologistWorkspace({ activeNav, selectedPatientId }) {
+export default function PsychologistWorkspace({ activeNav, selectedPatientId, days, analysisRevision, onShowEvidence }) {
   const [patients, setPatients] = useState([]);
-  const [days, setDays] = useState("all"); // all | 7 | 14 | 30
   const [valenceFilter, setValenceFilter] = useState("all"); // all | negative | positive
 
   const [loadedPatientData, setPatientData] = useState(null);
@@ -87,7 +86,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
     setSelectedOccurrence(null);
     void loadPatientDetail(selectedPatientId, days, valenceFilter);
     return () => detailRequest.current?.abort();
-  }, [selectedPatientId, days, valenceFilter, loadPatientDetail]);
+  }, [selectedPatientId, days, valenceFilter, loadPatientDetail, analysisRevision]);
 
   const geometry = useMemo(() => {
     return buildSunburstGeometry(patientData?.wheel, patientData?.entries || []);
@@ -195,20 +194,6 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
   return (
     <div className={`${styles.appShell} ${styles.embeddedShell}`}>
       <div className={styles.embeddedToolbar}>
-        <label className={styles.periodSelectLabel}>
-          Período:
-          <select
-            aria-label="Janela temporal dos dados"
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-          >
-            <option value="all">Todo o histórico</option>
-            <option value="7">Últimos 7 dias</option>
-            <option value="14">Últimos 14 dias</option>
-            <option value="30">Últimos 30 dias</option>
-          </select>
-        </label>
-
         {selectedPatientSummary && !selectedPatientSummary.isDemo && (
           <button
             type="button"
@@ -262,7 +247,6 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
             <div className={styles.rightColumnWrap}>
               <DrillDownPanel
                 key={`${selectedPatientSummary?.id}:${days}`}
-                patient={selectedPatientSummary}
                 geometry={geometry}
                 wheel={patientData?.wheel}
                 longitudinal={patientData?.longitudinal}
@@ -270,7 +254,7 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
                 selectedSubtopicKey={selectedSubtopicKey}
                 selectedOccurrence={selectedOccurrence}
                 isDemo={Boolean(selectedPatientSummary?.isDemo)}
-                days={days}
+                onShowEvidence={onShowEvidence}
                 onSelectTheme={handleSelectTheme}
                 onSelectSubtopic={handleSelectSubtopic}
                 onSelectOccurrence={setSelectedOccurrence}
@@ -295,16 +279,6 @@ export default function PsychologistWorkspace({ activeNav, selectedPatientId }) 
           </main>
         )}
 
-        {activeNav === "rag" && (
-          <main className={styles.secondaryMain}>
-            <CopilotRagView
-              key={`${selectedPatientSummary?.id}:${days}`}
-              patient={selectedPatientSummary}
-              days={days}
-              onReprocessed={() => loadPatientDetail(selectedPatientId, days, valenceFilter)}
-            />
-          </main>
-        )}
       </div>
     </div>
   );

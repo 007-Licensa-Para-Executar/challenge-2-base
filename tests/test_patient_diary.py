@@ -272,7 +272,7 @@ def test_copilot_and_literature_do_not_reference_the_patient_diary():
         path = root / relative
         if not path.is_file():
             continue
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         assert "patient_diary" not in source
         assert "patient_entries" not in source
         checked += 1

@@ -6,6 +6,7 @@ import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
 import ExternalSupervisors from "./ExternalSupervisors";
 import ReportUpload from "./ReportUpload";
+import CopilotPrompt from "./CopilotPrompt";
 import PsychologistWorkspace from "./PsychologistWorkspace";
 import PsychologistProfileEditor, {
   getPsychologistInitials,
@@ -101,6 +102,9 @@ export default function PatientManagement({ initialSection }: { initialSection?:
   const [patients, setPatients] = useState<PortalPatient[]>([]);
   const [psychologistProfile, setPsychologistProfile] = useState(defaultPsychologistProfile);
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const [days, setDays] = useState("all");
+  const [analysisRevision, setAnalysisRevision] = useState(0);
+  const copilot = useRef<{ showEvidence(occurrence: unknown): void } | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -425,10 +429,14 @@ export default function PatientManagement({ initialSection }: { initialSection?:
                 : "Quando alguém criar um acesso em /cadastro, o cadastro aparecerá nesta lista."}
             </p>
           </section>
-        ) : selectedPatient ? (
+        ) : selectedPatient && activeSection === "rag" ? null : selectedPatient ? (
           <PsychologistWorkspace
-            activeNav={activeSection === "explorar" ? "explore" : activeSection === "timeline" ? "timeline" : "rag"}
+            activeNav={activeSection === "explorar" ? "explore" : "timeline"}
+            key={`${selectedPatient.id}:${days}`}
             selectedPatientId={selectedPatient.id}
+            days={days}
+            analysisRevision={analysisRevision}
+            onShowEvidence={(occurrence: unknown) => copilot.current?.showEvidence(occurrence)}
           />
         ) : (
           <section className={`${styles.card} ${styles.noPatient}`} aria-live="polite">
@@ -440,6 +448,14 @@ export default function PatientManagement({ initialSection }: { initialSection?:
             </p>
           </section>
         )}
+        <CopilotPrompt
+          key={`${selectedPatientId}:${days}`}
+          ref={copilot}
+          patient={selectedPatient ? { id: selectedPatient.id, name: selectedPatient.fullName } : null}
+          days={days}
+          onDaysChange={setDays}
+          onReprocessed={() => setAnalysisRevision((revision) => revision + 1)}
+        />
       </main>
     </div>
   );

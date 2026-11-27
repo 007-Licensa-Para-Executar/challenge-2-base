@@ -84,3 +84,14 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
         validate_analysis(record, StoredAnalysis(
             record_id="ref1", representation_id="wrong", output=output,
         ))
+
+
+def test_catalogue_lists_only_callable_slash_commands():
+    commands = cli.dispatch("tools", {})["tools"]
+    assert {item["command"] for item in commands} == {
+        "/diarios", "/temas", "/literatura", "/reprocessar",
+    }
+    for item in commands:
+        command = item["command"]
+        assert item["description"]
+        assert cli._route(command) == command.removeprefix("/")

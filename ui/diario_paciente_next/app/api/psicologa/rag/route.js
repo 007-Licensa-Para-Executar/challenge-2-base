@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { listarDiarios } from "../../auth/_backend.js";
 import { runDashboardCli } from "../../../lib/dashboardBridge.js";
-import { DEMO_PATIENT_ID, getDemoPatientEntries } from "../../../lib/demoPatient.js";
+import { getDemoPatientEntries, isDemoPatientId } from "../../../lib/demoPatient.js";
 
 export const runtime = "nodejs";
 
@@ -24,8 +24,9 @@ export async function POST(request) {
       );
     }
 
-    const rawEntries =
-      patientId === DEMO_PATIENT_ID ? getDemoPatientEntries() : listarDiarios(patientId);
+    const rawEntries = isDemoPatientId(patientId)
+      ? getDemoPatientEntries(patientId)
+      : listarDiarios(patientId);
 
     let filtered = rawEntries;
     if (days !== "all") {

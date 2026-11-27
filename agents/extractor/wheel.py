@@ -142,6 +142,7 @@ class SubtopicWheelTracker:
         ("financas", "Finanças"),
         ("luto", "Luto"),
         ("autoestima", "Autoestima"),
+        ("outros_indeterminado", "Outros / Indeterminado"),
     ]
 
     def __init__(self, max_total_subtemas: int = 24) -> None:
@@ -218,7 +219,7 @@ class SubtopicWheelTracker:
             )
             macro_to_subs[stat["macro_tema"]].append(node)
 
-        # 4. Constrói os nós dos 8 macrotemas padrão
+        # 4. Constrói os nós dos 9 macrotemas padrão
         macro_nodes: list[MacrotopicNode] = []
         for macro_code, macro_label in self.DEFAULT_MACROTHEMES:
             subs = macro_to_subs.get(macro_code, [])

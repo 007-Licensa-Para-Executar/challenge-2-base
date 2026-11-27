@@ -148,6 +148,7 @@ def test_cli_subprocess_json_roundtrip():
             }
         ),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         check=False,
     )
@@ -166,6 +167,7 @@ def test_cli_subprocess_json_roundtrip():
             }
         ),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         check=False,
     )

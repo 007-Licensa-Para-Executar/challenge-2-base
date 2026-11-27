@@ -33,6 +33,7 @@ export interface PortalPatientRecord {
   age: number | null;
   treatmentDurationMonths: number | null;
   psychiatricTreatment: boolean;
+  isDemo?: boolean;
 }
 
 export interface EditablePatientProfile {
@@ -81,4 +82,5 @@ export interface PortalPatient {
   history: PatientHistoryItem[];
   weeklyDiaryCounts: WeeklyDiaryCount[];
   themeDistribution: ThemeDistribution;
+  isDemo?: boolean;
 }

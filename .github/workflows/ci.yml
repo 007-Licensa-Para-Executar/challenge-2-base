@@ -28,6 +28,8 @@ jobs:
           enable-cache: true
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check .
+      - name: Prepare model for dashboard integration tests
+        run: uv run python -m models.train --epochs 1 --batch-size 128 --init-strategy gaussian --dist-dir dist
       - run: uv run pytest -q
       - name: Shell entry point
         run: uv run bem-estar --help

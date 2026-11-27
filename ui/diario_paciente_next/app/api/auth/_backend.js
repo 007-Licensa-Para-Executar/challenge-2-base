@@ -6,7 +6,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { promisify } from "node:util";
-import { getAuthDatabase } from "./_database.js";
+import { getAuthDatabase, getPatientProfile } from "./_database.js";
 
 const scryptAsync = promisify(scrypt);
 const scryptOptions = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -90,6 +90,73 @@ export function obterPacienteLogado(request) {
     .get(tokenHash, Date.now());
 
   return paciente ? { ...paciente } : null;
+}
+
+// Atualiza somente o cadastro vinculado à sessão atual. A senha antiga é
+// necessária sempre que o paciente escolhe uma senha nova.
+export async function atualizarPerfilProprioPaciente(patientId, profile, request) {
+  const db = getAuthDatabase();
+  const patient = db.prepare(
+    "SELECT password_salt, password_hash FROM patients WHERE id = ?",
+  ).get(patientId);
+  if (!patient) return { ok: false, motivo: "nao_encontrado" };
+
+  let passwordSalt = null;
+  let passwordHash = null;
+  if (profile.newPassword) {
+    const currentSalt = Buffer.from(patient.password_salt, "hex");
+    const expectedHash = Buffer.from(patient.password_hash, "hex");
+    const currentHash = await hashPassword(profile.currentPassword, currentSalt);
+    if (expectedHash.length !== currentHash.length || !timingSafeEqual(currentHash, expectedHash)) {
+      return { ok: false, motivo: "senha_atual_incorreta" };
+    }
+
+    passwordSalt = randomBytes(16);
+    passwordHash = await hashPassword(profile.newPassword, passwordSalt);
+  }
+
+  try {
+    const result = db.prepare(
+      `UPDATE patients
+       SET name = ?, email = ?, address = ?, age = ?, insurance_plan = ?,
+           photo = COALESCE(?, photo), photo_mime = COALESCE(?, photo_mime),
+           profile_photo_updated_at = CASE WHEN ? IS NULL THEN profile_photo_updated_at ELSE ? END,
+           password_salt = COALESCE(?, password_salt),
+           password_hash = COALESCE(?, password_hash)
+       WHERE id = ?`,
+    ).run(
+      profile.name,
+      profile.email,
+      profile.address,
+      profile.age,
+      profile.insurancePlan,
+      profile.photo,
+      profile.photoMime,
+      profile.photo,
+      profile.photo ? Date.now() : null,
+      passwordSalt?.toString("hex") || null,
+      passwordHash?.toString("hex") || null,
+      patientId,
+    );
+
+    if (!result.changes) return { ok: false, motivo: "nao_encontrado" };
+
+    if (passwordHash) {
+      const token = extractSessionToken(request);
+      if (token) {
+        const tokenHash = createHash("sha256").update(token).digest("hex");
+        db.prepare("DELETE FROM sessions WHERE patient_id = ? AND token_hash <> ?")
+          .run(patientId, tokenHash);
+      }
+    }
+
+    return { ok: true, profile: getPatientProfile(patientId) };
+  } catch (error) {
+    if (error.message?.includes("UNIQUE constraint failed: patients.email")) {
+      return { ok: false, motivo: "email_em_uso" };
+    }
+    throw error;
+  }
 }
 
 // Remove a sessão do banco e devolve o cabeçalho Set-Cookie expirado.

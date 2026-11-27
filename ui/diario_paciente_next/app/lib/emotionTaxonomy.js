@@ -93,6 +93,21 @@ export const EMOTIONS_DIVERTIDAMENTE = {
       { id: "sobriedade", nome: "Sobriedade", simbolo: "🍃", descricao: "Foco objetivo em horários de remédios e exames." },
     ],
   },
+  surpresa: {
+    id: "surpresa",
+    personagem: "Surpresa",
+    corNome: "Laranja",
+    corHex: "#FB8C00",
+    corSecundariaHex: "#FFE0B2",
+    corTexto: "#7A4300",
+    descricao: "ReaÃ§Ã£o de impacto ou quebra de expectativa diante do inesperado.",
+    isRiskEmotion: false,
+    subSentimentos: [
+      { id: "espanto", nome: "Espanto", simbolo: "😮", descricao: "Sobressalto diante de um acontecimento inesperado." },
+      { id: "curiosidade", nome: "Curiosidade", simbolo: "🔍", descricao: "Interesse desperto para compreender uma novidade." },
+      { id: "descoberta", nome: "Descoberta", simbolo: "💡", descricao: "Clareza repentina diante de uma nova percepÃ§Ã£o." },
+    ],
+  },
 };
 
 export function getEmotionProfile(id) {
@@ -100,4 +115,48 @@ export function getEmotionProfile(id) {
   const key = id.toLowerCase().trim();
   if (key === "nojo") return EMOTIONS_DIVERTIDAMENTE.nojinho;
   return EMOTIONS_DIVERTIDAMENTE[key] || EMOTIONS_DIVERTIDAMENTE.neutro;
+}
+
+const subEmotionColors = {
+  gratidao: ["#45C898", "#E3F6ED"],
+  otimismo: ["#E7C34F", "#FBF4D9"],
+  entusiasmo: ["#E8A93F", "#F9ECD9"],
+  desanimo: ["#78A8E8", "#E9F1FC"],
+  luto: ["#5D77C8", "#E9ECF8"],
+  decepcao: ["#8798D8", "#EDF0FA"],
+  ansiedade: ["#E98776", "#F9EAE6"],
+  panico: ["#D84F5B", "#F7E5E7"],
+  inseguranca: ["#8076C5", "#EEECF8"],
+  irritacao: ["#E88B56", "#F9ECE2"],
+  indignacao: ["#D95F4D", "#F7E6E2"],
+  furia: ["#C9434B", "#F5E2E4"],
+  aversao: ["#78AA83", "#EAF3E9"],
+  desconforto: ["#5AA89C", "#E5F2EF"],
+  desprezo: ["#9A9A59", "#F1F0E4"],
+  equilibrio: ["#7F8D86", "#EAEFEB"],
+  serenidade: ["#55A88C", "#E4F2EB"],
+  sobriedade: ["#80959A", "#E9EFF0"],
+  espanto: ["#E9A847", "#FBF1DF"],
+  curiosidade: ["#D59238", "#F8EEDD"],
+  descoberta: ["#C98032", "#F6E9DD"],
+};
+
+function normalizeEmotionName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+export function getSubEmotionProfile(emotionId, subEmotion) {
+  const profile = getEmotionProfile(emotionId);
+  const target = normalizeEmotionName(subEmotion);
+  const sub = profile.subSentimentos.find(
+    (item) => item.id === target || normalizeEmotionName(item.nome) === target,
+  );
+  if (!sub) return null;
+
+  const [corHex, corSecundariaHex] = subEmotionColors[sub.id] || [profile.corHex, profile.corSecundariaHex];
+  return { ...sub, corHex, corSecundariaHex };
 }

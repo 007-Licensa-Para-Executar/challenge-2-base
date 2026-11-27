@@ -1,4 +1,4 @@
-import PsychologistWorkspace from "../PsychologistWorkspace";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Painel Clínico | Meu Diário",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function ImpactBenchPage() {
-  return <PsychologistWorkspace />;
+  redirect("/psicologa?secao=explorar");
 }

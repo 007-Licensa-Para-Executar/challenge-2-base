@@ -1,79 +1,144 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import DiaryEntryCard from "./DiaryEntryCard";
-import EmotionBadge from "./EmotionBadge";
-import MoodSelector from "./MoodSelector";
+import { useState } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+  LogOut,
+  Send,
+  Sprout,
+} from "lucide-react";
 import VoiceMicButton from "./VoiceMicButton";
-import { EMOTIONS_DIVERTIDAMENTE, getEmotionProfile } from "../lib/emotionTaxonomy";
+import PatientSelfProfileEditor from "./PatientSelfProfileEditor";
+import {
+  EMOTIONS_DIVERTIDAMENTE,
+  getEmotionProfile,
+  getSubEmotionProfile,
+} from "../lib/emotionTaxonomy";
+import styles from "./diary.module.css";
+
+const EMOTION_SPRITES = {
+  alegria: 0,
+  tristeza: 1,
+  medo: 2,
+  raiva: 3,
+  nojinho: 4,
+  neutro: 5,
+  surpresa: 6,
+  gratidao: 7,
+};
+
+function emotionSprite(emotionId, subEmotionId) {
+  const index = EMOTION_SPRITES[subEmotionId] ?? EMOTION_SPRITES[emotionId] ?? EMOTION_SPRITES.neutro;
+  return { spriteColumn: index % 4, spriteRow: Math.floor(index / 4) };
+}
+
+function dateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function groupDominantEmotions(entries) {
+  const days = new Map();
+
+  entries.forEach((entry) => {
+    const date = new Date(Number(entry.created_at));
+    if (!Number.isFinite(date.getTime())) return;
+
+    const profile = getEmotionProfile(entry.primary_emotion);
+    const sub = getSubEmotionProfile(profile.id, entry.sub_emotion_name);
+    const emotionKey = sub?.id || profile.id;
+    const key = dateKey(date);
+    const candidates = days.get(key) || new Map();
+    const candidate = candidates.get(emotionKey) || {
+      label: sub?.nome || profile.personagem,
+      ...emotionSprite(profile.id, sub?.id),
+      color: sub?.corHex || entry.color_hex || profile.corHex,
+      softColor: sub?.corSecundariaHex || entry.color_secondary_hex || profile.corSecundariaHex,
+      count: 0,
+      confidenceTotal: 0,
+      latestAt: 0,
+    };
+
+    candidate.count += 1;
+    candidate.confidenceTotal += Number(entry.confidence) || 0;
+    candidate.latestAt = Math.max(candidate.latestAt, date.getTime());
+    candidates.set(emotionKey, candidate);
+    days.set(key, candidates);
+  });
+
+  return new Map(Array.from(days, ([key, candidates]) => {
+    const dominant = Array.from(candidates.values()).sort((a, b) =>
+      b.count - a.count ||
+      (b.confidenceTotal / b.count) - (a.confidenceTotal / a.count) ||
+      b.latestAt - a.latestAt,
+    )[0];
+
+    return [key, {
+      ...dominant,
+      totalEntries: Array.from(candidates.values()).reduce((sum, item) => sum + item.count, 0),
+    }];
+  }));
+}
+
+function createCalendarPreview(year, month) {
+  const options = Object.values(EMOTIONS_DIVERTIDAMENTE).flatMap((profile) =>
+    profile.subSentimentos.map((sub) => {
+      const detail = getSubEmotionProfile(profile.id, sub.id);
+      return {
+        label: detail.nome,
+        ...emotionSprite(profile.id, sub.id),
+        color: detail.corHex,
+        softColor: detail.corSecundariaHex,
+        isPreview: true,
+      };
+    }),
+  );
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  return new Map(Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(year, month, index + 1);
+    return [dateKey(date), options[index % options.length]];
+  }));
+}
 
 export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
-  const [paciente] = useState(initialPaciente);
+  const [paciente, setPaciente] = useState(initialPaciente);
   const [relatos, setRelatos] = useState(initialRelatos || []);
   const [texto, setTexto] = useState("");
-  const [filtroEmocao, setFiltroEmocao] = useState("todas");
-  const [analisando, setAnalisando] = useState(false);
+  const [transcricao, setTranscricao] = useState("");
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [showCalendarPreview, setShowCalendarPreview] = useState(process.env.NODE_ENV !== "production");
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState(null);
-
-  // Áudio gravado via microfone (opcional, anexado ao relato)
   const [audioAttachment, setAudioAttachment] = useState(null);
+  const [audioBusy, setAudioBusy] = useState(false);
 
-  // Emoção selecionada manualmente ou inferida pela rede neural
-  const [emocaoAtual, setEmocaoAtual] = useState(null);
-
-  // Analisa o sentimento automaticamente com debounce quando o paciente digita
-  useEffect(() => {
-    if (emocaoAtual?.manual) return;
-
-    const trimmed = texto.trim();
-    if (trimmed.length < 15) {
-      if (emocaoAtual && !emocaoAtual.manual) {
-        setEmocaoAtual(null);
-      }
+  async function handleSalvar(event) {
+    event.preventDefault();
+    const cleanText = [texto.trim(), transcricao.trim()].filter(Boolean).join("\n\n");
+    if (!cleanText) {
+      setAviso({ tipo: "erro", texto: "Escreva algo no seu relato antes de salvar." });
       return;
     }
-
-    const timer = setTimeout(async () => {
-      setAnalisando(true);
-      try {
-        const res = await fetch("/api/diario/analisar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: trimmed }),
-        });
-        if (res.ok) {
-          const dados = await res.json();
-          setEmocaoAtual((prev) => (prev?.manual ? prev : { ...dados, manual: false }));
-        }
-      } catch {
-        // Silêncio em caso de falha de conexão na digitação
-      } finally {
-        setAnalisando(false);
-      }
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [texto, emocaoAtual]);
-
-  async function handleSalvar(e) {
-    e.preventDefault();
-    const cleanText = texto.trim();
-    if (!cleanText) {
-      setAviso({ tipo: "erro", texto: "Por favor, escreva algo no seu relato antes de salvar." });
+    if (audioBusy || (audioAttachment && !transcricao.trim())) {
+      setAviso({ tipo: "erro", texto: "Aguarde a transcrição ou refaça o áudio antes de salvar." });
       return;
     }
 
     setSalvando(true);
     setAviso(null);
-
     try {
       const res = await fetch("/api/diario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: cleanText,
-          emotion: emocaoAtual,
           inputType: audioAttachment ? "audio" : "text",
           audioName: audioAttachment?.audioName || null,
           audioDuration: audioAttachment?.audioDuration || null,
@@ -81,18 +146,19 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setAviso({ tipo: "erro", texto: data.message || "Erro ao salvar o relato." });
+        setAviso({ tipo: "erro", texto: data.message || "Não foi possível classificar e salvar o relato." });
         return;
       }
 
-      // Adiciona o novo relato no topo da lista
-      setRelatos((prev) => [data.entry, ...prev]);
+      setRelatos((previous) => [data.entry, ...previous]);
       setTexto("");
-      setEmocaoAtual(null);
+      setTranscricao("");
       setAudioAttachment(null);
-      setAviso({ tipo: "sucesso", texto: "Relato registrado com sucesso no seu diário." });
+      setAviso(data.entry?.classification_warning
+        ? { tipo: "aviso", texto: "Relato salvo. " + data.entry.classification_warning }
+        : { tipo: "sucesso", texto: "Relato salvo e classificado automaticamente pela rede neural e pelo Ollama." });
     } catch {
       setAviso({ tipo: "erro", texto: "Não foi possível conectar ao servidor. Tente novamente." });
     } finally {
@@ -100,29 +166,49 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
     }
   }
 
-  function handleSelectMood(moodData) {
-    setEmocaoAtual({ ...moodData, manual: true });
-  }
-
-  const relatosFiltrados = relatos.filter((r) => {
-    if (filtroEmocao === "todas") return true;
-    return (r.primary_emotion || "").toLowerCase() === filtroEmocao;
+  const now = new Date();
+  const monthDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const monthYear = monthDate.getFullYear();
+  const monthIndex = monthDate.getMonth();
+  const firstWeekday = new Date(monthYear, monthIndex, 1).getDay();
+  const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
+  const calendarCellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+  const dominantByDay = groupDominantEmotions(relatos);
+  const previewByDay = showCalendarPreview ? createCalendarPreview(monthYear, monthIndex) : new Map();
+  const calendarDays = Array.from({ length: calendarCellCount }, (_, index) => {
+    const date = new Date(monthYear, monthIndex, index - firstWeekday + 1);
+    const isCurrentMonth = date.getMonth() === monthIndex;
+    return {
+      date,
+      isCurrentMonth,
+      emotion: isCurrentMonth
+        ? dominantByDay.get(dateKey(date)) || previewByDay.get(dateKey(date)) || null
+        : null,
+    };
   });
+  const recordedDays = calendarDays.filter((day) =>
+    day.isCurrentMonth && dominantByDay.has(dateKey(day.date)),
+  ).length;
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthDate);
+  const todayKey = dateKey(now);
+  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
   return (
-    <div className="diary-app-shell">
-      {/* Barra superior de navegação */}
-      <header className="diary-top-bar">
-        <div className="diary-top-content">
-          <div className="diary-brand">
-            <span className="brand-dot" aria-hidden="true" />
-            <span className="brand-title">meu diário</span>
-          </div>
-          <div className="diary-user-info">
-            <span>Olá, <strong>{paciente?.name || "Paciente"}</strong></span>
+    <div className={styles.appShell}>
+      <header className={styles.topBar}>
+        <div className={styles.topContent}>
+          <a className={styles.brand} href="/" aria-label="Meu Diário, início">
+            <span className={styles.brandMark}><Sprout size={20} aria-hidden="true" /></span>
+            <span>meu diário</span>
+          </a>
+          <div className={styles.userActions}>
+            <PatientSelfProfileEditor
+              patient={paciente}
+              onSave={(profile) => setPaciente((current) => ({ ...current, ...profile }))}
+            />
             <button
               type="button"
-              className="logout-button"
+              className={styles.logoutButton}
               onClick={async () => {
                 try {
                   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
@@ -130,165 +216,222 @@ export default function DiaryWorkspace({ initialPaciente, initialRelatos }) {
                 window.location.href = "/";
               }}
             >
-              Sair
+              <LogOut size={16} aria-hidden="true" />
+              <span>Sair</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="diary-main-container">
-        {/* Painel 1: Check-in visual Divertidamente */}
-        <section className="diary-card-section">
-          <div className="section-header">
-            <h2>Como você está se sentindo hoje?</h2>
-            <p>Selecione um sentimento no espectro Divertidamente ou deixe a rede neural detectar pelo seu texto.</p>
+      <main className={styles.mainContainer}>
+        <section className={styles.hero}>
+          <div>
+            <p className={styles.eyebrow}>SEU ESPAÇO DE CUIDADO</p>
+            <h1>Como foi o seu dia?</h1>
+            <p className={styles.heroDescription}>
+              Escreva ou dite o que está passando por você. O diário identifica as emoções automaticamente.
+            </p>
           </div>
-          <MoodSelector
-            selectedEmotion={emocaoAtual?.primary_emotion}
-            selectedSub={emocaoAtual?.sub_emotion_name}
-            onSelect={handleSelectMood}
-          />
         </section>
 
-        {/* Painel 2: Redação do relato com microfone integrado */}
-        <section className="diary-card-section">
-          <form onSubmit={handleSalvar} className="diary-editor-form">
-            <div className="editor-header-row">
-              <label htmlFor="diario-texto" className="editor-label">
-                Escreva seu relato
-              </label>
-              <span className="editor-subtitle">
-                Digite ou clique no microfone para ditar com sua voz
-              </span>
+        <div className={[styles.flowGrid, calendarOpen && styles.flowGridExpanded].filter(Boolean).join(" ")}>
+          <section className={styles.card} aria-labelledby="entry-title">
+            <div className={styles.sectionHeader}>
+              <span className={styles.stepNumber}>01</span>
+              <div>
+                <h2 id="entry-title">Escreva seu relato</h2>
+                <p>A classificação acontece automaticamente ao salvar; não é preciso escolher uma emoção.</p>
+              </div>
             </div>
 
-            {/* Caixa de texto com botão de microfone ao lado/integrado */}
-            <div className="textarea-with-mic-wrapper">
-              <textarea
-                id="diario-texto"
-                className="diary-textarea"
-                rows={6}
-                placeholder="Desabafe, conte como foi seu dia, suas sensações ou pensamentos... (ou clique no microfone para falar)"
-                value={texto}
-                onChange={(e) => setTexto(e.target.value)}
-                maxLength={20000}
-              />
+            <form onSubmit={handleSalvar} className={styles.editorForm}>
+              <div className={styles.textareaShell}>
+                <label className={styles.visuallyHidden} htmlFor="diario-texto">Seu relato</label>
+                <textarea
+                  id="diario-texto"
+                  className={styles.diaryTextarea}
+                  rows={7}
+                  placeholder="O que aconteceu hoje? Como isso fez você se sentir?"
+                  value={texto}
+                  onChange={(event) => setTexto(event.target.value)}
+                  maxLength={Math.max(0, 20000 - transcricao.length)}
+                />
+              </div>
               <VoiceMicButton
-                onTranscript={setTexto}
+                onTranscript={setTranscricao}
+                transcript={transcricao}
+                onTranscriptChange={setTranscricao}
+                maxTranscriptLength={Math.max(0, 20000 - texto.length)}
                 onAudioReady={setAudioAttachment}
-                currentText={texto}
                 audioAttachment={audioAttachment}
-                onDiscardAudio={() => setAudioAttachment(null)}
-              />
-            </div>
-
-            <div className="editor-meta-row">
-              <span className="char-count">{texto.length} / 20.000 caracteres</span>
-              {analisando && (
-                <span className="analyzing-pill">
-                  <span className="spinner-dot" /> Analisando emoção com Rede Neural...
-                </span>
-              )}
-            </div>
-
-            {/* Visualização em tempo real do sentimento detectado pela Rede Neural */}
-            {emocaoAtual && (
-              <div
-                className="emotion-preview-box"
-                style={{
-                  backgroundColor: emocaoAtual.color_secondary_hex || "#F5F5F5",
-                  borderColor: emocaoAtual.color_hex || "#DDD",
+                onDiscardAudio={() => {
+                  setAudioAttachment(null);
+                  setTranscricao("");
                 }}
-              >
-                <div className="preview-header">
-                  <span className="preview-label">
-                    {emocaoAtual.manual ? "Sentimento Escolhido:" : "Sentimento Detectado pela Rede Neural:"}
+                onBusyChange={setAudioBusy}
+              />
+
+              <div className={styles.editorMeta}>
+                <span>{(texto.length + transcricao.length).toLocaleString("pt-BR")} / 20.000 caracteres</span>
+                {salvando && (
+                  <span className={styles.analyzingStatus} role="status">
+                    <LoaderCircle size={14} className={styles.spinner} aria-hidden="true" />
+                    Classificando com a rede neural e o Ollama…
                   </span>
-                  {emocaoAtual.confidence && !emocaoAtual.manual && (
-                    <span className="confidence-pill">
-                      Confiança: {Math.round(emocaoAtual.confidence * 100)}%
-                    </span>
-                  )}
-                </div>
+                )}
+              </div>
 
-                <div className="preview-body">
-                  <EmotionBadge
-                    emotion={emocaoAtual.primary_emotion}
-                    subEmotion={emocaoAtual.sub_emotion_name}
-                    symbol={emocaoAtual.sub_emotion_symbol}
-                    showRisk={emocaoAtual.is_risk_emotion}
-                  />
-                  <p className="preview-description">
-                    {getEmotionProfile(emocaoAtual.primary_emotion)?.descricao}
-                  </p>
+              {aviso && (
+                <div
+                  className={
+                    aviso.tipo === "sucesso"
+                      ? styles.feedbackSuccess
+                      : aviso.tipo === "aviso"
+                        ? styles.feedbackWarning
+                        : styles.feedbackError
+                  }
+                  role={aviso.tipo === "erro" ? "alert" : "status"}
+                >
+                  {aviso.texto}
+                </div>
+              )}
+
+              <div className={styles.editorActions}>
+                <span className={styles.privateNote}>Seu diário é um espaço pessoal e protegido.</span>
+                <button
+                  type="submit"
+                  className={styles.submitButton}
+                  disabled={salvando || audioBusy || (!texto.trim() && !transcricao.trim()) || (Boolean(audioAttachment) && !transcricao.trim())}
+                >
+                  {salvando ? <LoaderCircle size={17} className={styles.spinner} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+                  {salvando ? "Classificando…" : "Salvar relato"}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className={[styles.card, styles.calendarCard].join(" ")} aria-labelledby="calendar-title">
+            <div className={styles.calendarHeading}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.stepNumber}>02</span>
+                <div>
+                  <h2 id="calendar-title">
+                    <button
+                      type="button"
+                      className={styles.calendarTitleToggle}
+                      aria-expanded={calendarOpen}
+                      aria-controls="diary-calendar-panel"
+                      onClick={() => setCalendarOpen((open) => !open)}
+                    >
+                      Seu mês
+                      <ChevronDown
+                        size={17}
+                        className={styles.calendarToggleIcon}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </h2>
+                  <p>Um símbolo mostra a emoção predominante de cada dia.</p>
                 </div>
               </div>
-            )}
-
-            {aviso && (
-              <div className={`form-feedback ${aviso.tipo}`} role="alert">
-                {aviso.texto}
+              <div className={styles.calendarActions}>
+                <span className={styles.entryCount}>{recordedDays} {recordedDays === 1 ? "dia" : "dias"} com relatos</span>
               </div>
-            )}
-
-            <div className="editor-actions">
-              <button
-                type="submit"
-                className="submit-button"
-                disabled={salvando || !texto.trim()}
-              >
-                {salvando ? "Salvando relato..." : "Salvar relato no meu diário"}
-              </button>
             </div>
-          </form>
-        </section>
 
-        {/* Painel 3: Histórico e Linha do Tempo */}
-        <section className="diary-card-section">
-          <div className="section-header timeline-header">
-            <h2>Seu Histórico de Cuidados</h2>
-            <div className="filter-chips-row">
-              <button
-                type="button"
-                className={`filter-chip ${filtroEmocao === "todas" ? "active" : ""}`}
-                onClick={() => setFiltroEmocao("todas")}
-              >
-                Todas ({relatos.length})
-              </button>
-              {Object.values(EMOTIONS_DIVERTIDAMENTE).map((emo) => {
-                const count = relatos.filter((r) => r.primary_emotion === emo.id).length;
-                if (count === 0) return null;
-                return (
+            <div id="diary-calendar-panel" className={styles.calendarContent} hidden={!calendarOpen}>
+              <div className={styles.calendarToolbar}>
+                <button
+                  type="button"
+                  className={styles.monthNavButton}
+                  aria-label="Mês anterior"
+                  onClick={() => setMonthOffset((offset) => offset - 1)}
+                >
+                  <ChevronLeft size={18} aria-hidden="true" />
+                </button>
+                <h3 className={styles.monthLabel}>{monthLabel}</h3>
+                <button
+                  type="button"
+                  className={styles.monthNavButton}
+                  aria-label="Próximo mês"
+                  onClick={() => setMonthOffset((offset) => Math.min(offset + 1, 0))}
+                  disabled={monthOffset === 0}
+                >
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+              </div>
+
+              {process.env.NODE_ENV !== "production" && (
+                <div className={styles.calendarPreviewRow}>
                   <button
-                    key={emo.id}
                     type="button"
-                    className={`filter-chip ${filtroEmocao === emo.id ? "active" : ""}`}
-                    onClick={() => setFiltroEmocao(emo.id)}
-                    style={{
-                      borderColor: emo.corHex,
-                      color: filtroEmocao === emo.id ? "#FFF" : emo.corTexto,
-                      backgroundColor: filtroEmocao === emo.id ? emo.corHex : emo.corSecundariaHex,
-                    }}
+                    className={styles.calendarPreviewToggle}
+                    aria-pressed={showCalendarPreview}
+                    onClick={() => setShowCalendarPreview((visible) => !visible)}
                   >
-                    {emo.personagem} ({count})
+                    {showCalendarPreview ? "Ocultar exemplos" : "Preencher mês"}
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+              )}
 
-          <div className="timeline-entries-list">
-            {relatosFiltrados.length === 0 ? (
-              <div className="empty-state">
-                <p>Nenhum relato encontrado para este filtro.</p>
+              <div className={styles.calendarGrid} role="group" aria-label={`Calendário de emoções de ${monthLabel}`}>
+                {weekdays.map((day) => (
+                  <span key={day} className={styles.calendarWeekday} aria-hidden="true">{day}</span>
+                ))}
+                {calendarDays.map(({ date, isCurrentMonth, emotion }) => {
+                  const key = dateKey(date);
+                  const isToday = key === todayKey;
+                  const label = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" }).format(date);
+                  const ariaLabel = emotion
+                    ? emotion.isPreview
+                      ? `${label}: exemplo de ${emotion.label}`
+                      : `${label}: ${emotion.label}, ${emotion.totalEntries} ${emotion.totalEntries === 1 ? "relato" : "relatos"}`
+                    : `${label}: sem relatos`;
+
+                  return (
+                    <div
+                      key={key}
+                      className={[
+                        styles.calendarDay,
+                        !isCurrentMonth && styles.calendarDayOutside,
+                        isToday && styles.calendarDayToday,
+                        emotion && styles.calendarDayRecorded,
+                      ].filter(Boolean).join(" ")}
+                      style={emotion ? { "--emotion-color": emotion.color, "--emotion-soft": emotion.softColor } : undefined}
+                      role="group"
+                      aria-label={ariaLabel}
+                      title={emotion
+                        ? emotion.isPreview
+                          ? `Exemplo visual: ${emotion.label}`
+                          : `${emotion.label} · ${emotion.totalEntries} ${emotion.totalEntries === 1 ? "relato" : "relatos"}`
+                        : undefined}
+                    >
+                      <span className={styles.calendarDayNumber}>{date.getDate()}</span>
+                      {emotion && (
+                        <span
+                          className={styles.calendarDaySprite}
+                          style={{
+                            "--sprite-column": `${(emotion.spriteColumn / 3) * 100}%`,
+                            "--sprite-row": `${emotion.spriteRow * 100}%`,
+                          }}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ) : (
-              relatosFiltrados.map((item) => (
-                <DiaryEntryCard key={item.id} entry={item} />
-              ))
-            )}
-          </div>
-        </section>
+
+              <p className={styles.calendarLegend}>
+                {showCalendarPreview
+                  ? "Prévia visual: dias sem registro exibem exemplos; eles não são salvos no diário."
+                  : relatos.length
+                    ? "Os símbolos ajudam a perceber como suas emoções variam ao longo do tempo."
+                    : "Os símbolos dos seus relatos aparecerão aqui quando você salvar o primeiro."}
+              </p>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   );

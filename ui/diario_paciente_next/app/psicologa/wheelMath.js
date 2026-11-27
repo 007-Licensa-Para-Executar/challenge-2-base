@@ -42,7 +42,7 @@ export const MACRO_THEME_META = {
     description: "Autocrítica, comparação social, culpa, confiança e valor próprio.",
   },
   outros_indeterminado: {
-    label: "Outros / Geral",
+    label: "Outros / Indeterminado",
     shortLabel: "OUTROS",
     description: "Relatos abertos sem um único macro-tema predominante na rede neural.",
   },
@@ -224,6 +224,7 @@ export function buildSunburstGeometry(wheel, entries = []) {
       "financas",
       "luto",
       "autoestima",
+      "outros_indeterminado",
     ];
     const step = 360 / defaultKeys.length;
     return {

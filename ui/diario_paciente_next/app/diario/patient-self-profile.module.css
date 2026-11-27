@@ -1,0 +1,314 @@
+.profileTrigger {
+  display: inline-flex;
+  max-width: min(280px, 40vw);
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #668d7f;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #315c50;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.profileTriggerName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.triggerAvatar,
+.triggerAvatarPlaceholder {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d9e3dd;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.triggerAvatarPlaceholder {
+  background: #e8f0eb;
+  color: #315c50;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.profileTrigger:hover {
+  background: #315c50;
+  color: #ffffff;
+}
+
+.profileDialog {
+  width: min(660px, calc(100vw - 28px));
+  max-width: 660px;
+  max-height: min(92dvh, 900px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 22px;
+  background: #ffffff;
+  color: #26332f;
+  box-shadow: 0 24px 80px rgba(20, 40, 32, 0.24);
+}
+
+.profileDialog::backdrop {
+  background: rgba(24, 37, 31, 0.54);
+  backdrop-filter: blur(3px);
+}
+
+.profileEditor {
+  display: grid;
+  gap: 22px;
+  padding: clamp(20px, 4vw, 34px);
+}
+
+.profileHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.profileHeading h2 {
+  margin: 0;
+  color: #26332f;
+  font-size: clamp(23px, 4vw, 29px);
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.profileHeading > div > p:last-child {
+  margin: 7px 0 0;
+  color: #5e6c64;
+  font-size: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #668d7f;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.closeButton {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid #dce4df;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #315c50;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid #e4eae6;
+  border-radius: 16px;
+  background: #fafbf9;
+}
+
+.photoPreview,
+.photoPlaceholder {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+  overflow: hidden;
+  border: 1px solid #d9e3dd;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.photoPlaceholder {
+  display: grid;
+  place-items: center;
+  background: #e8f0eb;
+  color: #315c50;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  color: #34453e;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field b {
+  color: #8c3a32;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cbd7d0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #26332f;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.field input[type="file"] {
+  min-height: 42px;
+  padding: 7px;
+  font-size: 12px;
+}
+
+.field textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+  border-color: #668d7f;
+  outline: 3px solid rgba(102, 141, 127, 0.2);
+  outline-offset: 1px;
+}
+
+.field small {
+  color: #66766d;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.passwordSection {
+  display: grid;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid #e4eae6;
+}
+
+.passwordSection h3 {
+  margin: 0;
+  color: #26332f;
+  font-size: 16px;
+}
+
+.passwordSection > div:first-child p {
+  margin: 4px 0 0;
+  color: #5e6c64;
+  font-size: 13px;
+}
+
+.formError {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #f6e8e6;
+  color: #8c3a32;
+  font-size: 13px;
+}
+
+.loadingMessage {
+  margin: 0;
+  padding: 28px 0;
+  color: #5e6c64;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.cancelButton,
+.saveButton {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #315c50;
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cancelButton {
+  background: #ffffff;
+  color: #315c50;
+}
+
+.saveButton {
+  background: #315c50;
+  color: #ffffff;
+}
+
+.saveButton:disabled,
+.cancelButton:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+@media (max-width: 560px) {
+  .profileEditor {
+    gap: 18px;
+  }
+
+  .photoRow {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .photoPreview,
+  .photoPlaceholder {
+    width: 60px;
+    height: 60px;
+    flex-basis: 60px;
+  }
+
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fieldWide {
+    grid-column: auto;
+  }
+
+  .actions > button {
+    flex: 1;
+  }
+
+  .profileTrigger {
+    max-width: min(190px, 46vw);
+  }
+}

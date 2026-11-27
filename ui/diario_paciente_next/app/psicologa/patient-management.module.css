@@ -224,6 +224,10 @@
   color: #315c50;
 }
 
+.demoCaseStatus {
+  color: #3e6875;
+}
+
 .pending {
   color: #765022;
 }
@@ -277,17 +281,84 @@
 }
 
 .mainContent {
+  display: flex;
+  min-height: calc(100dvh - 32px);
+  flex-direction: column;
   min-width: 0;
   padding: 4px 4px 28px;
 }
 
 .pageHeader {
   display: flex;
-  min-height: 74px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 16px;
+}
+
+.pageHeaderTop {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin: 0 0 20px;
+}
+
+.sectionNav {
+  position: relative;
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 4px;
+  overflow: visible;
+  border: 1px solid rgba(49, 92, 80, 0.12);
+  border-radius: 15px;
+  background: #ffffff;
+  scrollbar-width: thin;
+}
+
+.sectionNavLink,
+.sectionNavLinkActive,
+.sectionNavExternal {
+  display: inline-flex;
+  min-height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 11px;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sectionNavLink:hover,
+.sectionNavExternal:hover {
+  background: #f1f5f2;
+  color: var(--cor-texto);
+}
+
+.sectionNavLinkActive {
+  background: #315c50;
+  color: #ffffff;
+}
+
+.sectionNavExternal {
+  margin-left: auto;
+  color: var(--cor-primaria);
+}
+
+.sectionNavLink:focus-visible,
+.sectionNavLinkActive:focus-visible,
+.sectionNavExternal:focus-visible {
+  outline: 3px solid var(--cor-secundaria);
+  outline-offset: 2px;
+}
+
+.sectionNav .externalSupervisors {
+  flex: 0 0 auto;
 }
 
 .pageHeader h1 {
@@ -1891,14 +1962,36 @@
   }
 
   .pageHeader {
+    display: flex;
+  }
+
+  .pageHeaderTop {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sectionNav {
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .sectionNavLink,
+  .sectionNavLinkActive,
+  .sectionNavExternal {
+    min-height: 36px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .sectionNavExternal {
+    margin-left: 0;
   }
 
   .pageHeader h1 {
     font-size: 26px;
   }
 
-  .pageHeader p:last-child {
+  .pageHeaderTop > div:first-child > p:last-child {
     max-width: 230px;
     font-size: 12px;
   }
@@ -2111,6 +2204,7 @@
 }
 
 .externalSupervisors {
+  position: relative;
   margin-top: 0;
 }
 
@@ -2126,6 +2220,10 @@
   font-weight: 700;
   cursor: pointer;
   transition: background 140ms ease, transform 140ms ease;
+}
+
+.pageHeaderActions .externalSupervisorsTrigger {
+  width: auto;
 }
 
 .externalSupervisorsTrigger:hover {
@@ -2146,8 +2244,9 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  left: 0;
+  left: auto;
   z-index: 30;
+  width: min(620px, calc(100vw - 32px));
   max-height: 72vh;
   padding: 20px;
   overflow-y: auto;

@@ -38,6 +38,7 @@ TOOLS = {
     "modelos": "Listar os modelos locais e o modelo de resposta.",
     "historico": "Abrir a linha do tempo do paciente selecionado.",
     "limpar": "Limpar a conversa exibida.",
+    "resumo": "Resumir os assuntos recorrentes nos diários analisados do período.",
     "diarios": "Localizar trechos sobre o paciente selecionado.",
     "temas": "Contar os temas classificados na janela.",
     "literatura": "Consultar publicações sobre um assunto geral.",
@@ -50,7 +51,7 @@ class Route(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tool: Literal[
         "diarios", "temas", "literatura", "reprocessar", "esclarecer",
-        "ajuda", "status", "modelos", "historico", "limpar",
+        "ajuda", "status", "modelos", "historico", "limpar", "resumo",
     ]
 
 
@@ -66,7 +67,15 @@ _MULTIPLE_ACTIONS = (
     r"(?:\be\b|[;]|\b(?:depois|também)\b)\s*"
     r"(?:mostre|liste|conte|busque|procure|reprocesse|limpe|abra)\b"
 )
+_SUMMARY_REQUEST = (
+    r"(?:quais (?:são )?(?:as )?principais queixas|resuma (?:os )?relatos"
+    r"|(?:faça|mostre) (?:um )?resumo (?:dos diários|dos relatos|das queixas))"
+    r"(?: (?:de |da |do )?(?P<name>ana|bruno))?"
+    r"(?: (?:neste|no) período)?"
+)
+
 _ROUTE_PATTERNS = {
+    "resumo": _SUMMARY_REQUEST,
     "ajuda": r"ajuda|(?:mostre|liste) (?:os )?comandos|(?:quais|que) comandos (?:posso|consigo) usar",
     "status": (
         r"(?:status|estado)(?: (?:do|dos|da) (?:ollama|serviços|api))?"
@@ -284,6 +293,32 @@ def _utility(tool, patient_id, directory):
     return None
 
 
+def _summary_evidence(eligible, analyzed_records, limit):
+    allowed = {record.record_id for record in eligible}
+    topics = {}
+    for record, analysis in analyzed_records:
+        if record.record_id not in allowed or analysis is None:
+            continue
+        for topic in analysis.output.subtemas:
+            excerpts = topic_evidence(record, analysis, topic.nome)
+            if excerpts:
+                topics.setdefault(topic.nome.casefold(), {}).setdefault(
+                    record.record_id, excerpts[0],
+                )
+    selected = []
+    seen = set()
+    for excerpts in sorted(topics.values(), key=len, reverse=True):
+        for item in reversed(list(excerpts.values())):
+            if item.chunk_id in seen:
+                continue
+            selected.append(item)
+            seen.add(item.chunk_id)
+            break
+        if len(selected) == limit:
+            break
+    return selected
+
+
 def dispatch(command, payload, *, directory=DEMO_DIR):
     if command == "tools":
         return {"tools": [
@@ -301,6 +336,20 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
         raise ValueError("Filtro inválido")
     if command == "dashboard":
         return _dashboard(store, query, alias, valence)
+    if command == "analyze-pending":
+        failures = {}
+        completed = 0
+        for record, saved in store.analyses(query):
+            if saved is not None:
+                continue
+            if record.classification.status != "ok":
+                record = _classify(record)
+                store.save_classification(record)
+            if error := _analysis(record, store, "texto"):
+                failures[record.record_id] = error
+            else:
+                completed += 1
+        return {"completed": completed, "failures": failures}
     if command == "presentation":
         store.edit_presentation(patient_id, payload["action"], payload)
         return _dashboard(store, query, alias, valence)
@@ -330,11 +379,15 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
                 "treated_text": record.analysis_text}
     if command != "chat":
         raise ValueError("Operação desconhecida")
+    summary = None
     if explicit_tool is None:
         requested = set(re.findall(
             r"\b(?:paciente |(?:diários|relatos|histórico) d[aeo] )(ana|bruno)\b",
             raw.casefold(),
         ))
+        summary = re.fullmatch(_SUMMARY_REQUEST, raw.casefold().rstrip(".?!"))
+        if summary and summary["name"]:
+            requested.add(summary["name"])
         if requested - {alias.removeprefix("patient_")}:
             return {
                 "status": "clarification",
@@ -343,7 +396,10 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
     treated = protect_query(Query.model_validate({
         **query.model_dump(), "question": raw,
     }), client, directory)
-    tool = "diarios" if payload.get("topic") else explicit_tool or _route(treated.question)
+    tool = (
+        "diarios" if payload.get("topic") else explicit_tool
+        or ("resumo" if summary else _route(treated.question))
+    )
     if response := _utility(tool, patient_id, directory):
         return response
     if tool == "literatura":
@@ -405,6 +461,21 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
         OllamaGenerator(model=os.getenv("OLLAMA_MODEL", "qwen3:4b"), timeout=120)
         if mode == "ollama" else None
     )
+    if tool == "resumo":
+        def select(eligible, limit):
+            return _summary_evidence(eligible, records, limit)
+
+        result = CopilotService(store, Retriever(), generator).answer(
+            treated.model_copy(update={"question": (
+                "Resuma brevemente em português os assuntos relatados nestes trechos. "
+                "Mencione apenas o que está documentado e cite as fontes."
+            )}),
+            generation_mode=mode, top_k=5, select_evidence=select,
+        )
+        response = result.model_dump(mode="json")
+        analyzed = sum(saved is not None for _, saved in records)
+        response["answer"] += f"\nCobertura: {analyzed} de {len(records)} diários têm análise de subtemas."
+        return response
     result = CopilotService(store, Retriever(), generator).answer(
         treated.model_copy(update={"question": question}), generation_mode=mode,
     )

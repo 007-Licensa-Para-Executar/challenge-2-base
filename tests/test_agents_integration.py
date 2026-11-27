@@ -64,6 +64,16 @@ def test_wheel_chat_and_revision_share_exact_stored_evidence(tmp_path, monkeypat
     assert cli.dispatch(
         "chat", {**payload, "entry_id": str(output.entry_id)}, directory=tmp_path,
     )["status"] == "insufficient_evidence"
+    summary = cli.dispatch("chat", {
+        "patient": "patient_ana", "question": "Quais são as principais queixas de Ana?",
+    }, directory=tmp_path)
+    assert summary["status"] == "ok"
+    assert [item["quote"] for item in summary["evidence"]] == [literal]
+    assert "1 de 1" in summary["answer"]
+    other_summary = cli.dispatch("chat", {
+        "patient": "patient_bruno", "question": "Quais são as principais queixas de Ana?",
+    }, directory=tmp_path)
+    assert other_summary["status"] == "clarification"
     command = {"patient": "patient_ana", "question": "/reprocessar ref1"}
     assert cli.dispatch("chat", command, directory=tmp_path)["status"] == "confirmation"
     natural_reprocess = {**command, "question": "Reprocesse o diário ref1.", "confirmed": True}
@@ -133,7 +143,7 @@ def test_catalogue_lists_only_callable_slash_commands():
     commands = cli.dispatch("tools", {})["tools"]
     assert {item["command"] for item in commands} == {
         "/diarios", "/temas", "/literatura", "/reprocessar",
-        "/ajuda", "/status", "/modelos", "/historico", "/limpar",
+        "/ajuda", "/status", "/modelos", "/historico", "/limpar", "/resumo",
     }
     for item in commands:
         command = item["command"]

@@ -2,9 +2,10 @@
 
 import sqlite3
 from collections import Counter
+from collections.abc import Callable
 from typing import Literal
 
-from .contracts import CopilotAnswer, Evidence, Query
+from .contracts import CopilotAnswer, DiaryRecord, Evidence, Query
 
 
 class CopilotService:
@@ -18,6 +19,8 @@ class CopilotService:
         query: Query,
         generation_mode: Literal["ollama", "extractive"] = "ollama",
         top_k: int = 3,
+        *,
+        select_evidence: Callable[[list[DiaryRecord], int], list[Evidence]] | None = None,
     ) -> CopilotAnswer:
         if generation_mode not in ("ollama", "extractive") or not 1 <= top_k <= 5:
             raise ValueError("Modo ou quantidade de trechos inválidos")
@@ -69,7 +72,10 @@ class CopilotService:
         from .retriever import RetrievalError
 
         try:
-            evidence = self.retriever.search(records, query.question, top_k=top_k)
+            evidence = (
+                select_evidence(records, top_k) if select_evidence
+                else self.retriever.search(records, query.question, top_k=top_k)
+            )
         except RetrievalError as error:
             return failure(error.code)
         if not evidence:

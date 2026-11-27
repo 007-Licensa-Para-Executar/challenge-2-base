@@ -61,3 +61,11 @@ O comando pode ser repetido. Ele carrega e classifica os diários que ainda falt
 4. Na roda, abra um subtema e uma ocorrência e clique em **Mostrar trecho selecionado**.
 5. Selecione Bruno e repita `/diarios avós` para mostrar que a busca usa o caso ativo.
 6. Se houver tempo, execute `/literatura agentes conversacionais bem-estar` e identifique a fonte de demonstração. A síntese com **Ollama · Qwen** pode ser feita repetindo a pergunta do passo 2.
+
+Para preencher as análises pendentes de Ana, com o Ollama local em execução:
+
+```bash
+printf '%s' '{"patient":"patient_ana"}' | uv run --no-sync python -m agents.copilot.integration_cli analyze-pending
+```
+
+Repita com `patient_bruno` para o outro caso. O comando processa em série e pula os diários já analisados. Depois, abra **Copiloto**, selecione **Síntese com Qwen** e pergunte “Quais são as principais queixas de Ana?” com Ana selecionada. O atalho é `/resumo`. A síntese tem citações e informa quantos diários do período têm análise.

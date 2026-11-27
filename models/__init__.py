@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING
 
-from models.embedder import ClinicalTextEmbedder
 from models.emotion_net import EKMAN_LABELS, EmotionNeuralNetwork, EmotionPipeline
 from models.emotion_predictor import EmotionDiaryPredictor, EmotionDiaryResult
 from models.emotion_taxonomy import (
@@ -16,7 +15,6 @@ from models.emotion_taxonomy import (
     resolve_sub_emotion,
 )
 from models.numpy_mlp import NumpyClinicalMLP
-from models.torch_mlp import THEME_CLASSES, ClinicalThemeMLP
 
 if TYPE_CHECKING:
     from models.predictor import (
@@ -28,6 +26,14 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str):
+    if name == "ClinicalTextEmbedder":
+        from models.embedder import ClinicalTextEmbedder
+
+        return ClinicalTextEmbedder
+    if name in {"THEME_CLASSES", "ClinicalThemeMLP"}:
+        from models import torch_mlp
+
+        return getattr(torch_mlp, name)
     if name in {
         "ClinicalThemePredictor",
         "DiaryTopicBreakdown",

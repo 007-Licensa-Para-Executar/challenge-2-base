@@ -86,9 +86,9 @@ export default function PatientList({
                 </span>
                 <span className={styles.patientSummary}>
                   <span className={styles.patientName}>{patient.fullName}</span>
-                  <span className={`${styles.linkStatus} ${isLinked ? styles.linked : styles.pending}`}>
+                  <span className={`${styles.linkStatus} ${patient.isDemo ? styles.demoCaseStatus : isLinked ? styles.linked : styles.pending}`}>
                     <span className={styles.statusDot} aria-hidden="true" />
-                    {isLinked ? "Vinculado" : "Aguardando vínculo"}
+                    {patient.isDemo ? "Caso fictício · demonstração" : isLinked ? "Vinculado" : "Aguardando vínculo"}
                   </span>
                 </span>
               </button>
@@ -117,7 +117,7 @@ export default function PatientList({
       )}
 
       <p className={styles.sidebarNote}>
-        Todos os cadastros do portal aparecem aqui, inclusive os que ainda aguardam vínculo.
+        A lista inclui cadastros do portal e casos de demonstração identificados como fictícios.
       </p>
     </aside>
   );

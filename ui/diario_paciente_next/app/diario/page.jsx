@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { listarDiarios, obterPacienteLogado } from "../api/auth/_backend";
+import { getPatientProfile } from "../api/auth/_database";
 import DiaryWorkspace from "./DiaryWorkspace";
 
 export const metadata = {
@@ -22,10 +23,13 @@ export default async function DiarioPage() {
     redirect("/");
   }
 
+  const profile = getPatientProfile(rawPaciente.id);
+
   const plainPaciente = {
     id: String(rawPaciente.id),
     name: String(rawPaciente.name),
     email: String(rawPaciente.email),
+    photoUrl: profile?.photoUrl || null,
   };
 
   const rawRelatos = listarDiarios(plainPaciente.id);

@@ -32,6 +32,10 @@ export function getAuthDatabase() {
       created_at INTEGER NOT NULL,
       address TEXT NOT NULL DEFAULT '',
       age INTEGER CHECK (age IS NULL OR age >= 0),
+      insurance_plan TEXT NOT NULL DEFAULT '',
+      photo BLOB,
+      photo_mime TEXT,
+      profile_photo_updated_at INTEGER,
       treatment_duration_months INTEGER CHECK (treatment_duration_months IS NULL OR treatment_duration_months >= 0),
       psychiatric_treatment INTEGER NOT NULL DEFAULT 0 CHECK (psychiatric_treatment IN (0, 1))
     );
@@ -104,6 +108,10 @@ export function getAuthDatabase() {
   const patientColumns = new Set(database.prepare("PRAGMA table_info(patients)").all().map((column) => column.name));
   if (!patientColumns.has("address")) safeAlter(database, "ALTER TABLE patients ADD COLUMN address TEXT NOT NULL DEFAULT ''");
   if (!patientColumns.has("age")) safeAlter(database, "ALTER TABLE patients ADD COLUMN age INTEGER CHECK (age IS NULL OR age >= 0)");
+  if (!patientColumns.has("insurance_plan")) safeAlter(database, "ALTER TABLE patients ADD COLUMN insurance_plan TEXT NOT NULL DEFAULT ''");
+  if (!patientColumns.has("photo")) safeAlter(database, "ALTER TABLE patients ADD COLUMN photo BLOB");
+  if (!patientColumns.has("photo_mime")) safeAlter(database, "ALTER TABLE patients ADD COLUMN photo_mime TEXT");
+  if (!patientColumns.has("profile_photo_updated_at")) safeAlter(database, "ALTER TABLE patients ADD COLUMN profile_photo_updated_at INTEGER");
   if (!patientColumns.has("treatment_duration_months")) {
     safeAlter(database, "ALTER TABLE patients ADD COLUMN treatment_duration_months INTEGER CHECK (treatment_duration_months IS NULL OR treatment_duration_months >= 0)");
   }
@@ -185,6 +193,36 @@ function toPortalPatientRecord(patient) {
     treatmentDurationMonths: patient.treatment_duration_months,
     psychiatricTreatment: Boolean(patient.psychiatric_treatment),
   };
+}
+
+export function getPatientProfile(id) {
+  const patient = getAuthDatabase().prepare(
+    `SELECT id, name, email, created_at, address, age, insurance_plan,
+            photo IS NOT NULL AS has_photo, profile_photo_updated_at
+     FROM patients WHERE id = ?`,
+  ).get(id);
+  if (!patient) return null;
+
+  return {
+    id: patient.id,
+    name: patient.name,
+    email: patient.email,
+    createdAt: new Date(patient.created_at).toISOString(),
+    address: patient.address,
+    age: patient.age,
+    insurancePlan: patient.insurance_plan,
+    photoUrl: patient.has_photo
+      ? `/api/auth/perfil/foto?v=${patient.profile_photo_updated_at || 0}`
+      : null,
+  };
+}
+
+export function getPatientProfilePhoto(id) {
+  const photo = getAuthDatabase().prepare(
+    "SELECT photo, photo_mime FROM patients WHERE id = ?",
+  ).get(id);
+  if (!photo?.photo) return null;
+  return { data: new Uint8Array(photo.photo), mimeType: photo.photo_mime };
 }
 
 export function updatePatientProfile(id, profile) {

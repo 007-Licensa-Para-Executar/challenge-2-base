@@ -1,5 +1,5 @@
 import { listarPacientesDoPortal } from "../../auth/_database.js";
-import { getDemoPatientSummary } from "../../../lib/demoPatient.js";
+import { getDemoPatientSummaries } from "../../../lib/demoPatient.js";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,15 @@ export async function GET(request) {
       isDemo: false,
     }));
     if (new URL(request.url).searchParams.get("includeDemo") === "true") {
-      patients.push(getDemoPatientSummary());
+      patients.push(
+        ...getDemoPatientSummaries().map((patient) => ({
+          ...patient,
+          address: "",
+          age: null,
+          treatmentDurationMonths: null,
+          psychiatricTreatment: false,
+        })),
+      );
     }
     return Response.json(
       { patients },

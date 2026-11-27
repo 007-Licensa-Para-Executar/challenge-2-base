@@ -11,9 +11,9 @@ import {
 } from "../../../auth/_backend.js";
 import { runDashboardCli } from "../../../../lib/dashboardBridge.js";
 import {
-  DEMO_PATIENT_ID,
   getDemoPatientEntries,
   getDemoPatientSummary,
+  isDemoPatientId,
 } from "../../../../lib/demoPatient.js";
 
 export const runtime = "nodejs";
@@ -101,11 +101,11 @@ async function buildPatientDashboardPayload(
   patientId,
   { days = "all", valence = "all", forceReprocess = false, useOllama = false, modelName = null } = {},
 ) {
-  const isDemo = patientId === DEMO_PATIENT_ID;
-  const patient = isDemo ? getDemoPatientSummary() : obterPacientePorId(patientId);
+  const isDemo = isDemoPatientId(patientId);
+  const patient = isDemo ? getDemoPatientSummary(patientId) : obterPacientePorId(patientId);
   if (!patient) return null;
 
-  let rawEntries = isDemo ? getDemoPatientEntries() : listarDiarios(patientId);
+  let rawEntries = isDemo ? getDemoPatientEntries(patientId) : listarDiarios(patientId);
   const reports = isDemo ? [] : listarRelatoriosPaciente(patientId);
   const annotations = isDemo ? [] : listarAnotacoesSubtemas(patientId);
 
@@ -279,7 +279,7 @@ export async function POST(request, context) {
       return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
     }
 
-    if (id === DEMO_PATIENT_ID) {
+    if (isDemoPatientId(id)) {
       return NextResponse.json(
         { message: "Ações de gravação no banco não alteram o caso sintético de demonstração." },
         { status: 400 },

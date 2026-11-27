@@ -34,13 +34,12 @@ export async function POST(request) {
   try {
     const {
       text,
-      emotion: clientEmotion,
       inputType = "text",
       audioName = null,
       audioDuration = null,
       audioData = null,
     } = await request.json();
-    const cleanText = (text || "").trim();
+    const cleanText = typeof text === "string" ? text.trim() : "";
 
     if (!cleanText) {
       return NextResponse.json(
@@ -49,11 +48,8 @@ export async function POST(request) {
       );
     }
 
-    // Se o front já enviou a emoção analisada, aproveita; caso contrário, executa a rede neural
-    let finalEmotion = clientEmotion;
-    if (!finalEmotion || !finalEmotion.character) {
-      finalEmotion = await analisarRelatoComRedeNeural(cleanText);
-    }
+    // Sempre classifica no servidor para ignorar qualquer emoção enviada pelo navegador.
+    const finalEmotion = await analisarRelatoComRedeNeural(cleanText);
 
     const { id, created_at } = salvarDiario({
       patientId: paciente.id,

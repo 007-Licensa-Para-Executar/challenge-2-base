@@ -178,6 +178,9 @@ export default function CopilotPrompt({
                     {result.status === "ok" ? "Concluído" : result.status === "insufficient_evidence" ? "Evidência insuficiente" : result.status}
                   </span>
                   {Number.isInteger(result.eligible_records) && <span>Registros elegíveis: {result.eligible_records}</span>}
+                  {Number.isInteger(result.analyzed_records) && (
+                    <span>Analisados: {result.analyzed_records} de {result.eligible_records}</span>
+                  )}
                   {result.generation_mode && <span>
                     {result.generation_mode === "ollama"
                       ? `Ollama · ${result.model || "Qwen"}`

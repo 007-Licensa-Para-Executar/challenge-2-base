@@ -474,6 +474,7 @@ def dispatch(command, payload, *, directory=DEMO_DIR):
         )
         response = result.model_dump(mode="json")
         analyzed = sum(saved is not None for _, saved in records)
+        response["analyzed_records"] = analyzed
         response["answer"] += f"\nCobertura: {analyzed} de {len(records)} diários têm análise de subtemas."
         return response
     result = CopilotService(store, Retriever(), generator).answer(

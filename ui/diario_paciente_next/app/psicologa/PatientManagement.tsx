@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PatientHistory from "./PatientHistory";
 import PatientList from "./PatientList";
@@ -342,46 +342,47 @@ export default function PatientManagement({ initialSection }: { initialSection?:
               <h1>Painel profissional</h1>
               <p>Acompanhe pacientes, temas e relatórios em um só lugar.</p>
             </div>
-            <div className={styles.professionalBadge}>
-              <button
-                className={styles.professionalProfileButton}
-                type="button"
-                aria-haspopup="dialog"
-                aria-label={`Editar perfil de ${psychologistProfile.name}`}
-                onClick={() => setIsProfileEditorOpen(true)}
-              >
-                {psychologistProfile.photoUrl ? (
-                  <img className={styles.professionalAvatar} src={psychologistProfile.photoUrl} alt="" />
-                ) : (
-                  <span className={styles.professionalAvatar} aria-hidden="true">
-                    {getPsychologistInitials(psychologistProfile.name)}
+            <div className={styles.pageHeaderActions}>
+              {selectedPatient ? (
+                <ExternalSupervisors
+                  key={selectedPatient.id}
+                  patientId={selectedPatient.id}
+                  patientName={selectedPatient.fullName}
+                />
+              ) : null}
+              <div className={styles.professionalBadge}>
+                <button
+                  className={styles.professionalProfileButton}
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-label={`Editar perfil de ${psychologistProfile.name}`}
+                  onClick={() => setIsProfileEditorOpen(true)}
+                >
+                  {psychologistProfile.photoUrl ? (
+                    <img className={styles.professionalAvatar} src={psychologistProfile.photoUrl} alt="" />
+                  ) : (
+                    <span className={styles.professionalAvatar} aria-hidden="true">
+                      {getPsychologistInitials(psychologistProfile.name)}
+                    </span>
+                  )}
+                  <span>
+                    <strong>{psychologistProfile.name}</strong>
+                    <small>{psychologistProfile.profession || "Profissional"}</small>
                   </span>
-                )}
-                <span>
-                  <strong>{psychologistProfile.name}</strong>
-                  <small>{psychologistProfile.profession || "Profissional"}</small>
-                </span>
-              </button>
+                </button>
+              </div>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="Seções do painel profissional">
             {sections.map((section) => (
-              <Fragment key={section.id}>
-                <Link
-                  className={activeSection === section.id ? styles.sectionNavLinkActive : styles.sectionNavLink}
-                  href={section.id === "gestao" ? "/psicologa" : `/psicologa?secao=${section.id}`}
-                  aria-current={activeSection === section.id ? "page" : undefined}
-                >
-                  {section.label}
-                </Link>
-                {section.id === "explorar" && selectedPatient ? (
-                  <ExternalSupervisors
-                    key={selectedPatient.id}
-                    patientId={selectedPatient.id}
-                    patientName={selectedPatient.fullName}
-                  />
-                ) : null}
-              </Fragment>
+              <Link
+                key={section.id}
+                className={activeSection === section.id ? styles.sectionNavLinkActive : styles.sectionNavLink}
+                href={section.id === "gestao" ? "/psicologa" : `/psicologa?secao=${section.id}`}
+                aria-current={activeSection === section.id ? "page" : undefined}
+              >
+                {section.label}
+              </Link>
             ))}
             <Link className={styles.sectionNavExternal} href="/diario">
               Diário do Paciente ↗

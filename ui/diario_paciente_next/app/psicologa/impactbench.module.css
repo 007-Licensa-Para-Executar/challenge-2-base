@@ -572,6 +572,15 @@
   transition: opacity 160ms ease;
 }
 
+.arcGroup:focus {
+  outline: none;
+}
+
+.arcGroup:focus-visible > path {
+  stroke: #315c50;
+  stroke-width: 6px;
+}
+
 .emptyWheelOverlay {
   position: absolute;
   bottom: 20px;

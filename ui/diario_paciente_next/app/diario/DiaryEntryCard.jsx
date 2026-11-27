@@ -1,7 +1,19 @@
 import { Headphones, ShieldAlert } from "lucide-react";
 import { getEmotionProfile, getSubEmotionProfile } from "../lib/emotionTaxonomy";
+import { getMacroMeta } from "../psicologa/wheelMath";
 import EmotionSymbol from "./EmotionSymbol";
 import styles from "./diary.module.css";
+
+const SENTIMENT_LABELS = {
+  alegria: "Alegria",
+  tristeza: "Tristeza",
+  raiva: "Raiva",
+  medo: "Medo",
+  preocupacao: "Preocupação",
+  frustracao: "Frustração",
+  calma: "Calma",
+  nao_identificado: "Não identificado",
+};
 
 export default function DiaryEntryCard({ entry }) {
   const profile = getEmotionProfile(entry.primary_emotion);
@@ -9,6 +21,8 @@ export default function DiaryEntryCard({ entry }) {
   const feeling = entry.sub_emotion_name || sub?.nome || profile.personagem;
   const accent = entry.color_hex || sub?.corHex || profile.corHex;
   const soft = sub?.corSecundariaHex || profile.corSecundariaHex;
+  const sentiment = entry.agent1?.sentimento_predominante;
+  const themeLabel = entry.theme_macro ? getMacroMeta(entry.theme_macro).label : null;
   const dataFormatada = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -38,6 +52,29 @@ export default function DiaryEntryCard({ entry }) {
       </header>
 
       <p className={styles.entryText}>{entry.text}</p>
+
+      {(themeLabel || sentiment) && (
+        <dl className={styles.entryAnalysis} aria-label="Análise automática do relato">
+          {themeLabel && (
+            <div>
+              <dt>Tema da rede neural</dt>
+              <dd>{themeLabel}</dd>
+            </div>
+          )}
+          {sentiment && (
+            <div>
+              <dt>Sentimento</dt>
+              <dd>{SENTIMENT_LABELS[sentiment] || sentiment}</dd>
+            </div>
+          )}
+          {entry.polarity_score !== null && entry.polarity_score !== undefined && (
+            <div>
+              <dt>Polaridade</dt>
+              <dd>{Number(entry.polarity_score).toFixed(2)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
 
       {(entry.audio_data || entry.input_type === "audio") && (
         <div className={styles.audioCard}>

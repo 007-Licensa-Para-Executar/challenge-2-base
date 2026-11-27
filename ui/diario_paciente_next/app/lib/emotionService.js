@@ -80,7 +80,7 @@ function runNeuralClassifier(text) {
             is_risk_emotion: Boolean(profile.isRiskEmotion),
             detected_emotions: parsed.detected_emotions || [],
             probabilities: parsed.probabilities || {},
-            sentiment_classifier: "neural_network",
+            emotion_classifier: "neural_network",
             neural_model_source: trainedModelAvailable ? "trained" : "fallback",
             classification_warning: warning,
           });
@@ -187,8 +187,8 @@ export async function analisarRelatoComRedeNeural(texto) {
       active_sub_emotion: sub,
       confidence: 1,
       is_risk_emotion: false,
-      sentiment_classifier: "neural_network",
       emotion_classifier: "not_run",
+      sub_emotion_classifier: "not_run",
       classification_warning: null,
     };
   }
@@ -212,18 +212,18 @@ export async function analisarRelatoComRedeNeural(texto) {
       sub_emotion_symbol: sub.simbolo,
       active_sub_emotion: sub,
       is_risk_emotion: Boolean(profile.isRiskEmotion),
-      emotion_classifier: "ollama",
+      sub_emotion_classifier: "ollama",
       emotion_model: classified.model,
       classification_warning: warnings.length ? warnings.join(" ") : null,
     };
   } catch {
-    if (neuralResult.sentiment_classifier !== "neural_network") {
+    if (neuralResult.emotion_classifier !== "neural_network") {
       warnings.push("A rede neural não respondeu; foi usada a classificação local de contingência.");
     }
     warnings.push("Ollama indisponível; a nuance foi estimada pela rede neural, sem classificação da LLM.");
     return {
       ...neuralResult,
-      emotion_classifier: "neural_fallback",
+      sub_emotion_classifier: "neural_fallback",
       emotion_model: null,
       classification_warning: warnings.join(" "),
     };
@@ -267,7 +267,7 @@ function fallbackAnaliseHeuristica(texto) {
     active_sub_emotion: sub,
     confidence: 0.5,
     is_risk_emotion: Boolean(profile.isRiskEmotion),
-    sentiment_classifier: "heuristic_fallback",
+    emotion_classifier: "heuristic_fallback",
     neural_model_source: "unavailable",
     classification_warning: "O classificador da rede neural não respondeu.",
   };

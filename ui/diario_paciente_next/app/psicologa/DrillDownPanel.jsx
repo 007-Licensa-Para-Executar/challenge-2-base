@@ -17,6 +17,20 @@ function formatDateTime(ts) {
   }).format(d);
 }
 
+function formatSentiment(value) {
+  const labels = {
+    alegria: "Alegria",
+    tristeza: "Tristeza",
+    raiva: "Raiva",
+    medo: "Medo",
+    preocupacao: "Preocupação",
+    frustracao: "Frustração",
+    calma: "Calma",
+    nao_identificado: "Não identificado",
+  };
+  return labels[value] || "Não identificado";
+}
+
 function renderHighlightedText(text, span) {
   const full = String(text || "");
   if (!span) return full;
@@ -472,8 +486,9 @@ export default function DrillDownPanel({
                 </strong>
               </div>
               <div>
-                <span>Sentimento / Taxonomia</span>
+                <span>Sentimento e emoção</span>
                 <strong>
+                  {formatSentiment(selectedOccurrence.entry.agent1?.sentimento_predominante)} ·{" "}
                   {selectedOccurrence.entry.sub_emotion_symbol}{" "}
                   {selectedOccurrence.entry.character} · {selectedOccurrence.entry.sub_emotion_name}
                 </strong>

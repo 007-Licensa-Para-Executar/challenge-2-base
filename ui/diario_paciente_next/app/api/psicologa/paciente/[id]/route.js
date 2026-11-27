@@ -16,6 +16,8 @@ import {
   isDemoPatientId,
 } from "../../../../lib/demoPatient.js";
 
+const CURRENT_THEME_ANALYSIS = "theme_mlp_primary_v1";
+
 export const runtime = "nodejs";
 
 function parseJsonSafe(raw, fallback = null) {
@@ -112,7 +114,11 @@ async function buildPatientDashboardPayload(
   if (!isDemo && rawEntries.length > 0) {
     const needsAnalysis = forceReprocess
       ? rawEntries
-      : rawEntries.filter((row) => !row.agent1_json || !row.theme_macro);
+      : rawEntries.filter((row) =>
+          !row.agent1_json ||
+          !row.theme_macro ||
+          !String(row.analysis_source || "").startsWith(CURRENT_THEME_ANALYSIS),
+        );
 
     if (needsAnalysis.length > 0) {
       const cliResult = await runDashboardCli(

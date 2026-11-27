@@ -233,6 +233,7 @@ _OFFLINE_TEMPLATES: dict[str, dict[str, list[str]]] = {
 }
 
 _SAFEGUARD_TEMPLATES: list[str] = [
+    # Templates neutros / cotidianos originais
     "Hoje foi um dia relativamente neutro, acordei no horário normal, peguei o ônibus e o tempo estava nublado sem novidades relevantes.",
     "Comprei alguns pães na padaria da esquina e voltei para casa para arrumar as prateleiras da sala.",
     "Tarde tranquila lendo notícias de ciência e ouvindo o barulho suave da chuva na janela da cozinha.",
@@ -257,6 +258,124 @@ _SAFEGUARD_TEMPLATES: list[str] = [
     "Fiz uma lista dos filmes que quero assistir no próximo mês e reservei um livro na biblioteca.",
     "Está tudo bem tranquilo por aqui hoje, aproveitei o feriado para descansar em paz sem preocupações.",
     "Tive um dia sereno e leve, sem conflitos nem aborrecimentos para anotar no diário.",
+    # Templates neutros e cotidianos adicionais (rotina, lazer, casa, hobbies)
+    "Acordei com o sol entrando pela janela, passei café coado e ouvi música brasileira enquanto tomava o desjejum.",
+    "Passei na feira livre da praça pela manhã para escolher legumes frescos, cheiro-verde e bananas.",
+    "Arrumei a estante de livros por ordem alfabética e tirei a poeira dos quadros da sala.",
+    "Consertei a dobradiça frouxa do armário da cozinha usando a chave de fenda que estava na caixa de ferramentas.",
+    "Levei o carro ao posto para calibrar os pneus e abastecer antes do fim de semana.",
+    "Caminhei trinta minutos pela ciclovia do bairro observando as árvores floridas na calçada.",
+    "Separei o lixo reciclável em sacolas diferentes e desci até a lixeira do condomínio.",
+    "Preparei uma sopa de legumes simples para o jantar porque esfriou um pouco à noite.",
+    "Assisti a uma partida de futebol pela televisão enquanto comia pipoca na sala.",
+    "Atualizei os aplicativos do celular, fiz backup das fotos da viagem e organizei os álbuns por ano.",
+    "Comprei papel sulfite e canetas na papelaria do centro e voltei caminhando devagar.",
+    "Lavei a louça do almoço, sequei os copos e deixei a pia limpa antes de sair.",
+    "Fui à biblioteca municipal devolver um livro emprestado e peguei uma biografia antiga para ler.",
+    "Limpei os óculos, troquei a pilha do controle remoto e deixei o carregador na mochila.",
+    "Aproveitei a tarde nublada para montar um quebra-cabeça na mesa de jantar.",
+    "Cortei o cabelo no salão da esquina e passei na banca para comprar palavras cruzadas.",
+    "Fiz alongamentos leves na varanda ouvindo o canto dos bem-te-vis no quintal.",
+    "Passei o aspirador nos tapetes do quarto e abri as janelas para ventilar o apartamento.",
+    "Testei uma receita nova de pão caseiro integral que cresceu direitinho no forno.",
+    "Fui ao horto escolher um vaso novo de samambaia e comprei terra vegetal adubada.",
+    "Organizei os cabos da escrivaninha e etiquetei os carregadores para não confundir mais.",
+    "Peguei o metrô fora do horário de pico, li crônicas no caminho e cheguei com folga.",
+    "Escutei um disco antigo de jazz enquanto dobrava as toalhas recém-tiradas do varal.",
+    "Fiz um inventário rápido da despensa para saber o que precisa repor na próxima ida ao mercado.",
+    "Observei o pôr do sol alaranjado da sacada tomando água com gás e limão.",
+    "Lavei a bicicleta no pátio, lubrifiquei a corrente e guardei o capacete no suporte.",
+    "Assisti a um tutorial de jardinagem sobre como podar alecrim e manjericão em vasos pequenos.",
+    "Costurei o botão solto do casaco azul e passei uma camisa para usar amanhã.",
+    "Cozinhei feijão preto para a semana inteira e congelei em potes pequenos bem fechados.",
+    "Passei na floricultura para comprar sementes de girassol e voltei ouvindo rádio.",
+    "Descongelei a geladeira pela manhã, limpei as gavetas de verduras e reacomodei os potes.",
+    "Sentei na praça do bairro por vinte minutos lendo o jornal impresso de domingo.",
+    "Limpei o filtro do ar-condicionado e troquei o filtro de barro da cozinha.",
+    "Tirei o pó do teclado do computador e organizei os ícones da área de trabalho.",
+    "Fiz uma caminhada matinal até a padaria para buscar pão de queijo quentinho.",
+    "Ouvi um programa de culinária no rádio enquanto descascava batatas para o purê.",
+    # Exemplos positivos e cotidianos com negação explícita (sem sofrimento clínico)
+    "Dormi super bem a noite inteira, não tive insônia nem acordei cansado, levantei disposto para o dia.",
+    "Hoje não senti nenhuma dor no corpo nem cansaço excessivo; meu exame de rotina deu tudo normal.",
+    "Não tive nenhum pesadelo esta semana, meu sono tem sido reparador e acordei com bastante energia.",
+    "Não estou com dor de cabeça nem mal-estar hoje, passei o dia leve e com bom apetite.",
+    "Almocei com meus pais e irmãos no domingo sem nenhuma briga ou tensão; demos muitas risadas juntos.",
+    "Conversei calmamente com minha namorada hoje, não houve desentendimento nenhum e combinamos um passeio no cinema.",
+    "Não me sinto sozinho nem isolado ultimamente; tomei café com amigos queridos e foi ótimo colocar o papo em dia.",
+    "Meu relacionamento está tranquilo e saudável, não temos discutido e estamos planejando as férias em paz.",
+    "Não briguei com ninguém da minha família hoje, nos falamos por vídeo numa boa e combinamos o próximo encontro.",
+    "Não estou sobrecarregado no trabalho esta semana; entreguei minhas tarefas no horário e saí sem estresse.",
+    "Fechei os estudos do dia sem ansiedade nem desespero, entendi a matéria com calma e ainda sobrou tempo para descansar.",
+    "Não estou com dívidas atrasadas nem aperto financeiro neste mês, paguei tudo em dia e sobrou para um lanche fora.",
+    "Conversei com meu chefe na reunião semanal sem conflito nenhum; o ambiente da equipe está colaborativo e leve.",
+    "Não me cobrei nem procrastinei hoje nos estudos; fiz o planejado no meu ritmo e fechei o caderno satisfeito.",
+    "Não estou me sentindo incapaz nem inseguro hoje; reconheci meu progresso com tranquilidade e bom humor.",
+    "Olhei no espelho hoje sem autocrítica nem vergonha, me sentindo bem comigo mesmo e confortável na minha pele.",
+    "Não sinto culpa por tirar a tarde livre para descansar; estou em paz com minhas escolhas e com meu ritmo.",
+    "Não estou frustrado nem duvidando do meu valor; hoje foi um dia produtivo na medida certa e sem pressões.",
+    "Lembrei de histórias antigas do meu avô no jantar e sorri com gratidão, sem aperto no peito nem tristeza.",
+    "Não estou passando por nenhum luto ou perda difícil agora; visitei parentes queridos e todos estão com boa saúde.",
+    "Hoje não acordei ansioso nem preocupado com o futuro; tomei meu café em silêncio curtindo a manhã.",
+    "Não senti tristeza, raiva ou angústia ao longo do dia; tudo fluiu de forma simples e agradável.",
+    "Não estou esgotado nem irritado com a rotina; consegui equilibrar bem os afazeres da casa e meu descanso.",
+    "Mesmo com a chuva lá fora, não me senti desanimado nem para baixo; li um bom livro com tranquilidade.",
+    "Não tive dificuldade para me concentrar nem falta de sono; cumpri meus compromissos sem nenhum peso emocional.",
+    "Falei com uma amiga de infância por telefone e não senti solidão alguma, apenas alegria por saber que ela está bem.",
+    "Não houve nenhuma cobrança exagerada no estágio hoje; aprendi coisas novas com calma e voltei tranquilo para casa.",
+    "Revisei o orçamento da casa sem sustos nem preocupação com contas; tudo está organizado para os próximos meses.",
+    "Não senti taquicardia nem dor de estômago antes da reunião; apresentei os dados com naturalidade e segurança.",
+    "Passei o feriado em casa sem tédio nem melancolia, aproveitando para cozinhar e ouvir minhas músicas favoritas.",
+    "Não me sinto atrasado em relação aos colegas; cada um segue seu caminho e estou satisfeito com o meu momento.",
+    "Não tive crises nem noites mal dormidas nos últimos dias; minha rotina está estável e muito tranquila.",
+    "Não senti falta de ar nem tensão muscular durante o dia; fiz uma caminhada gostosa no fim da tarde.",
+    "Conversei com minha mãe sobre as receitas da semana sem nenhum atrito, foi um papo carinhoso e leve.",
+    "Não precisei virar a noite estudando para a prova; revisei tudo aos poucos e dormi cedo tranquilo.",
+    "Não me senti pressionado por metas no escritório hoje; organizei a agenda e cumpri tudo no meu tempo.",
+    "Paguei a conta de luz e o mercado sem aperto nem preocupação; o mês fechou direitinho no azul.",
+    "Não senti vergonha nem inadequação ao falar em público na apresentação; me expressei com calma.",
+    "Revi meu irmão no fim de semana e não houve cobrança alguma, só conversamos sobre filmes e viagens.",
+    "Não acordei assustado de madrugada nem tive sonhos agitados; descansei profundamente até o despertador.",
+    "Não estou cansado nem desmotivado com a faculdade; assisti às aulas com atenção e fiz boas anotações.",
+    "Não me senti descartável nem desvalorizado no projeto; recebi um elogio simples da equipe e segui o dia.",
+    "Não tive dor de estômago nem gastrite hoje após o almoço; a refeição leve caiu muito bem.",
+    "Conversei com meu marido sobre os planos da casa com paciência e respeito, sem nenhuma discussão.",
+    "Não sinto vazio nem solidão nesta noite chuvosa; estou em casa confortável ouvindo música calma.",
+    "Não estou me culpando pelos pequenos imprevistos da semana; resolvi o que deu e segui em frente leve.",
+    "Tive uma conversa sincera e tranquila com um amigo antigo, sem mágoas nem cobranças de nenhum lado.",
+    "Não estou procrastinando nas tarefas domésticas; fiz tudo aos poucos durante a manhã sem pressa.",
+    "Não senti aperto no peito ao lembrar da infância; guardo essas recordações com serenidade e afeto.",
+    "Passei o sábado inteiro sem estresse com prazos ou mensagens de trabalho; desliguei o computador cedo.",
+    "Fui ao mercado de bairro no fim da tarde, escolhi frutas maduras e voltei cantarolando pela calçada.",
+    "Montei uma prateleira pequena no escritório, guardei as ferramentas e tomei um copo de água gelada.",
+    "Assisti a uma entrevista interessante sobre arquitetura e anotei algumas ideias de decoração.",
+    "Lavei o carro na garagem com meu cachorro por perto e depois preparei um café fresquinho.",
+    "Troquei as pilhas do relógio de parede, acertei a hora e li um capítulo do meu livro atual.",
+    "Preparei uma salada colorida com grão-de-bico para o jantar e arrumei a mochila para amanhã.",
+    "Caminhei até a banca de jornal para comprar uma revista de história e voltei devagar pela sombra.",
+    "Reguei as suculentas da janela, limpei as folhas secas e deixei a sala bem iluminada.",
+    "Fiz um suco natural de maracujá para o almoço e deixei a cozinha organizada antes da tarde começar.",
+    "Ouvi uma palestra sobre botânica urbana pela internet enquanto anotava dicas para o jardim.",
+    "Comprei pão francês e queijo minas na padaria e conversei rapidamente com o padeiro sobre o tempo.",
+    "Separei as notas fiscais da semana numa pasta simples e arquivei os comprovantes pagos.",
+    "Passei o pano no piso da varanda depois da chuva e coloquei os chinelos para secar.",
+    "Assisti a um episódio de culinária regional e anotei o passo a passo de um caldo verde.",
+    "Troquei a água do bebedouro do cachorro e escovei os pelos dele no quintal.",
+    "Dei uma volta de bicicleta pelo quarteirão no fim da tarde aproveitando a brisa fresca.",
+    "Não senti irritação no trânsito hoje; coloquei uma playlist calma e cheguei tranquilo ao destino.",
+    "Não tive nenhuma preocupação com saúde ou exames hoje; minha disposição esteve ótima do início ao fim.",
+    "Conversei com minha irmã sobre a receita da sobremesa de domingo sem nenhuma divergência ou estresse.",
+    "Não me senti pressionado nos estudos; li o capítulo com curiosidade e fiz um resumo bem claro.",
+    "Não houve nenhum conflito no trabalho hoje; ajudei um colega com uma planilha e tudo correu bem.",
+    "Não acordei cansado nem indisposto; levantei no primeiro toque do despertador e tomei café sem pressa.",
+    "Não fiquei remoendo erros antigos hoje; foquei nas pequenas tarefas do dia com leveza.",
+    "Paguei a fatura do cartão sem aperto financeiro e ainda guardei uma pequena reserva na poupança.",
+    "Não senti tristeza nem saudade dolorosa ao passar pela praça antiga; lembrei dos passeios com carinho.",
+    "Não estou enfrentando insônia nem ansiedade nesta semana; minhas noites têm sido calmas e contínuas.",
+    "Não me senti sobrecarregado ao ajudar meus pais com as compras; fizemos tudo juntos em clima leve.",
+    "Não tive dúvidas nem insegurança durante a conversa de hoje; me senti sereno e bem resolvido.",
+    "Arrumei a gaveta de meias e camisetas enquanto ouvia um programa de entrevistas no rádio.",
+    "Caminhei até o parque no fim da tarde, observei os patos no lago e voltei antes de anoitecer.",
 ]
 
 _INTROS: tuple[str, ...] = (
@@ -391,6 +510,7 @@ def generate_synthetic_dataset(
     output_path: str = "data/synthetic/synthetic_diaries.json",
     samples_per_class: int = 40,
     include_safeguard: bool = True,
+    safeguard_samples: int | None = None,
     use_ollama: bool = False,
     ollama_url: str = "http://localhost:11434",
     model: str = "qwen2.5:3b",
@@ -406,11 +526,17 @@ def generate_synthetic_dataset(
     classes = list(CLINICAL_CLASSES) + ([SAFEGUARD_CLASS] if include_safeguard else [])
     client = httpx.Client(base_url=ollama_url.rstrip("/"), timeout=30.0) if use_ollama else None
 
+    safeguard_deck: list[str] = []
     dataset: list[dict[str, Any]] = []
     try:
         for cls in classes:
-            logger.info("Gerando %d relatos para a classe: %s", samples_per_class, cls)
-            for i in range(samples_per_class):
+            target_count = (
+                safeguard_samples
+                if cls == SAFEGUARD_CLASS and safeguard_samples is not None
+                else samples_per_class
+            )
+            logger.info("Gerando %d relatos para a classe: %s", target_count, cls)
+            for i in range(target_count):
                 persona = rng.choice(personas)
                 text: str | None = None
                 method = "offline_template"
@@ -423,7 +549,13 @@ def generate_synthetic_dataset(
                         logger.warning("Ollama falhou (%s). Usando gerador offline.", err)
 
                 if text is None:
-                    text = generate_single_report_offline(persona, cls, rng)
+                    if cls == SAFEGUARD_CLASS:
+                        if not safeguard_deck:
+                            safeguard_deck = list(_SAFEGUARD_TEMPLATES)
+                            rng.shuffle(safeguard_deck)
+                        text = safeguard_deck.pop()
+                    else:
+                        text = generate_single_report_offline(persona, cls, rng)
 
                 family = infer_template_group(text)
                 dataset.append(
@@ -474,6 +606,10 @@ def main() -> None:
         "--samples-per-class", "--samples-per-theme", "-s", type=int, default=40,
         help="Quantidade de amostras por classe",
     )
+    parser.add_argument(
+        "--safeguard-samples", type=int, default=None,
+        help="Quantidade específica de amostras para a classe 'outros' (padrão: igual a --samples-per-class)",
+    )
     parser.add_argument("--ollama", action="store_true", help="Gera via Ollama (requer serviço ativo)")
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--model", default="qwen2.5:3b")
@@ -495,6 +631,7 @@ def main() -> None:
     generate_synthetic_dataset(
         output_path=args.output,
         samples_per_class=args.samples_per_class,
+        safeguard_samples=args.safeguard_samples,
         use_ollama=args.ollama,
         ollama_url=args.ollama_url,
         model=args.model,

@@ -127,16 +127,21 @@ def train_theme_classifier(
     tracking_uri: str | None = None,
     groups: list[str] | None = None,
     record_ids: list[str] | None = None,
-    threshold: float = 0.50,
-    numpy_lr: float = 0.05,
+    threshold: float = 0.45,
+    numpy_lr: float = 0.25,
     max_features: int = 3000,
     init_strategy: str = "svd",
     embedder: Literal["clinical", "sbert"] = "sbert",
     sbert_model: str = DEFAULT_SBERT_MODEL,
     sbert_batch_size: int = 64,
     norm_type: Literal["batch_norm", "layer_norm", "rms_norm", "none"] = "batch_norm",
-    label_smoothing: float = 0.05,
+    label_smoothing: float = 0.02,
     class_weight: Literal["none", "balanced"] = "none",
+    dropout_rate: float = 0.3,
+    hidden_dim1: int = 128,
+    hidden_dim2: int = 64,
+    lr_scheduler: Literal["none", "cosine", "plateau"] = "cosine",
+    early_stopping_patience: int = 15,
 ) -> dict[str, Any]:
     """Select both neural checkpoints on validation; inspect test only afterwards.
 
@@ -150,6 +155,13 @@ def train_theme_classifier(
         raise ValueError("Group and record IDs must align with texts")
     if not 0 <= threshold <= 1 or lr <= 0 or numpy_lr <= 0:
         raise ValueError("Invalid threshold or learning rate")
+    if (
+        not 0 <= dropout_rate < 1
+        or hidden_dim1 < 1
+        or hidden_dim2 < 1
+        or early_stopping_patience < 0
+    ):
+        raise ValueError("Invalid architecture or training regularization parameter")
     if any(label not in IDX_TO_THEME for label in labels):
         raise ValueError("Unknown class index")
     rows = [
@@ -199,9 +211,10 @@ def train_theme_classifier(
     torch.manual_seed(random_state)
     model = ClinicalThemeMLP(
         input_dim=vectorizer.embedding_dim,
-        hidden_dim1=128,
-        hidden_dim2=64,
+        hidden_dim1=hidden_dim1,
+        hidden_dim2=hidden_dim2,
         num_classes=len(THEME_CLASSES),
+        dropout_rate=dropout_rate,
         vocab_size=None,
         norm_type=norm_type,
     )
@@ -214,6 +227,15 @@ def train_theme_classifier(
         random_state=random_state,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler: torch.optim.lr_scheduler.LRScheduler | torch.optim.lr_scheduler.ReduceLROnPlateau | None = None
+    if lr_scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(1, epochs), eta_min=lr * 0.02
+        )
+    elif lr_scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="max", factor=0.5, patience=4, min_lr=lr * 0.01
+        )
 
     weight_tensor = None
     if class_weight == "balanced":
@@ -271,6 +293,10 @@ def train_theme_classifier(
         "norm_type": norm_type,
         "label_smoothing": label_smoothing,
         "class_weight": class_weight,
+        "dropout_rate": dropout_rate,
+        "hidden_layers": [hidden_dim1, hidden_dim2],
+        "lr_scheduler": lr_scheduler,
+        "early_stopping_patience": early_stopping_patience,
         "splits": {
             name: [{k: row[k] for k in ("id", "group_id", "macro_tema")} for row in split]
             for name, split in zip(("train", "validation", "test"), splits, strict=True)
@@ -288,12 +314,15 @@ def train_theme_classifier(
                 "norm_type": norm_type,
                 "label_smoothing": label_smoothing,
                 "class_weight": class_weight,
-                "hidden_layers": [128, 64],
+                "dropout_rate": dropout_rate,
+                "hidden_layers": [hidden_dim1, hidden_dim2],
                 "numpy_hidden_units": 64,
                 "threshold": threshold,
                 "epochs": epochs,
                 "batch_size": batch_size,
                 "learning_rate": lr,
+                "lr_scheduler": lr_scheduler,
+                "early_stopping_patience": early_stopping_patience,
                 "numpy_lr": numpy_lr,
                 "weight_decay": weight_decay,
                 "train_samples": len(y_train),
@@ -304,6 +333,7 @@ def train_theme_classifier(
         best_torch, best_numpy = None, None
         best_scores = [-1.0, -1.0]
         best_epochs = [0, 0]
+        epochs_no_improve = 0
         history = []
         for epoch in range(1, epochs + 1):
             model.train()
@@ -329,6 +359,10 @@ def train_theme_classifier(
                 _metrics(y_val, p.argmax(axis=1))["macro_f1"]
                 for p in (torch_probs, numpy_probs)
             ]
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(scores[0])
+            elif scheduler is not None:
+                scheduler.step()
             metrics = {
                 "train_loss": train_loss / len(y_train),
                 "val_loss": val_loss,
@@ -336,15 +370,27 @@ def train_theme_classifier(
                 "numpy_train_loss": numpy_loss,
                 "numpy_val_loss": numpy_val_loss,
                 "numpy_val_macro_f1": scores[1],
+                "lr": float(optimizer.param_groups[0]["lr"]),
             }
             tracker.log_metrics(metrics, step=epoch)
             history.append({"epoch": epoch, **metrics})
             if scores[0] > best_scores[0]:
                 best_scores[0], best_epochs[0] = scores[0], epoch
                 best_torch = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
             if scores[1] > best_scores[1]:
                 best_scores[1], best_epochs[1] = scores[1], epoch
                 best_numpy = {k: getattr(numpy_model, k).copy() for k in ("W1", "b1", "W2", "b2")}
+            if early_stopping_patience > 0 and epochs_no_improve >= early_stopping_patience:
+                logger.info(
+                    "Early stopping na época %d (melhor val_macro_f1=%.4f na época %d).",
+                    epoch,
+                    best_scores[0],
+                    best_epochs[0],
+                )
+                break
         model.load_state_dict(best_torch)
         for key, value in best_numpy.items():
             setattr(numpy_model, key, value)
@@ -359,6 +405,14 @@ def train_theme_classifier(
             optimal_temp = 1.0
 
         with torch.no_grad():
+            val_uncalibrated_probs = torch.softmax(val_raw_logits, dim=1).numpy()
+            val_calibrated_probs = model.predict_proba(x_val_t, apply_temperature=True).numpy()
+        val_eval = _evaluate(val_calibrated_probs, y_val, threshold)
+        val_ece_uncalibrated = compute_ece(val_uncalibrated_probs, y_val)
+        val_ece_calibrated = compute_ece(val_calibrated_probs, y_val)
+        val_th_report = val_eval["threshold_policy"]["classification_report"]
+
+        with torch.no_grad():
             test_logits = model(x_test_t)
             uncalibrated_test_probs = torch.softmax(test_logits, dim=1).numpy()
             torch_probs = model.predict_proba(x_test_t, apply_temperature=True).numpy()
@@ -370,10 +424,13 @@ def train_theme_classifier(
         comparison = {
             "reference_status": manifest["reference_status"],
             "torch": _evaluate(torch_probs, y_test, threshold),
+            "torch_validation": val_eval,
             "numpy": _evaluate(numpy_model.predict_proba(x_test), y_test, threshold),
             "majority_baseline": _metrics(y_test, baseline.predict(x_test)),
             "calibration": {
                 "temperature": optimal_temp,
+                "val_ece_before": val_ece_uncalibrated,
+                "val_ece_after": val_ece_calibrated,
                 "ece_before": ece_uncalibrated,
                 "ece_after": ece_calibrated,
             },
@@ -396,6 +453,16 @@ def train_theme_classifier(
                 "temperature": optimal_temp,
                 "ece_uncalibrated": ece_uncalibrated,
                 "ece_calibrated": ece_calibrated,
+                "val_ece_uncalibrated": val_ece_uncalibrated,
+                "val_ece_calibrated": val_ece_calibrated,
+                "val_threshold_macro_f1": val_eval["threshold_policy"]["macro_f1"],
+                "val_threshold_acc": val_eval["threshold_policy"]["accuracy"],
+                "val_determined_coverage": val_eval["threshold_policy"]["determined_coverage"],
+                "val_vinculos_recall": val_th_report["vinculos"]["recall"],
+                "val_desempenho_recall": val_th_report["desempenho"]["recall"],
+                "val_outros_f1": val_th_report["outros"]["f1-score"],
+                "best_torch_epoch": float(best_epochs[0]),
+                "best_numpy_epoch": float(best_epochs[1]),
             }
         )
         tracker.log_confusion_matrix(
@@ -438,6 +505,9 @@ def train_theme_classifier(
             "final_test_loss": test_loss,
             "torch_argmax_macro_f1": comparison["torch"]["argmax_only"]["macro_f1"],
             "best_val_macro_f1": best_scores[0],
+            "val_threshold_macro_f1": val_eval["threshold_policy"]["macro_f1"],
+            "val_threshold_acc": val_eval["threshold_policy"]["accuracy"],
+            "val_ece_calibrated": val_ece_calibrated,
             "temperature": optimal_temp,
             "ece_calibrated": ece_calibrated,
             "model_path": str(dist / "best_theme_mlp.pt"),
@@ -459,8 +529,8 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.005)
     parser.add_argument("--weight-decay", type=float, default=1e-3)
-    parser.add_argument("--numpy-lr", type=float, default=0.05)
-    parser.add_argument("--threshold", type=float, default=0.50)
+    parser.add_argument("--numpy-lr", type=float, default=0.25)
+    parser.add_argument("--threshold", type=float, default=0.45)
     parser.add_argument("--max-features", type=int, default=3000)
     parser.add_argument("--init-strategy", default="svd", choices=["gaussian", "svd"])
     parser.add_argument("--embedder", default="sbert", choices=["clinical", "sbert"])
@@ -471,8 +541,17 @@ def main() -> None:
         default="batch_norm",
         choices=["batch_norm", "layer_norm", "rms_norm", "none"],
     )
-    parser.add_argument("--label-smoothing", type=float, default=0.05)
+    parser.add_argument("--label-smoothing", type=float, default=0.02)
     parser.add_argument("--class-weight", default="none", choices=["none", "balanced"])
+    parser.add_argument("--dropout", type=float, default=0.3)
+    parser.add_argument("--hidden-dim1", type=int, default=128)
+    parser.add_argument("--hidden-dim2", type=int, default=64)
+    parser.add_argument(
+        "--lr-scheduler",
+        default="cosine",
+        choices=["none", "cosine", "plateau"],
+    )
+    parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dist-dir", default="dist")
     parser.add_argument("--experiment-name", default="Theme_MLP_Preliminary")
@@ -495,6 +574,11 @@ def main() -> None:
         norm_type=args.norm_type,
         label_smoothing=args.label_smoothing,
         class_weight=args.class_weight,
+        dropout_rate=args.dropout,
+        hidden_dim1=args.hidden_dim1,
+        hidden_dim2=args.hidden_dim2,
+        lr_scheduler=args.lr_scheduler,
+        early_stopping_patience=args.patience,
         random_state=args.seed,
         experiment_name=args.experiment_name,
         dist_dir=args.dist_dir,

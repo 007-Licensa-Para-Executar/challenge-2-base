@@ -199,6 +199,21 @@ def test_batch_preserves_order_and_abstention(predictor):
     assert [r.primary_theme for r in results] == ["desempenho", "vinculos", "outros"]
 
 
+def test_predict_batch_matches_predict_text_and_handles_empty_list(predictor):
+    assert predictor.predict_batch([]) == []
+    samples = ["desempenho", " ", "12345!", "vinculos", "palavras desconhecidas"]
+    batched = predictor.predict_batch(samples, threshold=0.45)
+    singles = [predictor.predict_text(s, threshold=0.45) for s in samples]
+    assert len(batched) == len(singles)
+    for b, s in zip(batched, singles, strict=True):
+        assert b.primary_theme == s.primary_theme
+        assert b.candidate_theme == s.candidate_theme
+        assert b.is_fallback == s.is_fallback
+        assert b.abstention_reason == s.abstention_reason
+        assert b.confidence == pytest.approx(s.confidence, abs=1e-4)
+        assert b.percentages == s.percentages
+
+
 @pytest.mark.parametrize("threshold", [-0.1, 1.1, float("nan")])
 def test_invalid_threshold_rejected(predictor, threshold):
     with pytest.raises(ValueError, match="threshold"):

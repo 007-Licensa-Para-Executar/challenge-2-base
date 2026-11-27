@@ -198,55 +198,41 @@ class ClinicalThemePredictor:
         self.model.eval()
         self.score_semantics = _infer_score_semantics(self.model)
 
-    def _encode_text(self, cleaned_text: str) -> np.ndarray:
+    def _encode_texts(self, cleaned_texts: list[str]) -> np.ndarray:
         if isinstance(self.vectorizer, (ClinicalTextEmbedder, SBERTEmbedder)):
-            features = self.vectorizer.transform([cleaned_text], normalize=True)
+            features = self.vectorizer.transform(cleaned_texts, normalize=True)
         else:
-            features = self.vectorizer.transform([cleaned_text])
+            features = self.vectorizer.transform(cleaned_texts)
             if hasattr(features, "toarray"):
                 features = features.toarray()
         return np.asarray(features, dtype=np.float32)
 
-    def predict_text(self, text: str, threshold: float = 0.50) -> TopicDistribution:
-        """Classifica o diário entre os 6 temas e devolve percentuais (%).
+    def _encode_text(self, cleaned_text: str) -> np.ndarray:
+        return self._encode_texts([cleaned_text])
 
-        ``confidence`` é o maior score do candidato antes da abstenção.
-        Quando ``confidence < threshold``, a decisão operacional recai em ``outros``.
-        Entrada vazia não aciona a rede.
-        """
-        if not 0.0 <= threshold <= 1.0:
-            raise ValueError("threshold deve estar entre 0 e 1")
-        cleaned = text.strip() if isinstance(text, str) else ""
-        if not cleaned or not re.search(r"[A-Za-zÀ-ÿ]", cleaned):
-            reason = "empty_input" if not cleaned else "non_textual_input"
-            return TopicDistribution(
-                primary_theme=SAFEGUARD_CLASS,
-                confidence=0.0,
-                primary_percentage=0.0,
-                percentages={theme: 0.0 for theme in THEME_CLASSES},
-                probabilities={theme: 0.0 for theme in THEME_CLASSES},
-                ranking=[],
-                top_topics=[],
-                is_fallback=True,
-                candidate_theme=None,
-                abstention_reason=reason,
-                score_semantics=self.score_semantics,
-            )
+    def _empty_distribution(self, reason: str) -> TopicDistribution:
+        return TopicDistribution(
+            primary_theme=SAFEGUARD_CLASS,
+            confidence=0.0,
+            primary_percentage=0.0,
+            percentages={theme: 0.0 for theme in THEME_CLASSES},
+            probabilities={theme: 0.0 for theme in THEME_CLASSES},
+            ranking=[],
+            top_topics=[],
+            is_fallback=True,
+            candidate_theme=None,
+            abstention_reason=reason,
+            score_semantics=self.score_semantics,
+        )
 
-        features = self._encode_text(cleaned)
-        t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
-
-        with torch.no_grad():
-            probs_tensor = self.model.predict_proba(t_features)[0]
-            probs_np = probs_tensor.cpu().numpy()
-
+    def _build_distribution(self, probs_np: np.ndarray, threshold: float) -> TopicDistribution:
         probabilities = {THEME_CLASSES[i]: float(probs_np[i]) for i in range(len(THEME_CLASSES))}
         percentages = {
             THEME_CLASSES[i]: round(float(probs_np[i]) * 100.0, 2)
             for i in range(len(THEME_CLASSES))
         }
 
-        max_idx = int(torch.argmax(probs_tensor).item())
+        max_idx = int(np.argmax(probs_np))
         max_prob = float(probs_np[max_idx])
         predicted_theme = THEME_CLASSES[max_idx]
 
@@ -290,9 +276,57 @@ class ClinicalThemePredictor:
             score_semantics=self.score_semantics,
         )
 
+    def predict_text(self, text: str, threshold: float = 0.50) -> TopicDistribution:
+        """Classifica o diário entre os 6 temas e devolve percentuais (%).
+
+        ``confidence`` é o maior score do candidato antes da abstenção.
+        Quando ``confidence < threshold``, a decisão operacional recai em ``outros``.
+        Entrada vazia não aciona a rede.
+        """
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
+        cleaned = text.strip() if isinstance(text, str) else ""
+        if not cleaned or not re.search(r"[A-Za-zÀ-ÿ]", cleaned):
+            reason = "empty_input" if not cleaned else "non_textual_input"
+            return self._empty_distribution(reason)
+
+        features = self._encode_text(cleaned)
+        t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
+
+        with torch.no_grad():
+            probs_np = self.model.predict_proba(t_features)[0].cpu().numpy()
+
+        return self._build_distribution(probs_np, threshold=threshold)
+
     def predict_batch(self, texts: list[str], threshold: float = 0.50) -> list[TopicDistribution]:
-        """Executa a inferência vetorizada para um lote de relatos."""
-        return [self.predict_text(text, threshold=threshold) for text in texts]
+        """Executa a inferência vetorizada em lote para uma lista de relatos."""
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold deve estar entre 0 e 1")
+        if not texts:
+            return []
+
+        results: list[TopicDistribution | None] = [None] * len(texts)
+        valid_indices: list[int] = []
+        valid_texts: list[str] = []
+
+        for idx, text in enumerate(texts):
+            cleaned = text.strip() if isinstance(text, str) else ""
+            if not cleaned or not re.search(r"[A-Za-zÀ-ÿ]", cleaned):
+                reason = "empty_input" if not cleaned else "non_textual_input"
+                results[idx] = self._empty_distribution(reason)
+            else:
+                valid_indices.append(idx)
+                valid_texts.append(cleaned)
+
+        if valid_texts:
+            features = self._encode_texts(valid_texts)
+            t_features = torch.tensor(features, dtype=torch.float32, device=self.device)
+            with torch.no_grad():
+                probs_batch = self.model.predict_proba(t_features).cpu().numpy()
+            for idx, probs_np in zip(valid_indices, probs_batch, strict=True):
+                results[idx] = self._build_distribution(probs_np, threshold=threshold)
+
+        return [r for r in results if r is not None]
 
     def destrinchar_diario(
         self,

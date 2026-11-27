@@ -147,3 +147,25 @@ def test_ollama_generation_mock():
 
     text = generate_single_report_ollama(persona, "desempenho", client)
     assert "Desabafo simulado via Ollama" in text
+
+
+def test_safeguard_templates_expanded_unique_and_balanced_override(tmp_path):
+    """Garante templates únicos de 'outros' e suporte ao parâmetro safeguard_samples."""
+    from data.synthetic_generator import _SAFEGUARD_TEMPLATES
+
+    assert len(_SAFEGUARD_TEMPLATES) >= 100
+    assert len(_SAFEGUARD_TEMPLATES) == len(set(_SAFEGUARD_TEMPLATES))
+
+    out_file = tmp_path / "balanced_outros.json"
+    dataset = generate_synthetic_dataset(
+        output_path=str(out_file),
+        samples_per_class=4,
+        safeguard_samples=12,
+        include_safeguard=True,
+        use_ollama=False,
+        seed=42,
+    )
+    outros_rows = [r for r in dataset if r["macro_tema"] == SAFEGUARD_CLASS]
+    assert len(outros_rows) == 12
+    assert len({r["group_id"] for r in outros_rows}) == 12
+    assert len(dataset) == len(CLINICAL_CLASSES) * 4 + 12

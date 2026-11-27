@@ -84,6 +84,17 @@ class ClinicalThemeMLP(nn.Module):
 
         self.fc3 = nn.Linear(hidden_dim2, num_classes)
         self.temperature = nn.Parameter(torch.ones(1), requires_grad=False)
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Inicialização Kaiming para camadas ReLU e Xavier para a projeção de saída."""
+        for layer in (self.fc1, self.fc2):
+            nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        if self.fc3.bias is not None:
+            nn.init.zeros_(self.fc3.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Passagem direta computando os logits não normalizados."""
@@ -136,20 +147,24 @@ class ClinicalThemeMLP(nn.Module):
         self, val_logits: torch.Tensor, val_labels: torch.Tensor, max_iter: int = 50
     ) -> float:
         """Calibra as probabilidades da Softmax via Temperature Scaling (Guo et al., ICML 2017)."""
-        temp_param = nn.Parameter(torch.ones(1) * 1.2)
-        optimizer = torch.optim.LBFGS([temp_param], lr=0.01, max_iter=max_iter)
+        logits = val_logits.detach()
+        labels = val_labels.detach()
+        log_t = nn.Parameter(torch.zeros(1, device=logits.device, dtype=logits.dtype))
+        optimizer = torch.optim.LBFGS(
+            [log_t], lr=0.1, max_iter=max_iter, line_search_fn="strong_wolfe"
+        )
         criterion = nn.CrossEntropyLoss()
 
-        def _step():
+        def _step() -> torch.Tensor:
             optimizer.zero_grad()
-            t = torch.clamp(temp_param, min=0.05, max=10.0)
-            loss = criterion(val_logits / t, val_labels)
+            t = torch.clamp(torch.exp(log_t), min=0.05, max=10.0)
+            loss = criterion(logits / t, labels)
             loss.backward()
             return loss
 
         optimizer.step(_step)
-        optimal_t = float(torch.clamp(temp_param, min=0.05, max=10.0).item())
-        self.temperature.copy_(torch.tensor([optimal_t]))
+        optimal_t = float(torch.clamp(torch.exp(log_t), min=0.05, max=10.0).item())
+        self.temperature.copy_(torch.tensor([optimal_t], device=self.temperature.device))
         return optimal_t
 
     def predict_proba(self, x: torch.Tensor, apply_temperature: bool = True) -> torch.Tensor:

@@ -156,3 +156,41 @@ def test_sbert_embedder_pipeline_with_mocked_encoder(tmp_path, monkeypatch):
     )
     assert result["final_test_macro_f1"] > 0.5
     assert (dist_dir / "theme_embedder.joblib").exists()
+
+
+def test_train_theme_classifier_logs_validation_metrics_and_scheduler(tmp_path):
+    """Verifica métricas de validação (val_threshold_macro_f1, val_ece_calibrated) e scheduler."""
+    texts = []
+    labels = []
+    for cls_idx, cls_name in enumerate(THEME_CLASSES):
+        for i in range(10):
+            texts.append(f"Relato exclusivo tema {cls_name} amostra {i} clinica.")
+            labels.append(cls_idx)
+
+    dist_dir = tmp_path / "dist_sched"
+    db_file = tmp_path / "test_sched.db"
+    result = train_theme_classifier(
+        texts=texts,
+        labels=labels,
+        epochs=6,
+        batch_size=8,
+        lr=0.005,
+        threshold=0.45,
+        lr_scheduler="cosine",
+        early_stopping_patience=4,
+        random_state=42,
+        experiment_name="Test_Sched_Val",
+        dist_dir=dist_dir,
+        tracking_uri=f"sqlite:///{db_file}",
+        embedder="clinical",
+    )
+    for key in (
+        "best_val_macro_f1",
+        "val_threshold_macro_f1",
+        "val_threshold_acc",
+        "val_ece_calibrated",
+        "threshold_test_macro_f1",
+        "ece_calibrated",
+    ):
+        assert key in result
+        assert 0.0 <= result[key] <= 1.0

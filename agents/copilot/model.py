@@ -33,6 +33,7 @@ class OllamaGenerator:
 
     def generate(
         self, query: Query, evidence: list[Evidence], *, instructions: str | None = None,
+        compact_references: bool = False,
     ) -> DraftAnswer:
         """Valida escopo e referências. Isso não comprova suporte semântico da paráfrase."""
         try:
@@ -56,6 +57,16 @@ class OllamaGenerator:
             for e in evidence
         ):
             raise GenerationError("invalid_context")
+        schema = DraftAnswer.model_json_schema()
+        references = {}
+        if compact_references:
+            references = {f"F{i}": item.chunk_id for i, item in enumerate(evidence, 1)}
+            evidence = [
+                item.model_copy(update={"chunk_id": alias})
+                for alias, item in zip(references, evidence, strict=True)
+            ]
+            ids = set(references)
+            schema["$defs"]["Statement"]["properties"]["evidence_ids"]["items"]["enum"] = list(ids)
         try:
             response = self.client.chat(
                 model=self.model,
@@ -63,7 +74,7 @@ class OllamaGenerator:
                     {"role": "system", "content": instructions or SYSTEM_PROMPT},
                     {"role": "user", "content": build_prompt(query, evidence)},
                 ],
-                format=DraftAnswer.model_json_schema(),
+                format=schema,
                 options={"temperature": 0, "num_ctx": 4096, "num_predict": 512},
                 think=False,
                 stream=False,
@@ -101,4 +112,11 @@ class OllamaGenerator:
             for statement in result.statements
         ):
             raise GenerationError("invalid_references")
+        if references:
+            result = DraftAnswer(statements=[
+                statement.model_copy(update={
+                    "evidence_ids": [references[alias] for alias in statement.evidence_ids],
+                })
+                for statement in result.statements
+            ])
         return result

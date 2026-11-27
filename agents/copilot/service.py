@@ -94,10 +94,13 @@ class CopilotService:
             return CopilotAnswer(status="ok", answer=answer, evidence=evidence, **common)
         if self.generator is None:
             return failure("generator_unavailable")
-        from .model import GenerationError
+        from .model import GenerationError, OllamaGenerator
 
         try:
-            draft = self.generator.generate(query, evidence)
+            if select_evidence and isinstance(self.generator, OllamaGenerator):
+                draft = self.generator.generate(query, evidence, compact_references=True)
+            else:
+                draft = self.generator.generate(query, evidence)
         except GenerationError as error:
             if error.code == "insufficient_evidence":
                 return CopilotAnswer(

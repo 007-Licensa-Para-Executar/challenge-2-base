@@ -158,3 +158,13 @@ def test_sdk_receives_explicit_timeout(monkeypatch):
     monkeypatch.setattr("agents.copilot.model.ollama.Client", client_type)
     OllamaGenerator(timeout=7)
     assert client_type.call_args.kwargs["timeout"] == 7
+
+
+def test_compact_references_are_constrained_and_restored(generator, context):
+    generator.client.chat.return_value["message"]["content"] = json.dumps({
+        "statements": [{"text": "Relatou acompanhar a avó.", "evidence_ids": ["F1"]}],
+    })
+    result = generator.generate(*context, compact_references=True)
+    schema = generator.client.chat.call_args.kwargs["format"]
+    assert schema["$defs"]["Statement"]["properties"]["evidence_ids"]["items"]["enum"] == ["F1"]
+    assert result.statements[0].evidence_ids == [context[1][0].chunk_id]
